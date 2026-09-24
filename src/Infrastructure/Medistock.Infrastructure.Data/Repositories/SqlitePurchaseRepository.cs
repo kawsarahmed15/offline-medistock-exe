@@ -248,10 +248,107 @@ public class SqlitePurchaseRepository : IPurchaseRepository
             await _supplierRepository.UpdateOutstandingBalanceAsync(
                 invoice.SupplierId, invoice.GrandTotal, (System.Data.Common.DbTransaction)transaction, cancellationToken);
 
-            // 6. Enqueue Outbox Event
+            // 6. Automatic Double-Entry Accounting Posting
+            var journalEntryId = $"je_pur_{invoice.Id}";
+            var voucherNo = $"PUR-{invoice.SupplierInvoiceNo}";
+            var purchaseNarration = $"Purchase Invoice {invoice.SupplierInvoiceNo} from {invoice.SupplierName}";
+
+            const string insertJournalSql = @"
+                INSERT OR IGNORE INTO journal_entries (
+                    id, org_id, branch_id, voucher_number, voucher_type, voucher_date,
+                    narration, reference_id, reference_type, created_by_user_id, created_at
+                ) VALUES (
+                    @Id, @OrgId, @BranchId, @VoucherNumber, 2, @VoucherDate,
+                    @Narration, @ReferenceId, 'PURCHASE_INVOICE', @CreatedByUserId, datetime('now')
+                );
+            ";
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                insertJournalSql,
+                new
+                {
+                    Id = journalEntryId,
+                    invoice.OrgId,
+                    invoice.BranchId,
+                    VoucherNumber = voucherNo,
+                    VoucherDate = invoice.SupplierInvoiceDate.ToString("o"),
+                    Narration = purchaseNarration,
+                    ReferenceId = invoice.Id,
+                    CreatedByUserId = invoice.CreatedByUserId
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+            const string insertLineSql = @"
+                INSERT INTO journal_lines (id, journal_entry_id, account_id, account_name, debit_amount, credit_amount, narration)
+                VALUES (@Id, @JournalEntryId, @AccountId, @AccountName, CAST(@DebitAmount AS REAL), CAST(@CreditAmount AS REAL), @Narration);
+            ";
+
+            async Task PostLine(string accountId, string accountName, decimal debit, decimal credit)
+            {
+                if (debit == 0 && credit == 0) return;
+                var lineId = $"jl_{Guid.NewGuid():N}";
+                await connection.ExecuteAsync(new CommandDefinition(
+                    insertLineSql,
+                    new
+                    {
+                        Id = lineId,
+                        JournalEntryId = journalEntryId,
+                        AccountId = accountId,
+                        AccountName = accountName,
+                        DebitAmount = (double)debit,
+                        CreditAmount = (double)credit,
+                        Narration = purchaseNarration
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
+                var cat = await connection.ExecuteScalarAsync<int?>(
+                    new CommandDefinition("SELECT category FROM account_heads WHERE id = @accountId;", new { accountId }, transaction, cancellationToken: cancellationToken));
+
+                if (cat.HasValue)
+                {
+                    if (cat.Value == 1 || cat.Value == 5) // Asset or Expense
+                    {
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "UPDATE account_heads SET current_balance = current_balance + (@debit - @credit) WHERE id = @accountId;",
+                            new { debit = (double)debit, credit = (double)credit, accountId }, transaction, cancellationToken: cancellationToken));
+                    }
+                    else // Liability, Equity, Revenue
+                    {
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "UPDATE account_heads SET current_balance = current_balance + (@credit - @debit) WHERE id = @accountId;",
+                            new { debit = (double)debit, credit = (double)credit, accountId }, transaction, cancellationToken: cancellationToken));
+                    }
+                }
+            }
+
+            // Debit side: Purchases Account
+            await PostLine("acc_purchases", "Pharmacy Medicine Purchases A/c", invoice.TaxableAmount, 0m);
+
+            // Input GST
+            if (invoice.CgstAmount > 0) await PostLine("acc_input_cgst", "Input CGST A/c", invoice.CgstAmount, 0m);
+            if (invoice.SgstAmount > 0) await PostLine("acc_input_sgst", "Input SGST A/c", invoice.SgstAmount, 0m);
+            if (invoice.IgstAmount > 0) await PostLine("acc_input_igst", "Input IGST A/c", invoice.IgstAmount, 0m);
+
+            // Round Off
+            if (invoice.RoundOff > 0)
+            {
+                await PostLine("acc_roundoff", "Round Off Expense / Income", invoice.RoundOff, 0m);
+            }
+            else if (invoice.RoundOff < 0)
+            {
+                await PostLine("acc_roundoff", "Round Off Expense / Income", 0m, Math.Abs(invoice.RoundOff));
+            }
+
+            // Credit side: Sundry Creditors
+            await PostLine("acc_creditors", "Sundry Creditors (Suppliers)", 0m, invoice.GrandTotal);
+
+            // 7. Enqueue Outbox Event
             await _outboxRepository.EnqueueEventAsync(
                 outboxEvent, (System.Data.Common.DbTransaction)transaction, cancellationToken);
 
+            // 8. Commit
             transaction.Commit();
 
             return new PurchasePostingResult(

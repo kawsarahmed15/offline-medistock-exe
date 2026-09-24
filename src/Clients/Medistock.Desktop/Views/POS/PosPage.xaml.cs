@@ -84,7 +84,46 @@ public sealed partial class PosPage : Page
 
     private async void SearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter)
+        if (e.Key == VirtualKey.Down)
+        {
+            ViewModel.MoveSearchSelectionDown();
+            if (SearchResultsList.SelectedItem != null)
+            {
+                SearchResultsList.ScrollIntoView(SearchResultsList.SelectedItem);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Up)
+        {
+            ViewModel.MoveSearchSelectionUp();
+            if (SearchResultsList.SelectedItem != null)
+            {
+                SearchResultsList.ScrollIntoView(SearchResultsList.SelectedItem);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Right)
+        {
+            if (ViewModel.CartItems.Count > 0)
+            {
+                ViewModel.IncreaseSelectedCartQuantity();
+                CartListView.Focus(FocusState.Programmatic);
+                if (CartListView.SelectedItem != null)
+                {
+                    CartListView.ScrollIntoView(CartListView.SelectedItem);
+                }
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == VirtualKey.Left)
+        {
+            if (ViewModel.CartItems.Count > 0)
+            {
+                ViewModel.DecreaseSelectedCartQuantity();
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == VirtualKey.Enter)
         {
             var text = SearchBox.Text?.Trim();
             if (!string.IsNullOrEmpty(text))
@@ -94,6 +133,11 @@ public sealed partial class PosPage : Page
                     await ViewModel.ProcessBarcodeScanAsync(text);
                     SearchBox.Text = string.Empty;
                 }
+                else if (ViewModel.SelectedSearchIndex >= 0 && ViewModel.SelectedSearchIndex < ViewModel.SearchResults.Count)
+                {
+                    ViewModel.AddToCart(ViewModel.SearchResults[ViewModel.SelectedSearchIndex]);
+                    SearchBox.Text = string.Empty;
+                }
                 else if (ViewModel.SearchResults.Count > 0)
                 {
                     ViewModel.AddToCart(ViewModel.SearchResults[0]);
@@ -101,6 +145,33 @@ public sealed partial class PosPage : Page
                 }
             }
             e.Handled = true;
+        }
+    }
+
+    private void CartListView_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Right)
+        {
+            ViewModel.IncreaseSelectedCartQuantity();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Left)
+        {
+            ViewModel.DecreaseSelectedCartQuantity();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.F3 || e.Key == VirtualKey.Escape)
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Delete)
+        {
+            if (ViewModel.SelectedCartIndex >= 0 && ViewModel.SelectedCartIndex < ViewModel.CartItems.Count)
+            {
+                ViewModel.RemoveCartItem(ViewModel.CartItems[ViewModel.SelectedCartIndex]);
+                e.Handled = true;
+            }
         }
     }
 }

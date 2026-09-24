@@ -191,13 +191,145 @@ public class SqliteSaleRepository : ISaleRepository
                     cancellationToken);
             }
 
-            // 6. Enqueue Outbox Event
+            // 6. Automatic Double-Entry Accounting Posting
+            var journalEntryId = $"je_sal_{sale.Id}";
+            var voucherNo = $"SAL-{sale.InvoiceNo}";
+            var saleNarration = $"Tax Invoice {sale.InvoiceNo} - {sale.CustomerName}";
+
+            const string insertJournalSql = @"
+                INSERT OR IGNORE INTO journal_entries (
+                    id, org_id, branch_id, voucher_number, voucher_type, voucher_date,
+                    narration, reference_id, reference_type, created_by_user_id, created_at
+                ) VALUES (
+                    @Id, @OrgId, @BranchId, @VoucherNumber, 1, @VoucherDate,
+                    @Narration, @ReferenceId, 'SALE', @CreatedByUserId, datetime('now')
+                );
+            ";
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                insertJournalSql,
+                new
+                {
+                    Id = journalEntryId,
+                    sale.OrgId,
+                    sale.BranchId,
+                    VoucherNumber = voucherNo,
+                    VoucherDate = sale.InvoiceDate.ToString("o"),
+                    Narration = saleNarration,
+                    ReferenceId = sale.Id,
+                    CreatedByUserId = sale.UserId
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+            const string insertLineSql = @"
+                INSERT INTO journal_lines (id, journal_entry_id, account_id, account_name, debit_amount, credit_amount, narration)
+                VALUES (@Id, @JournalEntryId, @AccountId, @AccountName, CAST(@DebitAmount AS REAL), CAST(@CreditAmount AS REAL), @Narration);
+            ";
+
+            // Helper local function to post a journal line and update account balance
+            async Task PostLine(string accountId, string accountName, decimal debit, decimal credit)
+            {
+                if (debit == 0 && credit == 0) return;
+                var lineId = $"jl_{Guid.NewGuid():N}";
+                await connection.ExecuteAsync(new CommandDefinition(
+                    insertLineSql,
+                    new
+                    {
+                        Id = lineId,
+                        JournalEntryId = journalEntryId,
+                        AccountId = accountId,
+                        AccountName = accountName,
+                        DebitAmount = (double)debit,
+                        CreditAmount = (double)credit,
+                        Narration = saleNarration
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
+                var cat = await connection.ExecuteScalarAsync<int?>(
+                    new CommandDefinition("SELECT category FROM account_heads WHERE id = @accountId;", new { accountId }, transaction, cancellationToken: cancellationToken));
+
+                if (cat.HasValue)
+                {
+                    if (cat.Value == 1 || cat.Value == 5) // Asset or Expense
+                    {
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "UPDATE account_heads SET current_balance = current_balance + (@debit - @credit) WHERE id = @accountId;",
+                            new { debit = (double)debit, credit = (double)credit, accountId }, transaction, cancellationToken: cancellationToken));
+                    }
+                    else // Liability, Equity, Revenue
+                    {
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "UPDATE account_heads SET current_balance = current_balance + (@credit - @debit) WHERE id = @accountId;",
+                            new { debit = (double)debit, credit = (double)credit, accountId }, transaction, cancellationToken: cancellationToken));
+                    }
+                }
+            }
+
+            // Debit side: Payment receipts (Cash, Bank, Debtors)
+            decimal paidAmount = 0m;
+            if (sale.Payments != null && sale.Payments.Count > 0)
+            {
+                foreach (var p in sale.Payments)
+                {
+                    paidAmount += p.Amount;
+                    if (p.PaymentMode == PaymentMode.Cash)
+                    {
+                        await PostLine("acc_cash", "Cash on Hand", p.Amount, 0m);
+                    }
+                    else if (p.PaymentMode == PaymentMode.Credit)
+                    {
+                        await PostLine("acc_debtors", "Sundry Debtors (Customers)", p.Amount, 0m);
+                    }
+                    else // Card, UPI, etc.
+                    {
+                        await PostLine("acc_bank_hdfc", "Bank Account (Primary)", p.Amount, 0m);
+                    }
+                }
+            }
+
+            if (sale.Total > paidAmount)
+            {
+                // Balance on credit
+                await PostLine("acc_debtors", "Sundry Debtors (Customers)", sale.Total - paidAmount, 0m);
+            }
+
+            // Credit side: Sales Revenue
+            await PostLine("acc_sales", "Pharmacy Medicine Sales A/c", 0m, sale.Subtotal);
+
+            // Output GST
+            decimal cgstTotal = 0m;
+            decimal sgstTotal = 0m;
+            decimal igstTotal = 0m;
+            foreach (var item in sale.Items)
+            {
+                cgstTotal += item.CgstAmount;
+                sgstTotal += item.SgstAmount;
+                igstTotal += item.IgstAmount;
+            }
+
+            if (cgstTotal > 0) await PostLine("acc_output_cgst", "Output CGST A/c", 0m, cgstTotal);
+            if (sgstTotal > 0) await PostLine("acc_output_sgst", "Output SGST A/c", 0m, sgstTotal);
+            if (igstTotal > 0) await PostLine("acc_output_igst", "Output IGST A/c", 0m, igstTotal);
+
+            // Round Off
+            if (sale.RoundOff > 0)
+            {
+                await PostLine("acc_roundoff", "Round Off Expense / Income", 0m, sale.RoundOff);
+            }
+            else if (sale.RoundOff < 0)
+            {
+                await PostLine("acc_roundoff", "Round Off Expense / Income", Math.Abs(sale.RoundOff), 0m);
+            }
+
+            // 7. Enqueue Outbox Event
             await _outboxRepository.EnqueueEventAsync(
                 outboxEvent,
                 (System.Data.Common.DbTransaction)transaction,
                 cancellationToken);
 
-            // 7. Commit everything atomically
+            // 8. Commit everything atomically
             transaction.Commit();
 
             return new CommitSaleResult(

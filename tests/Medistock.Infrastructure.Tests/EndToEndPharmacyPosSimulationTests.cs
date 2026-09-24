@@ -244,7 +244,20 @@ public class EndToEndPharmacyPosSimulationTests : IDisposable
         var pendingEvents = await _outboxRepo.GetPendingEventsAsync();
         Assert.Single(pendingEvents);
         Assert.Equal("SALE_COMMITTED", pendingEvents[0].EventType);
+
+        // Verify Automatic Double-Entry Accounting Posting
+        var accRepo = new SqliteAccountingRepository(_connectionFactory, _outboxRepo);
+        var dayBook = await accRepo.GetDayBookAsync("org-1", "branch-1", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        Assert.Contains(dayBook, v => v.VoucherNumber.StartsWith($"SAL-{result.InvoiceNo}") && v.VoucherType == Domain.Accounting.VoucherType.Sales);
+
+        var cashAcc = await accRepo.GetAccountHeadByIdAsync("acc_cash");
+        var salesAcc = await accRepo.GetAccountHeadByIdAsync("acc_sales");
+        Assert.NotNull(cashAcc);
+        Assert.NotNull(salesAcc);
+        Assert.Equal(286.00m, cashAcc.CurrentBalance);
+        Assert.True(salesAcc.CurrentBalance > 0);
     }
+
 
     [Fact]
     public async Task Scenario3_ConcurrentCheckout_PreventsOverbooking()

@@ -171,7 +171,20 @@ public class PurchaseTests : IDisposable
         var recent = await _purchaseService.GetRecentPurchasesAsync("org-1", "br-1");
         Assert.NotEmpty(recent);
         Assert.Contains(recent, p => p.SupplierInvoiceNo == "MED-2026-9041");
+
+        // Verify Automatic Double-Entry Accounting Posting
+        var accRepo = new SqliteAccountingRepository(_connectionFactory, _outboxRepository);
+        var dayBook = await accRepo.GetDayBookAsync("org-1", "br-1", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        Assert.Contains(dayBook, v => v.VoucherNumber.StartsWith("PUR-MED-2026-9041") && v.VoucherType == Domain.Accounting.VoucherType.Purchase);
+
+        var purAccount = await accRepo.GetAccountHeadByIdAsync("acc_purchases");
+        var credAccount = await accRepo.GetAccountHeadByIdAsync("acc_creditors");
+        Assert.NotNull(purAccount);
+        Assert.NotNull(credAccount);
+        Assert.True(purAccount.CurrentBalance > 0);
+        Assert.True(credAccount.CurrentBalance > 0);
     }
+
 
     [Fact]
     public async Task CreatePurchaseInvoice_InterstateTax_AppliesIgstCorrectly()

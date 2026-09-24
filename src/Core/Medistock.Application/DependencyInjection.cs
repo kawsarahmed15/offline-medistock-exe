@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IScheduleDrugService, ScheduleDrugService>();
         services.AddScoped<IPurchaseService, PurchaseService>();
+        services.AddScoped<Medistock.Application.Accounting.Services.IAccountingService, Medistock.Application.Accounting.Services.AccountingService>();
         return services;
     }
 }

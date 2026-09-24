@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IScheduleDrugRepository, SqliteScheduleDrugRepository>();
         services.AddScoped<ISupplierRepository, SqliteSupplierRepository>();
         services.AddScoped<IPurchaseRepository, SqlitePurchaseRepository>();
+        services.AddScoped<IAccountingRepository, SqliteAccountingRepository>();
         services.AddScoped<IOutboxRepository, SqliteOutboxRepository>();
         services.AddScoped<IDocumentSequenceService, SqliteDocumentSequenceService>();
 

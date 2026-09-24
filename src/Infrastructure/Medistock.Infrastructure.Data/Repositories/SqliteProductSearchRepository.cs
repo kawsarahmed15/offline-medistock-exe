@@ -32,8 +32,14 @@ public class SqliteProductSearchRepository : IProductSearchRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var terms = query.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var ftsQuery = string.Join(" ", terms.Select(t => $"\"{t.Replace("\"", "\"\"")}*\""));
+        var cleaned = new string(query.Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray());
+        var terms = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (terms.Length == 0)
+        {
+            return Array.Empty<ProductSearchDto>();
+        }
+
+        var ftsQuery = string.Join(" ", terms.Select(t => $"{t}*"));
 
         const string sql = @"
             SELECT 

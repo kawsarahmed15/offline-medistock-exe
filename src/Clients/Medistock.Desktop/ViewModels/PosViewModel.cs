@@ -157,6 +157,12 @@ public partial class PosViewModel : ObservableObject
 
     public decimal ChangeAmount => Math.Max(0, AmountReceived - GrandTotal);
 
+    [ObservableProperty]
+    private int _selectedSearchIndex = -1;
+
+    [ObservableProperty]
+    private int _selectedCartIndex = -1;
+
     public ObservableCollection<ProductSearchItemViewModel> SearchResults { get; } = new();
     public ObservableCollection<CartItemViewModel> CartItems { get; } = new();
     public ObservableCollection<string> HeldBills { get; } = new();
@@ -179,6 +185,7 @@ public partial class PosViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(value))
         {
             SearchResults.Clear();
+            SelectedSearchIndex = -1;
             IsSearching = false;
             return;
         }
@@ -186,9 +193,9 @@ public partial class PosViewModel : ObservableObject
         try
         {
             IsSearching = true;
-            await Task.Delay(150, token);
+            await Task.Delay(50, token); // Fast 50ms debounce for sub-millisecond instant search
 
-            var results = await _searchService.SearchAsync(value, WarehouseId, 20, token);
+            var results = await _searchService.SearchAsync(value, WarehouseId, 25, token);
 
             if (!token.IsCancellationRequested)
             {
@@ -197,6 +204,8 @@ public partial class PosViewModel : ObservableObject
                 {
                     SearchResults.Add(ProductSearchItemViewModel.FromDto(r));
                 }
+
+                SelectedSearchIndex = SearchResults.Count > 0 ? 0 : -1;
             }
         }
         catch (TaskCanceledException)
@@ -205,6 +214,53 @@ public partial class PosViewModel : ObservableObject
         finally
         {
             IsSearching = false;
+        }
+    }
+
+    public void MoveSearchSelectionDown()
+    {
+        if (SearchResults.Count == 0) return;
+        if (SelectedSearchIndex < SearchResults.Count - 1)
+        {
+            SelectedSearchIndex++;
+        }
+    }
+
+    public void MoveSearchSelectionUp()
+    {
+        if (SearchResults.Count == 0) return;
+        if (SelectedSearchIndex > 0)
+        {
+            SelectedSearchIndex--;
+        }
+    }
+
+    public void IncreaseSelectedCartQuantity()
+    {
+        if (CartItems.Count == 0) return;
+
+        if (SelectedCartIndex < 0 || SelectedCartIndex >= CartItems.Count)
+        {
+            SelectedCartIndex = CartItems.Count - 1;
+        }
+
+        CartItems[SelectedCartIndex].Quantity += 1;
+        RecalculateBillTotals();
+    }
+
+    public void DecreaseSelectedCartQuantity()
+    {
+        if (CartItems.Count == 0) return;
+
+        if (SelectedCartIndex < 0 || SelectedCartIndex >= CartItems.Count)
+        {
+            SelectedCartIndex = CartItems.Count - 1;
+        }
+
+        if (CartItems[SelectedCartIndex].Quantity > 1)
+        {
+            CartItems[SelectedCartIndex].Quantity -= 1;
+            RecalculateBillTotals();
         }
     }
 
@@ -243,6 +299,7 @@ public partial class PosViewModel : ObservableObject
         if (existing != null)
         {
             existing.Quantity += 1;
+            SelectedCartIndex = CartItems.IndexOf(existing);
         }
         else
         {
@@ -261,10 +318,12 @@ public partial class PosViewModel : ObservableObject
                 Quantity = 1
             };
             CartItems.Add(item);
+            SelectedCartIndex = CartItems.Count - 1;
         }
 
         SearchQuery = string.Empty;
         SearchResults.Clear();
+        SelectedSearchIndex = -1;
         StatusMessage = $"Added {product.Name} to cart.";
         RecalculateBillTotals();
     }
@@ -275,6 +334,7 @@ public partial class PosViewModel : ObservableObject
         if (existing != null)
         {
             existing.Quantity += 1;
+            SelectedCartIndex = CartItems.IndexOf(existing);
         }
         else
         {
@@ -293,6 +353,7 @@ public partial class PosViewModel : ObservableObject
                 Quantity = 1
             };
             CartItems.Add(item);
+            SelectedCartIndex = CartItems.Count - 1;
         }
 
         StatusMessage = $"Scanned & Added: {product.ProductName}";

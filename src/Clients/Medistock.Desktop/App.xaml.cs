@@ -38,9 +38,15 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<PosViewModel>();
         services.AddTransient<PosPage>();
         services.AddTransient<InventoryViewModel>();
+        services.AddTransient<Views.Inventory.InventoryPage>();
         services.AddTransient<ExpiryDashboardViewModel>();
+        services.AddTransient<Views.Inventory.ExpiryDashboardPage>();
         services.AddTransient<ScheduleRegisterViewModel>();
+        services.AddTransient<Views.Compliance.ScheduleRegisterPage>();
         services.AddTransient<PurchaseEntryViewModel>();
+        services.AddTransient<Views.Purchases.PurchaseEntryPage>();
+        services.AddTransient<AccountingViewModel>();
+        services.AddTransient<Views.Accounting.AccountingPage>();
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

@@ -41,8 +41,10 @@
 
                 <!-- Search Results -->
                 <Border Grid.Row="1" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="4">
-                    <ListView ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
-                              SelectionMode="None"
+                    <ListView x:Name="SearchResultsList"
+                              ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
+                              SelectionMode="Single"
+                              SelectedIndex="{x:Bind ViewModel.SelectedSearchIndex, Mode=TwoWay}"
                               IsItemClickEnabled="True"
                               ItemClick="SearchResults_ItemClick">
                         <ListView.ItemTemplate>
@@ -74,7 +76,11 @@
             <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="8,0,0,0">
                 <!-- Cart Items -->
                 <Border Grid.Row="0" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,0,8">
-                    <ListView ItemsSource="{x:Bind ViewModel.CartItems, Mode=OneWay}" SelectionMode="None">
+                    <ListView x:Name="CartListView"
+                              ItemsSource="{x:Bind ViewModel.CartItems, Mode=OneWay}"
+                              SelectionMode="Single"
+                              SelectedIndex="{x:Bind ViewModel.SelectedCartIndex, Mode=TwoWay}"
+                              KeyDown="CartListView_KeyDown">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:CartItemViewModel">
                                 <Grid ColumnDefinitions="*,Auto,Auto,Auto" Padding="6,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
