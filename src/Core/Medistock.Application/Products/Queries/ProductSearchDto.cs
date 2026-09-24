@@ -1,0 +1,46 @@
+using System;
+using Medistock.Domain.Common;
+
+namespace Medistock.Application.Products.Queries;
+
+public class ProductSearchDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string BrandName { get; set; } = string.Empty;
+    public string GenericName { get; set; } = string.Empty;
+    public string Composition { get; set; } = string.Empty;
+    public string Strength { get; set; } = string.Empty;
+    public DosageForm DosageForm { get; set; }
+    public string PackSizeDescription { get; set; } = string.Empty;
+    public string HsnCode { get; set; } = string.Empty;
+    public decimal GstRatePercent { get; set; }
+    public DrugSchedule Schedule { get; set; }
+    public bool IsPrescriptionRequired { get; set; }
+    public bool IsColdChain { get; set; }
+    public bool IsNarcotic { get; set; }
+    public string? Barcode { get; set; }
+    public string? BatchId { get; set; }
+    public string? BatchNumber { get; set; }
+    public DateTime? NearestExpiryDate { get; set; }
+    public decimal Mrp { get; set; }
+    public decimal SaleRate { get; set; }
+    public decimal AvailableQuantity { get; set; }
+}
+
+public class BarcodeLookupDto
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string GenericName { get; set; } = string.Empty;
+    public string BatchId { get; set; } = string.Empty;
+    public string BatchNumber { get; set; } = string.Empty;
+    public DateTime ExpiryDate { get; set; }
+    public decimal Mrp { get; set; }
+    public decimal SaleRate { get; set; }
+    public decimal GstRatePercent { get; set; }
+    public DrugSchedule Schedule { get; set; }
+    public bool IsColdChain { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public string Barcode { get; set; } = string.Empty;
+}

@@ -1,0 +1,144 @@
+<Page
+    x:Class="Medistock.Desktop.Views.POS.PosPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:Medistock.Desktop.ViewModels"
+    mc:Ignorable="d"
+    Background="{ThemeResource AppBackground}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 1. Top Header Bar -->
+        <Grid Grid.Row="0" Background="{ThemeResource SurfaceBackground}" Padding="16,10" ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="MEDISTOCK POS" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Padding="8,4">
+                    <TextBlock Text="● Main Branch — Counter 1" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
+                <Border Background="{ThemeResource AccentSubtle}" CornerRadius="4" Padding="8,4">
+                    <TextBlock Text="Sync: Online ●" FontSize="12" Foreground="{ThemeResource AccentPrimary}" FontWeight="SemiBold" />
+                </Border>
+                <Button Content="[F2] New Bill" Command="{x:Bind ViewModel.ClearBillCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 2. Main Two-Panel Workspace -->
+        <Grid Grid.Row="1" ColumnDefinitions="3*,2*" Margin="12">
+            <!-- Left: Search & Catalog -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,8,0">
+                <TextBox x:Name="SearchBox"
+                         Grid.Row="0"
+                         PlaceholderText="🔍 Scan Barcode or Type Medicine Name / Generic / Salt... [F3]"
+                         Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         FontSize="15"
+                         Height="44"
+                         Margin="0,0,0,8"
+                         KeyDown="SearchBox_KeyDown" />
+
+                <!-- Search Results -->
+                <Border Grid.Row="1" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="4">
+                    <ListView ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="SearchResults_ItemClick">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ProductSearchItemViewModel">
+                                <Grid ColumnDefinitions="*,Auto,Auto" Padding="8,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="14" Foreground="{ThemeResource TextPrimary}" />
+                                        <TextBlock Text="{x:Bind GenericName}" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                        <TextBlock Text="{x:Bind Composition}" FontSize="11" Foreground="{ThemeResource TextMuted}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Margin="12,0" Spacing="2">
+                                        <TextBlock Text="{x:Bind BatchNumber, TargetNullValue='NO BATCH'}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                                        <TextBlock Text="{x:Bind PackSizeDescription}" FontSize="11" Foreground="{ThemeResource TextMuted}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right" Spacing="2">
+                                        <TextBlock Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AccentPrimary}" />
+                                        <TextBlock Text="{x:Bind AvailableQuantity, Converter={StaticResource StringFormatConverter}, ConverterParameter='Qty: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource StatusSuccess}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
+            </Grid>
+
+            <!-- Right: Running Cart & Bill Summary -->
+            <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="8,0,0,0">
+                <!-- Cart Items -->
+                <Border Grid.Row="0" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,0,8">
+                    <ListView ItemsSource="{x:Bind ViewModel.CartItems, Mode=OneWay}" SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CartItemViewModel">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" Padding="6,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{x:Bind ProductName}" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                                        <TextBlock Text="{x:Bind BatchNumber}" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Qty: " FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center"/>
+                                        <NumberBox Value="{x:Bind QuantityDouble, Mode=TwoWay}" Minimum="1" SpinButtonPlacementMode="Compact" Width="70" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="2" Text="{x:Bind NetAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="8,0" />
+
+                                    <Button Grid.Column="3" Content="✕" Click="RemoveItem_Click" Tag="{x:Bind}" Padding="4" Background="Transparent" BorderThickness="0" Foreground="{ThemeResource StatusDanger}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
+
+                <!-- Bill Totals & Checkout -->
+                <Border Grid.Row="1" Background="{ThemeResource SurfaceElevated}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="16">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Taxable Subtotal" FontSize="13" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Subtotal, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" FontWeight="SemiBold" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Total GST" FontSize="13" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" FontWeight="SemiBold" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Round Off" FontSize="13" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.RoundOff, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" />
+                        </Grid>
+
+                        <Border Height="1" Background="{ThemeResource BorderDefault}" Margin="0,4" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="GRAND TOTAL" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        </Grid>
+
+                        <Button Content="[F6] COMPLETE PAYMENT &amp; PRINT"
+                                Command="{x:Bind ViewModel.FinalizeSaleCommand}"
+                                Background="{ThemeResource AccentPrimary}"
+                                Foreground="{ThemeResource TextOnAccent}"
+                                FontWeight="Bold"
+                                FontSize="15"
+                                Height="48"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 3. Bottom Status Bar -->
+        <Border Grid.Row="2" Background="{ThemeResource SurfaceBackground}" Padding="16,6">
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+        </Border>
+    </Grid>
+</Page>

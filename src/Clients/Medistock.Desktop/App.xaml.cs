@@ -1,43 +1,47 @@
-﻿using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using System;
+using Medistock.Application;
+using Medistock.Desktop.ViewModels;
+using Medistock.Desktop.Views.POS;
+using Medistock.Infrastructure.Data;
+using Medistock.Infrastructure.Data.Migrations;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
 
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+namespace Medistock.Desktop;
 
-namespace Medistock_Desktop;
-
-/// <summary>
-/// Provides application-specific behavior to supplement the default Application class.
-/// </summary>
-public partial class App : Application
+public partial class App : Microsoft.UI.Xaml.Application
 {
     private Window? _window;
-    
-    /// <summary>
-    /// Initializes the singleton application object.  This is the first line of authored code
-    /// executed, and as such is the logical equivalent of main() or WinMain().
-    /// </summary>
+    public static IServiceProvider Services { get; private set; } = null!;
+
     public App()
     {
         InitializeComponent();
+
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        Services = services.BuildServiceProvider();
     }
 
-    /// <summary>
-    /// Invoked when the application is launched.
-    /// </summary>
-    /// <param name="args">Details about the launch request and process.</param>
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    private static void ConfigureServices(IServiceCollection services)
     {
+        services.AddApplication();
+        services.AddInfrastructureData();
+
+        services.AddTransient<PosViewModel>();
+        services.AddTransient<PosPage>();
+    }
+
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    {
+        try
+        {
+            using var scope = Services.CreateScope();
+            var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
+            await migrator.MigrateAsync();
+        }
+        catch { }
+
         _window = new MainWindow();
         _window.Activate();
     }

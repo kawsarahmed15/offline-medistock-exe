@@ -115,25 +115,42 @@ Updated: `AGENT.md` — keyboard command-layer rules + full reference index
 Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance criteria for all modules (POS, Inventory, Accounting, GST, B2B, Multi-Branch, Platform).
 
 ### ✅ Step 8 — Clean Architecture Solution Setup (`folder-structure.md`)
-- Created `Medistock.sln` with 14 modular projects matching Clean Architecture:
-  - **Core:** `Medistock.Domain`, `Medistock.Application`
-  - **Shared:** `Medistock.Contracts`
-  - **Infrastructure:** `Medistock.Infrastructure.Data`, `Medistock.Infrastructure.Sync`, `Medistock.Infrastructure.Hardware`, `Medistock.Infrastructure.Identity`
-  - **Clients:** `Medistock.Desktop` (WinUI 3 + Windows App SDK)
-  - **Services:** `Medistock.LocalServer` (Branch ASP.NET Core API), `Medistock.CloudApi` (Cloud ASP.NET Core API)
-  - **Tests:** `Medistock.Domain.Tests`, `Medistock.Application.Tests`, `Medistock.Infrastructure.Tests`, `Medistock.Desktop.Tests`
+- Created `Medistock.sln` with 14 modular projects matching Clean Architecture.
 - Installed foundational packages: `Dapper`, `Microsoft.Data.Sqlite`, `Npgsql`, `FluentValidation`, `CommunityToolkit.Mvvm`, `Ulid`, `Microsoft.Extensions.DependencyInjection`.
-- Added all project-to-project references enforcing strict Clean Architecture dependencies.
-- Verified build: **0 Errors, 0 Warnings** across all 14 projects.
-- Verified tests: **All 4 test suites passing**.
+
+### ✅ Step 9 — Phase 1: Core Domain, SQLite WAL + FTS5 Hot-Path, & WinUI 3 POS Vertical Slice
+- **Domain Modeling:**
+  - Base primitives: `Entity<T>`, `AggregateRoot<T>`, `ValueObject`, `IDomainEvent`.
+  - Value Objects: `Money` (with rounding & currency checks), `Gstin` (with statutory 15-char regex validation & state code extraction), `PackSize` (base unit conversion).
+  - Enums: `DrugSchedule`, `DosageForm`, `StockMovementType`, `SaleStatus`, `PaymentMode`, `OutboxEventStatus`, `ConnectivityState`.
+  - Core Entities: `Product`, `Batch`, `StockBalance`, `StockMovement`, `Sale`, `SaleItem` (CGST/SGST vs IGST calculation), `SalePayment`, `OutboxEvent`.
+- **Application Services:**
+  - `ProductSearchService`: 150ms debounced FTS5 search with in-flight cancellation.
+  - `PosTransactionService`: Atomic sale execution, stock validation, FEFO batch assignment, calculation breakdown, outbox generation.
+  - Interfaces: `IProductSearchRepository`, `IStockRepository`, `ISaleRepository`, `IOutboxRepository`, `ISqliteConnectionFactory`, `IDocumentSequenceService`.
+- **Infrastructure Data Access (Dapper Hot Path):**
+  - `SqliteConnectionFactory`: Configured with `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = NORMAL;`, `PRAGMA busy_timeout = 5000;`.
+  - `001_InitialSchema.sql`: 10 tables, indexes, `fts_products` FTS5 virtual table, and automated sync triggers on product INSERT/UPDATE/DELETE.
+  - `DatabaseMigrator`: Startup migration runner.
+  - `SqliteProductSearchRepository`: Sub-100ms FTS5 search + barcode lookup with FEFO batch projection.
+  - `SqliteStockRepository`: Atomic stock deduction (`WHERE quantity >= @qty`), FEFO batch query, stock movement ledger.
+  - `SqliteSaleRepository`: Atomic sale commit + items + payments + stock deduction + movements + outbox in a single local transaction.
+  - `SqliteOutboxRepository` & `SqliteDocumentSequenceService`.
+- **WinUI 3 Desktop POS Client:**
+  - `Tokens.xaml`: Semantic color tokens (Light & Dark themes, pharmacy status brushes, 8dp spacing, type scale).
+  - `PosViewModel`: CommunityToolkit.Mvvm viewmodel with debounced search, live cart calculations, barcode scanning pipeline, and checkout.
+  - `PosPage.xaml` & `.cs`: Two-panel workspace (search & catalog left, running cart & totals right, large F6 payment button).
+  - `App.xaml.cs` & `MainWindow.xaml.cs`: DI configuration and automated startup migrations.
+- **Verification:**
+  - `dotnet build Medistock.sln`: **0 Errors, 0 Warnings** across all 14 projects.
+  - `dotnet test Medistock.sln`: **All 15 Unit & Integration tests passing**.
 
 ---
 
-## 6. Next Action Items (Phase 1: Domain Modeling & Hot Path Vertical Slice)
-1. **Domain Entities & Value Objects:** Implement `Product`, `Batch`, `StockBalance`, `StockMovement`, `Sale`, `SaleItem`, `SalePayment`, `OutboxEvent` in `Medistock.Domain`.
-2. **Database Migrations & SQLite Setup:** Implement SQLite WAL mode connection factory and initial table creation scripts (including `fts_products` FTS5 shadow table & triggers).
-3. **Hot-Path Dapper Repositories:** Implement `IProductSearchRepository` and `IAtomicStockRepository` in `Medistock.Infrastructure.Data`.
-4. **POS Vertical Slice:** Connect barcode scan / FTS5 search query in `Medistock.Application` through Dapper to WinUI 3 ViewModel and verify sub-100ms response.
+## 6. Next Action Items (Phase 1 Continuation: Keyboard Shortcuts & Hardware Abstraction)
+1. **Keyboard Shortcut Layer (`KEYBOARD_SHORTCUTS.md`):** Implement `ICommand` binding registry and JSON keymap loader (`Medistock Standard` + `MARG-Compatible` profiles) with `Alt+F1` context-aware help overlay in `Medistock.Desktop`.
+2. **Hardware Abstraction Layer (`Medistock.Infrastructure.Hardware`):** Implement `IReceiptPrinter` (ESC/POS thermal printer driver with 80mm/58mm templates) and `ICashDrawer`.
+3. **Local Sync Worker (`Medistock.Infrastructure.Sync`):** Implement background outbox processing worker draining pending events to Local Server / Cloud API.
 
 ---
 
