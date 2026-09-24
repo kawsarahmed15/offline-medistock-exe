@@ -1,0 +1,6 @@
+@Medistock.LocalServer_HostAddress = http://localhost:5161
+
+GET {{Medistock.LocalServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

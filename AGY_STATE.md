@@ -114,21 +114,26 @@ Updated: `AGENT.md` — keyboard command-layer rules + full reference index
 ### ✅ Step 6 — Full Product Requirements Document (PRD)
 Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance criteria for all modules (POS, Inventory, Accounting, GST, B2B, Multi-Branch, Platform).
 
-### ✅ Step 7 — Git Setup & Repository Cleanup
-- Initialized local git repository on branch `main`.
-- Created comprehensive `.gitignore` tailored for .NET 10, WinUI 3, Windows App SDK, and SQLite.
-- Removed obsolete intermediate scratch research files (`chatgpt-conversation.md`, `chatgpt-conversation-research.md`, `marg-research.md`, `shortcut-mapping.md`, `trd.md`) after full synthesis into the final documentation suite.
-- Created initial commit `a9a5fd3` containing the 6 final authoritative specification documents.
-- Clean working tree verified.
+### ✅ Step 8 — Clean Architecture Solution Setup (`folder-structure.md`)
+- Created `Medistock.sln` with 14 modular projects matching Clean Architecture:
+  - **Core:** `Medistock.Domain`, `Medistock.Application`
+  - **Shared:** `Medistock.Contracts`
+  - **Infrastructure:** `Medistock.Infrastructure.Data`, `Medistock.Infrastructure.Sync`, `Medistock.Infrastructure.Hardware`, `Medistock.Infrastructure.Identity`
+  - **Clients:** `Medistock.Desktop` (WinUI 3 + Windows App SDK)
+  - **Services:** `Medistock.LocalServer` (Branch ASP.NET Core API), `Medistock.CloudApi` (Cloud ASP.NET Core API)
+  - **Tests:** `Medistock.Domain.Tests`, `Medistock.Application.Tests`, `Medistock.Infrastructure.Tests`, `Medistock.Desktop.Tests`
+- Installed foundational packages: `Dapper`, `Microsoft.Data.Sqlite`, `Npgsql`, `FluentValidation`, `CommunityToolkit.Mvvm`, `Ulid`, `Microsoft.Extensions.DependencyInjection`.
+- Added all project-to-project references enforcing strict Clean Architecture dependencies.
+- Verified build: **0 Errors, 0 Warnings** across all 14 projects.
+- Verified tests: **All 4 test suites passing**.
 
 ---
 
-## 6. Next Action Items (Phase 0 → Phase 1)
-**All Phase 0 foundation documents are COMPLETE. Ready for Phase 1:**
-1. **Set up remote Git repository:** Configure `origin` remote URL when provided by user (`git remote add origin <url>` and `git push -u origin main`).
-2. **Set up solution structure:** `Medistock.sln` with projects: `Medistock.Desktop` (WinUI 3), `Medistock.Core` (domain), `Medistock.Infrastructure` (data access), `Medistock.LocalApi` (ASP.NET Core), `Medistock.CloudApi` (ASP.NET Core).
-3. **Finalize DB migration scripts:** SQLite schema (workstation), PostgreSQL schema (local server + cloud).
-4. **Build vertical slice #1:** Barcode-scan → FTS5 search → add to cart → stock deduct → local commit — measure on baseline rig against NFR-PERF targets.
+## 6. Next Action Items (Phase 1: Domain Modeling & Hot Path Vertical Slice)
+1. **Domain Entities & Value Objects:** Implement `Product`, `Batch`, `StockBalance`, `StockMovement`, `Sale`, `SaleItem`, `SalePayment`, `OutboxEvent` in `Medistock.Domain`.
+2. **Database Migrations & SQLite Setup:** Implement SQLite WAL mode connection factory and initial table creation scripts (including `fts_products` FTS5 shadow table & triggers).
+3. **Hot-Path Dapper Repositories:** Implement `IProductSearchRepository` and `IAtomicStockRepository` in `Medistock.Infrastructure.Data`.
+4. **POS Vertical Slice:** Connect barcode scan / FTS5 search query in `Medistock.Application` through Dapper to WinUI 3 ViewModel and verify sub-100ms response.
 
 ---
 

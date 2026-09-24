@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Medistock.Desktop (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Medistock.Desktop (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

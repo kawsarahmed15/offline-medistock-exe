@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Medistock.Application\Medistock.Application.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Data\Medistock.Infrastructure.Data.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Sync\Medistock.Infrastructure.Sync.csproj" />
+    <ProjectReference Include="..\..\Shared\Medistock.Contracts\Medistock.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

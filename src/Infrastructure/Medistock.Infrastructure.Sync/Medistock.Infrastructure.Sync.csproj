@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Medistock.Domain\Medistock.Domain.csproj" />
+    <ProjectReference Include="..\..\Core\Medistock.Application\Medistock.Application.csproj" />
+    <ProjectReference Include="..\..\Shared\Medistock.Contracts\Medistock.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
