@@ -192,15 +192,28 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 - **Verification & Test Status:**
   - 32 automated unit & integration tests passing with **0 warnings and 0 errors** across all 14 projects.
 
+### ✅ Step 12 — Purchase Entry & Wholesaler Management Subsystem
+- **1. Domain Model (`Medistock.Domain.Purchases`):**
+  - Implemented `Supplier` entity with GSTIN, Drug License number, credit days, and running balance ledger tracking.
+  - Implemented `PurchaseInvoice` and `PurchaseInvoiceItem` aggregates with scheme discounts, free goods ratio, landed cost computation, and Intrastate (CGST/SGST) vs Interstate (IGST) tax segregation.
+- **2. Application Layer & Repositories (`Medistock.Application` & `Medistock.Infrastructure.Data`):**
+  - Added migration `003_PurchasesAndSuppliers.sql` (`suppliers`, `purchase_invoices`, `purchase_invoice_items`).
+  - Implemented `SqliteSupplierRepository` and `SqlitePurchaseRepository`.
+  - Built `PurchaseService.CreateAndPostPurchaseInvoiceAsync` executing atomic 6-step transactional commit (Invoice persistence, Batch upsert, Stock balance increment, Movement ledger entry, Supplier balance update, Outbox queue).
+- **3. WinUI 3 Desktop Views & ViewModels (`Medistock.Desktop`):**
+  - `PurchaseEntryViewModel` & `PurchaseEntryPage.xaml`: High-speed tabular keyboard data entry grid with dynamic row addition (`F2`), automatic GST and discount math, and `[Ctrl+S]` post action.
+- **Verification & Test Status:**
+  - 25 automated unit & integration tests in test suites (Domain, Desktop, Infrastructure) passing with **0 warnings and 0 errors** across all 14 projects.
+
 ---
 
 ## 6. Next Action Items (Phase 2 Continuation)
-1. **Purchase Entry & Wholesaler Management:**
-   - Rapid Purchase Invoice Entry (keyboard-first with tab jumping), Wholesaler ledger integration, Landed cost calculation (freight + scheme discount + GST input tax credit).
-2. **Financial Accounting Core (Double Entry):**
+1. **Financial Accounting Core (Double Entry):**
    - General Ledger, Chart of Accounts, Cash/Bank books, Customer/Vendor ledgers, automated voucher posting for sales and purchases.
-3. **App Shell Navigation Integration:**
-   - Wire sidebar / top toolbar navigation links to easily switch between POS, Inventory, Expiry Dashboard, and Schedule Register.
+2. **App Shell Navigation & Window Container (`MainWindow.xaml`):**
+   - NavigationView sidebar linking POS Billing (`F2`), Inventory Master (`Ctrl+2`), Expiry Risk Dashboard (`Ctrl+3`), Purchase Entry (`Ctrl+4`), and Schedule Drug Register (`Ctrl+5`).
+3. **Sales History & Returns (Credit Notes & Debit Notes):**
+   - Invoice reprint, full/partial sale returns, batch restocking vs damage quarantine decisions.
 
 ---
 

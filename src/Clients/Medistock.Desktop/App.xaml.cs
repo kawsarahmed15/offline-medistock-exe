@@ -40,6 +40,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<InventoryViewModel>();
         services.AddTransient<ExpiryDashboardViewModel>();
         services.AddTransient<ScheduleRegisterViewModel>();
+        services.AddTransient<PurchaseEntryViewModel>();
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

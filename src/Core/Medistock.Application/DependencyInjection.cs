@@ -1,6 +1,7 @@
 using Medistock.Application.Compliance.Services;
 using Medistock.Application.Inventory.Services;
 using Medistock.Application.Products.Queries;
+using Medistock.Application.Purchases.Services;
 using Medistock.Application.Sales.Commands;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IProductSearchService, ProductSearchService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IScheduleDrugService, ScheduleDrugService>();
+        services.AddScoped<IPurchaseService, PurchaseService>();
         return services;
     }
 }
