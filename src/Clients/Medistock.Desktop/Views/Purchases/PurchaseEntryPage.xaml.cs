@@ -1,5 +1,4 @@
 using Medistock.Desktop.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Medistock.Desktop.Views.Purchases;
@@ -8,11 +7,11 @@ public sealed partial class PurchaseEntryPage : Page
 {
     public PurchaseEntryViewModel ViewModel { get; }
 
-    public PurchaseEntryPage()
+    public PurchaseEntryPage(PurchaseEntryViewModel viewModel)
     {
-        this.InitializeComponent();
-        ViewModel = App.Services.GetRequiredService<PurchaseEntryViewModel>();
+        ViewModel = viewModel;
         this.DataContext = ViewModel;
+        this.InitializeComponent();
 
         this.Loaded += async (s, e) =>
         {

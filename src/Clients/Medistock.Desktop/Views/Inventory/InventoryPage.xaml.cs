@@ -1,5 +1,4 @@
 using Medistock.Desktop.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Medistock.Desktop.Views.Inventory;
@@ -8,11 +7,11 @@ public sealed partial class InventoryPage : Page
 {
     public InventoryViewModel ViewModel { get; }
 
-    public InventoryPage()
+    public InventoryPage(InventoryViewModel viewModel)
     {
-        this.InitializeComponent();
-        ViewModel = App.Services.GetRequiredService<InventoryViewModel>();
+        ViewModel = viewModel;
         this.DataContext = ViewModel;
+        this.InitializeComponent();
 
         this.Loaded += async (s, e) =>
         {

@@ -1,5 +1,4 @@
 using Medistock.Desktop.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Medistock.Desktop.Views.Inventory;
@@ -8,11 +7,11 @@ public sealed partial class ExpiryDashboardPage : Page
 {
     public ExpiryDashboardViewModel ViewModel { get; }
 
-    public ExpiryDashboardPage()
+    public ExpiryDashboardPage(ExpiryDashboardViewModel viewModel)
     {
-        this.InitializeComponent();
-        ViewModel = App.Services.GetRequiredService<ExpiryDashboardViewModel>();
+        ViewModel = viewModel;
         this.DataContext = ViewModel;
+        this.InitializeComponent();
 
         this.Loaded += async (s, e) =>
         {

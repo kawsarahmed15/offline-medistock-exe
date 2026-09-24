@@ -88,7 +88,7 @@ public partial class StockItemViewModel : ObservableObject
 public partial class InventoryViewModel : ObservableObject
 {
     private readonly IInventoryService _inventoryService;
-    private readonly string _warehouseId = "WH-MAIN";
+    private readonly string _warehouseId = "wh-1";
 
 #pragma warning disable MVVMTK0045
     [ObservableProperty]

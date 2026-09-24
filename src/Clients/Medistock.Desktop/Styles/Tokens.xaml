@@ -40,6 +40,7 @@
         <!-- Light Theme Palette -->
         <ResourceDictionary x:Key="Light">
             <SolidColorBrush x:Key="AppBackground" Color="#F8FAFC" />
+            <SolidColorBrush x:Key="SurfaceDefault" Color="#FFFFFF" />
             <SolidColorBrush x:Key="SurfaceBackground" Color="#FFFFFF" />
             <SolidColorBrush x:Key="SurfaceElevated" Color="#FFFFFF" />
             <SolidColorBrush x:Key="SurfaceSubtle" Color="#F1F5F9" />
@@ -74,6 +75,7 @@
         <!-- Dark Theme Palette -->
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="AppBackground" Color="#0D1117" />
+            <SolidColorBrush x:Key="SurfaceDefault" Color="#161B22" />
             <SolidColorBrush x:Key="SurfaceBackground" Color="#161B22" />
             <SolidColorBrush x:Key="SurfaceElevated" Color="#21262D" />
             <SolidColorBrush x:Key="SurfaceSubtle" Color="#0D1117" />
