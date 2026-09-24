@@ -161,16 +161,22 @@ public class ShortcutService : IShortcutService
             Description = "Default Medistock Standard Keymap",
             Bindings = new List<KeyBindingDefinition>
             {
-                new() { Command = "pos.new_sale", Key = "F2", Scope = "POS", Description = "Start a new sale invoice" },
+                new() { Command = "app.help_shortcuts", Key = "F1", Scope = "Global", Description = "Open keyboard shortcut help overlay" },
+                new() { Command = "app.help_shortcuts", Key = "Alt+F1", Scope = "Global", Description = "Open keyboard shortcut help overlay" },
+                new() { Command = "pos.new_tab", Key = "Ctrl+T", Scope = "POS", Description = "Open a new invoice tab" },
+                new() { Command = "pos.close_tab", Key = "Ctrl+W", Scope = "POS", Description = "Close current invoice tab" },
+                new() { Command = "pos.next_tab", Key = "Ctrl+Tab", Scope = "POS", Description = "Switch to next invoice tab" },
+                new() { Command = "pos.prev_tab", Key = "Ctrl+Shift+Tab", Scope = "POS", Description = "Switch to previous invoice tab" },
+                new() { Command = "pos.new_sale", Key = "F2", Scope = "POS", Description = "Start a new / fresh sale" },
                 new() { Command = "pos.search_product", Key = "F3", Scope = "POS", Description = "Focus product search / scan box" },
                 new() { Command = "pos.apply_discount", Key = "F4", Scope = "POS", Description = "Open line / bill discount panel" },
                 new() { Command = "pos.payment", Key = "F6", Scope = "POS", Description = "Open payment & finalize sale" },
                 new() { Command = "pos.hold_bill", Key = "Ctrl+H", Scope = "POS", Description = "Hold current bill in queue" },
                 new() { Command = "pos.resume_bill", Key = "Ctrl+R", Scope = "POS", Description = "Resume held bill" },
                 new() { Command = "pos.save_invoice", Key = "Ctrl+S", Scope = "POS", Description = "Save current invoice" },
-                new() { Command = "pos.clear_cart", Key = "Escape", Scope = "POS", Description = "Clear search or active selection" },
-                new() { Command = "app.help_shortcuts", Key = "Alt+F1", Scope = "Global", Description = "Open keyboard shortcut help overlay" }
+                new() { Command = "pos.clear_cart", Key = "Escape", Scope = "POS", Description = "Clear search or active selection" }
             }
         };
     }
 }
+

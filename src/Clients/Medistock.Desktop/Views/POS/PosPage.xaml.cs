@@ -30,11 +30,15 @@ public sealed partial class PosPage : Page
         SearchBox.Focus(FocusState.Programmatic);
 
         // Register actions to named commands in shortcut service
+        _shortcutService.RegisterAction("pos.new_tab", () => ViewModel.AddNewTab());
+        _shortcutService.RegisterAction("pos.close_tab", () => ViewModel.CloseTab(ViewModel.ActiveTab));
+        _shortcutService.RegisterAction("pos.next_tab", () => ViewModel.NextTab());
+        _shortcutService.RegisterAction("pos.prev_tab", () => ViewModel.PreviousTab());
         _shortcutService.RegisterAction("pos.new_sale", () => ViewModel.ClearBill());
         _shortcutService.RegisterAction("pos.search_product", () => SearchBox.Focus(FocusState.Programmatic));
         _shortcutService.RegisterAction("pos.payment", async () => await ViewModel.FinalizeSaleAsync());
         _shortcutService.RegisterAction("pos.clear_cart", () => ViewModel.ClearBill());
-        _shortcutService.RegisterAction("app.help_shortcuts", ShowShortcutHelpDialog);
+        _shortcutService.RegisterAction("app.help_shortcuts", () => ViewModel.ToggleShortcutHelp());
 
         // Attach global key down on the page root
         if (XamlRoot != null)
@@ -43,14 +47,22 @@ public sealed partial class PosPage : Page
         }
     }
 
-    private async void ShowShortcutHelpDialog()
+    private void TabHeader_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        var shortcuts = _shortcutService.GetActiveShortcuts("POS");
-        var dialog = new ShortcutHelpDialog(_shortcutService.CurrentProfile.ProfileName, shortcuts)
+        if (sender is FrameworkElement element && element.Tag is InvoiceTabViewModel tab)
         {
-            XamlRoot = this.XamlRoot
-        };
-        await dialog.ShowAsync();
+            ViewModel.ActiveTab = tab;
+            ViewModel.ActiveTabIndex = ViewModel.InvoiceTabs.IndexOf(tab);
+            SearchBox.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void CloseTabButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is InvoiceTabViewModel tab)
+        {
+            ViewModel.CloseTab(tab);
+        }
     }
 
     private void PosPage_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -58,6 +70,13 @@ public sealed partial class PosPage : Page
         var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isAlt = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isShift = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        if (e.Key == VirtualKey.F1)
+        {
+            ViewModel.ToggleShortcutHelp();
+            e.Handled = true;
+            return;
+        }
 
         if (_shortcutService.TryExecuteShortcut(e.Key, isCtrl, isAlt, isShift, "POS"))
         {
@@ -104,7 +123,7 @@ public sealed partial class PosPage : Page
         }
         else if (e.Key == VirtualKey.Right)
         {
-            if (ViewModel.CartItems.Count > 0)
+            if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Count > 0)
             {
                 ViewModel.IncreaseSelectedCartQuantity();
                 CartListView.Focus(FocusState.Programmatic);
@@ -117,7 +136,7 @@ public sealed partial class PosPage : Page
         }
         else if (e.Key == VirtualKey.Left)
         {
-            if (ViewModel.CartItems.Count > 0)
+            if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Count > 0)
             {
                 ViewModel.DecreaseSelectedCartQuantity();
                 e.Handled = true;
@@ -167,11 +186,12 @@ public sealed partial class PosPage : Page
         }
         else if (e.Key == VirtualKey.Delete)
         {
-            if (ViewModel.SelectedCartIndex >= 0 && ViewModel.SelectedCartIndex < ViewModel.CartItems.Count)
+            if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.SelectedCartIndex >= 0 && ViewModel.ActiveTab.SelectedCartIndex < ViewModel.ActiveTab.CartItems.Count)
             {
-                ViewModel.RemoveCartItem(ViewModel.CartItems[ViewModel.SelectedCartIndex]);
+                ViewModel.RemoveCartItem(ViewModel.ActiveTab.CartItems[ViewModel.ActiveTab.SelectedCartIndex]);
                 e.Handled = true;
             }
         }
     }
 }
+

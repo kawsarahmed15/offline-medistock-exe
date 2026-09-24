@@ -71,6 +71,7 @@ public partial class CartItemViewModel : ObservableObject
 {
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+    public string PackSizeDescription { get; set; } = string.Empty;
     public string BatchId { get; set; } = string.Empty;
     public string BatchNumber { get; set; } = string.Empty;
     public DateTime ExpiryDate { get; set; }
@@ -81,23 +82,48 @@ public partial class CartItemViewModel : ObservableObject
     public DrugSchedule Schedule { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GrossAmount))]
     [NotifyPropertyChangedFor(nameof(TaxableAmount))]
+    [NotifyPropertyChangedFor(nameof(DiscountAmount))]
     [NotifyPropertyChangedFor(nameof(GstAmount))]
     [NotifyPropertyChangedFor(nameof(NetAmount))]
     [NotifyPropertyChangedFor(nameof(QuantityDouble))]
     private decimal _quantity = 1;
 
+    [ObservableProperty]
+    private decimal _freeQuantity = 0;
+
     public double QuantityDouble
     {
         get => (double)Quantity;
-        set => Quantity = (decimal)value;
+        set
+        {
+            if (value >= 1)
+            {
+                Quantity = (decimal)value;
+            }
+        }
     }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TaxableAmount))]
+    [NotifyPropertyChangedFor(nameof(DiscountAmount))]
     [NotifyPropertyChangedFor(nameof(GstAmount))]
     [NotifyPropertyChangedFor(nameof(NetAmount))]
+    [NotifyPropertyChangedFor(nameof(DiscountPercentDouble))]
     private decimal _discountPercent = 0;
+
+    public double DiscountPercentDouble
+    {
+        get => (double)DiscountPercent;
+        set
+        {
+            if (value >= 0 && value <= 100)
+            {
+                DiscountPercent = (decimal)value;
+            }
+        }
+    }
 
     public decimal GrossAmount => Math.Round(Quantity * UnitPrice, 2, MidpointRounding.AwayFromZero);
     public decimal DiscountAmount => Math.Round(GrossAmount * (DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
@@ -106,11 +132,97 @@ public partial class CartItemViewModel : ObservableObject
     public decimal NetAmount => TaxableAmount + GstAmount;
 }
 
+public partial class InvoiceTabViewModel : ObservableObject
+{
+    public string Id { get; } = Guid.NewGuid().ToString("N");
+
+    [ObservableProperty]
+    private int _tabNumber = 1;
+
+    [ObservableProperty]
+    private string _invoiceNo = "INV-DRAFT";
+
+    [ObservableProperty]
+    private DateTime _invoiceDate = DateTime.UtcNow;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TabTitle))]
+    private string _customerName = "Walk-in Customer";
+
+    [ObservableProperty]
+    private string _doctorName = string.Empty;
+
+    [ObservableProperty]
+    private string _prescriptionRef = string.Empty;
+
+    [ObservableProperty]
+    private PaymentMode _paymentMode = PaymentMode.Cash;
+
+    [ObservableProperty]
+    private bool _isInterstate = false;
+
+    [ObservableProperty]
+    private int _selectedCartIndex = -1;
+
+    public ObservableCollection<CartItemViewModel> CartItems { get; } = new();
+
+    [ObservableProperty]
+    private decimal _subtotal;
+
+    [ObservableProperty]
+    private decimal _discountAmount;
+
+    [ObservableProperty]
+    private decimal _taxAmount;
+
+    [ObservableProperty]
+    private decimal _roundOff;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TabTitle))]
+    [NotifyPropertyChangedFor(nameof(ChangeAmount))]
+    private decimal _grandTotal;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChangeAmount))]
+    private decimal _amountReceived;
+
+    public decimal ChangeAmount => Math.Max(0, AmountReceived - GrandTotal);
+
+    public int TotalItemsCount => CartItems.Count;
+    public decimal TotalQuantity => CartItems.Sum(c => c.Quantity + c.FreeQuantity);
+
+    public string TabTitle => $"Bill #{TabNumber} (₹{GrandTotal:N0})";
+
+    public InvoiceTabViewModel(int tabNumber)
+    {
+        TabNumber = tabNumber;
+        CartItems.CollectionChanged += (_, _) => RecalculateTotals();
+    }
+
+    public void RecalculateTotals()
+    {
+        Subtotal = CartItems.Sum(c => c.TaxableAmount);
+        DiscountAmount = CartItems.Sum(c => c.DiscountAmount);
+        TaxAmount = CartItems.Sum(c => c.GstAmount);
+
+        var rawTotal = Subtotal + TaxAmount;
+        var rounded = Math.Round(rawTotal, 0, MidpointRounding.AwayFromZero);
+        RoundOff = rounded - rawTotal;
+        GrandTotal = rounded;
+
+        OnPropertyChanged(nameof(TabTitle));
+        OnPropertyChanged(nameof(TotalItemsCount));
+        OnPropertyChanged(nameof(TotalQuantity));
+    }
+}
+
 public partial class PosViewModel : ObservableObject
 {
     private readonly IProductSearchService _searchService;
     private readonly IPosTransactionService _posTransactionService;
     private CancellationTokenSource? _searchCts;
+    private int _tabCounter = 1;
 
     [ObservableProperty]
     private string _searchQuery = string.Empty;
@@ -119,7 +231,7 @@ public partial class PosViewModel : ObservableObject
     private bool _isSearching;
 
     [ObservableProperty]
-    private string _statusMessage = "Ready for billing. Scan barcode or type [F3] to search.";
+    private string _statusMessage = "Ready for billing. Scan barcode or type [F3] to search. [F1] for all shortcuts.";
 
     [ObservableProperty]
     private string _counterName = "Counter 1";
@@ -137,35 +249,20 @@ public partial class PosViewModel : ObservableObject
     private string _branchId = "branch-1";
 
     [ObservableProperty]
-    private decimal _subtotal;
-
-    [ObservableProperty]
-    private decimal _taxAmount;
-
-    [ObservableProperty]
-    private decimal _roundOff;
-
-    [ObservableProperty]
-    private decimal _grandTotal;
-
-    [ObservableProperty]
-    private decimal _amountReceived;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ChangeAmount))]
-    private decimal _cashPaymentAmount;
-
-    public decimal ChangeAmount => Math.Max(0, AmountReceived - GrandTotal);
-
-    [ObservableProperty]
     private int _selectedSearchIndex = -1;
 
     [ObservableProperty]
-    private int _selectedCartIndex = -1;
+    private bool _isShortcutHelpOpen = false;
+
+    public ObservableCollection<InvoiceTabViewModel> InvoiceTabs { get; } = new();
+
+    [ObservableProperty]
+    private InvoiceTabViewModel? _activeTab;
+
+    [ObservableProperty]
+    private int _activeTabIndex = 0;
 
     public ObservableCollection<ProductSearchItemViewModel> SearchResults { get; } = new();
-    public ObservableCollection<CartItemViewModel> CartItems { get; } = new();
-    public ObservableCollection<string> HeldBills { get; } = new();
 
     public PosViewModel(
         IProductSearchService searchService,
@@ -173,7 +270,90 @@ public partial class PosViewModel : ObservableObject
     {
         _searchService = searchService;
         _posTransactionService = posTransactionService;
-        CartItems.CollectionChanged += (_, _) => RecalculateBillTotals();
+
+        // Initialize with default Bill #1 tab
+        var initialTab = new InvoiceTabViewModel(_tabCounter++);
+        InvoiceTabs.Add(initialTab);
+        ActiveTab = initialTab;
+        ActiveTabIndex = 0;
+    }
+
+    partial void OnActiveTabIndexChanged(int value)
+    {
+        if (value >= 0 && value < InvoiceTabs.Count)
+        {
+            ActiveTab = InvoiceTabs[value];
+        }
+    }
+
+    [RelayCommand]
+    public void AddNewTab()
+    {
+        var newTab = new InvoiceTabViewModel(_tabCounter++);
+        InvoiceTabs.Add(newTab);
+        ActiveTab = newTab;
+        ActiveTabIndex = InvoiceTabs.Count - 1;
+        StatusMessage = $"Opened {newTab.TabTitle}. Press [Ctrl+Tab] or click tabs to switch.";
+    }
+
+    [RelayCommand]
+    public void CloseTab(InvoiceTabViewModel? tab)
+    {
+        var targetTab = tab ?? ActiveTab;
+        if (targetTab == null) return;
+
+        if (InvoiceTabs.Count <= 1)
+        {
+            // If only 1 tab, clear it rather than removing
+            targetTab.CartItems.Clear();
+            targetTab.CustomerName = "Walk-in Customer";
+            targetTab.DoctorName = string.Empty;
+            targetTab.RecalculateTotals();
+            StatusMessage = "Cleared active bill.";
+            return;
+        }
+
+        var idx = InvoiceTabs.IndexOf(targetTab);
+        InvoiceTabs.Remove(targetTab);
+
+        if (ActiveTab == targetTab)
+        {
+            var nextIdx = Math.Min(idx, InvoiceTabs.Count - 1);
+            ActiveTabIndex = nextIdx;
+            ActiveTab = InvoiceTabs[nextIdx];
+        }
+
+        StatusMessage = "Closed invoice tab.";
+    }
+
+    [RelayCommand]
+    public void NextTab()
+    {
+        if (InvoiceTabs.Count <= 1) return;
+        ActiveTabIndex = (ActiveTabIndex + 1) % InvoiceTabs.Count;
+        ActiveTab = InvoiceTabs[ActiveTabIndex];
+        StatusMessage = $"Switched to {ActiveTab.TabTitle}";
+    }
+
+    [RelayCommand]
+    public void PreviousTab()
+    {
+        if (InvoiceTabs.Count <= 1) return;
+        ActiveTabIndex = (ActiveTabIndex - 1 + InvoiceTabs.Count) % InvoiceTabs.Count;
+        ActiveTab = InvoiceTabs[ActiveTabIndex];
+        StatusMessage = $"Switched to {ActiveTab.TabTitle}";
+    }
+
+    [RelayCommand]
+    public void ToggleShortcutHelp()
+    {
+        IsShortcutHelpOpen = !IsShortcutHelpOpen;
+    }
+
+    [RelayCommand]
+    public void CloseShortcutHelp()
+    {
+        IsShortcutHelpOpen = false;
     }
 
     async partial void OnSearchQueryChanged(string value)
@@ -193,7 +373,7 @@ public partial class PosViewModel : ObservableObject
         try
         {
             IsSearching = true;
-            await Task.Delay(50, token); // Fast 50ms debounce for sub-millisecond instant search
+            await Task.Delay(50, token); // Instant 50ms prefix debounce
 
             var results = await _searchService.SearchAsync(value, WarehouseId, 25, token);
 
@@ -237,30 +417,30 @@ public partial class PosViewModel : ObservableObject
 
     public void IncreaseSelectedCartQuantity()
     {
-        if (CartItems.Count == 0) return;
+        if (ActiveTab == null || ActiveTab.CartItems.Count == 0) return;
 
-        if (SelectedCartIndex < 0 || SelectedCartIndex >= CartItems.Count)
+        if (ActiveTab.SelectedCartIndex < 0 || ActiveTab.SelectedCartIndex >= ActiveTab.CartItems.Count)
         {
-            SelectedCartIndex = CartItems.Count - 1;
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.Count - 1;
         }
 
-        CartItems[SelectedCartIndex].Quantity += 1;
-        RecalculateBillTotals();
+        ActiveTab.CartItems[ActiveTab.SelectedCartIndex].Quantity += 1;
+        ActiveTab.RecalculateTotals();
     }
 
     public void DecreaseSelectedCartQuantity()
     {
-        if (CartItems.Count == 0) return;
+        if (ActiveTab == null || ActiveTab.CartItems.Count == 0) return;
 
-        if (SelectedCartIndex < 0 || SelectedCartIndex >= CartItems.Count)
+        if (ActiveTab.SelectedCartIndex < 0 || ActiveTab.SelectedCartIndex >= ActiveTab.CartItems.Count)
         {
-            SelectedCartIndex = CartItems.Count - 1;
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.Count - 1;
         }
 
-        if (CartItems[SelectedCartIndex].Quantity > 1)
+        if (ActiveTab.CartItems[ActiveTab.SelectedCartIndex].Quantity > 1)
         {
-            CartItems[SelectedCartIndex].Quantity -= 1;
-            RecalculateBillTotals();
+            ActiveTab.CartItems[ActiveTab.SelectedCartIndex].Quantity -= 1;
+            ActiveTab.RecalculateTotals();
         }
     }
 
@@ -288,18 +468,18 @@ public partial class PosViewModel : ObservableObject
     [RelayCommand]
     public void AddToCart(ProductSearchItemViewModel product)
     {
-        if (product == null) return;
+        if (product == null || ActiveTab == null) return;
         if (string.IsNullOrEmpty(product.BatchId))
         {
             StatusMessage = $"No active stock batch available for {product.Name}";
             return;
         }
 
-        var existing = CartItems.FirstOrDefault(c => c.BatchId == product.BatchId);
+        var existing = ActiveTab.CartItems.FirstOrDefault(c => c.BatchId == product.BatchId);
         if (existing != null)
         {
             existing.Quantity += 1;
-            SelectedCartIndex = CartItems.IndexOf(existing);
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.IndexOf(existing);
         }
         else
         {
@@ -307,6 +487,7 @@ public partial class PosViewModel : ObservableObject
             {
                 ProductId = product.Id,
                 ProductName = product.Name,
+                PackSizeDescription = product.PackSizeDescription,
                 BatchId = product.BatchId,
                 BatchNumber = product.BatchNumber ?? "DEFAULT",
                 ExpiryDate = product.NearestExpiryDate ?? DateTime.UtcNow.AddDays(365),
@@ -317,24 +498,25 @@ public partial class PosViewModel : ObservableObject
                 Schedule = product.Schedule,
                 Quantity = 1
             };
-            CartItems.Add(item);
-            SelectedCartIndex = CartItems.Count - 1;
+            ActiveTab.CartItems.Add(item);
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.Count - 1;
         }
 
         SearchQuery = string.Empty;
         SearchResults.Clear();
         SelectedSearchIndex = -1;
-        StatusMessage = $"Added {product.Name} to cart.";
-        RecalculateBillTotals();
+        ActiveTab.RecalculateTotals();
+        StatusMessage = $"Added {product.Name} (Batch: {product.BatchNumber}) to {ActiveTab.TabTitle}.";
     }
 
     private void AddToCartFromBarcode(BarcodeLookupDto product)
     {
-        var existing = CartItems.FirstOrDefault(c => c.BatchId == product.BatchId);
+        if (ActiveTab == null) return;
+        var existing = ActiveTab.CartItems.FirstOrDefault(c => c.BatchId == product.BatchId);
         if (existing != null)
         {
             existing.Quantity += 1;
-            SelectedCartIndex = CartItems.IndexOf(existing);
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.IndexOf(existing);
         }
         else
         {
@@ -352,39 +534,40 @@ public partial class PosViewModel : ObservableObject
                 Schedule = product.Schedule,
                 Quantity = 1
             };
-            CartItems.Add(item);
-            SelectedCartIndex = CartItems.Count - 1;
+            ActiveTab.CartItems.Add(item);
+            ActiveTab.SelectedCartIndex = ActiveTab.CartItems.Count - 1;
         }
 
+        ActiveTab.RecalculateTotals();
         StatusMessage = $"Scanned & Added: {product.ProductName}";
-        RecalculateBillTotals();
     }
 
     [RelayCommand]
     public void RemoveCartItem(CartItemViewModel item)
     {
-        if (item != null && CartItems.Contains(item))
+        if (ActiveTab != null && item != null && ActiveTab.CartItems.Contains(item))
         {
-            CartItems.Remove(item);
-            RecalculateBillTotals();
+            ActiveTab.CartItems.Remove(item);
+            ActiveTab.RecalculateTotals();
         }
     }
 
     [RelayCommand]
     public void ClearBill()
     {
-        CartItems.Clear();
+        if (ActiveTab == null) return;
+        ActiveTab.CartItems.Clear();
         SearchQuery = string.Empty;
         SearchResults.Clear();
-        AmountReceived = 0;
-        RecalculateBillTotals();
-        StatusMessage = "New bill started.";
+        ActiveTab.AmountReceived = 0;
+        ActiveTab.RecalculateTotals();
+        StatusMessage = "Active bill cleared.";
     }
 
     [RelayCommand]
     public async Task FinalizeSaleAsync()
     {
-        if (!CartItems.Any())
+        if (ActiveTab == null || !ActiveTab.CartItems.Any())
         {
             StatusMessage = "Cannot pay an empty bill.";
             return;
@@ -398,10 +581,10 @@ public partial class PosViewModel : ObservableObject
             UserId: CashierName,
             DeviceId: Environment.MachineName,
             CustomerId: null,
-            CustomerName: "Walk-in Customer",
-            IsInterstate: false,
-            PrescriptionRef: null,
-            Items: CartItems.Select(c => new CartItemInput(
+            CustomerName: string.IsNullOrWhiteSpace(ActiveTab.CustomerName) ? "Walk-in Customer" : ActiveTab.CustomerName,
+            IsInterstate: ActiveTab.IsInterstate,
+            PrescriptionRef: string.IsNullOrWhiteSpace(ActiveTab.DoctorName) ? null : $"Dr. {ActiveTab.DoctorName}",
+            Items: ActiveTab.CartItems.Select(c => new CartItemInput(
                 c.ProductId,
                 c.ProductName,
                 c.BatchId,
@@ -415,7 +598,7 @@ public partial class PosViewModel : ObservableObject
             )).ToList(),
             Payments: new List<SalePaymentInput>
             {
-                new SalePaymentInput(PaymentMode.Cash, GrandTotal)
+                new SalePaymentInput(ActiveTab.PaymentMode, ActiveTab.GrandTotal)
             }
         );
 
@@ -431,15 +614,5 @@ public partial class PosViewModel : ObservableObject
             StatusMessage = $"Sale Error: {result.ErrorMessage}";
         }
     }
-
-    public void RecalculateBillTotals()
-    {
-        Subtotal = CartItems.Sum(c => c.TaxableAmount);
-        TaxAmount = CartItems.Sum(c => c.GstAmount);
-
-        var rawTotal = Subtotal + TaxAmount;
-        var rounded = Math.Round(rawTotal, 0, MidpointRounding.AwayFromZero);
-        RoundOff = rounded - rawTotal;
-        GrandTotal = rounded;
-    }
 }
+
