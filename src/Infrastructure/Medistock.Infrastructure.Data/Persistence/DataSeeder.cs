@@ -83,11 +83,14 @@ public class DataSeeder : IDataSeeder
         {
             ("b_dolo_1", "p_dolo", "DL24A", DateTime.UtcNow.AddDays(180), 30.50, 22.00, 30.00, 150.0),
             ("b_dolo_2", "p_dolo", "DL24B", DateTime.UtcNow.AddDays(400), 32.00, 23.50, 32.00, 200.0),
+            ("b_dolo_exp", "p_dolo", "DL23EXP", DateTime.UtcNow.AddDays(-15), 28.00, 20.00, 28.00, 20.0), // Expired
+            ("b_aug_crit", "p_aug", "AG24CRIT", DateTime.UtcNow.AddDays(18), 205.00, 155.00, 200.00, 15.0), // Critical (<=30d)
             ("b_aug_1", "p_aug", "AG24A", DateTime.UtcNow.AddDays(120), 205.00, 155.00, 200.00, 50.0),
+            ("b_pand_warn", "p_pand", "PD24WARN", DateTime.UtcNow.AddDays(55), 199.00, 140.00, 195.00, 30.0), // Warning (31-90d)
             ("b_pand_1", "p_pand", "PD24A", DateTime.UtcNow.AddDays(300), 199.00, 140.00, 195.00, 80.0),
             ("b_azith_1", "p_azith", "AZ24A", DateTime.UtcNow.AddDays(240), 125.00, 90.00, 120.00, 60.0),
             ("b_telma_1", "p_telma", "TL24A", DateTime.UtcNow.AddDays(365), 240.00, 180.00, 235.00, 40.0),
-            ("b_insul_1", "p_insul", "HM24A", DateTime.UtcNow.AddDays(90), 175.00, 130.00, 175.00, 25.0),
+            ("b_insul_1", "p_insul", "HM24A", DateTime.UtcNow.AddDays(75), 175.00, 130.00, 175.00, 25.0),
             ("b_glyc_1", "p_glyc", "GL24A", DateTime.UtcNow.AddDays(280), 110.00, 80.00, 105.00, 90.0),
             ("b_mont_1", "p_mont", "MT24A", DateTime.UtcNow.AddDays(320), 160.00, 115.00, 155.00, 75.0),
             ("b_alpra_1", "p_alpra", "AL24A", DateTime.UtcNow.AddDays(210), 45.00, 30.00, 45.00, 100.0),

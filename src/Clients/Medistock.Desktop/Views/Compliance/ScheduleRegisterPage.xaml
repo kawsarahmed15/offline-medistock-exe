@@ -1,0 +1,138 @@
+<Page
+    x:Class="Medistock.Desktop.Views.Compliance.ScheduleRegisterPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:Medistock.Desktop.ViewModels"
+    mc:Ignorable="d"
+    Background="{ThemeResource AppBackground}">
+
+    <Grid RowDefinitions="Auto,*" Margin="24">
+        <!-- 1. Header & Filter Bar -->
+        <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="0,0,0,16">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                <StackPanel Orientation="Vertical" Spacing="4">
+                    <TextBlock Text="📋 Schedule H / H1 / X Statutory Drug Register"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource TextPrimary}" />
+                    <TextBlock Text="Compliant with Indian Drugs and Cosmetics Rules (Form 35 / Schedule H1 dispensing ledger)"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextSecondary}" />
+                </StackPanel>
+
+                <!-- Total Count Pill -->
+                <Border Grid.Column="1"
+                        Background="{ThemeResource SurfaceDefault}"
+                        BorderBrush="{ThemeResource BorderDefault}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="16,8">
+                    <StackPanel Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="LOGGED TRANSACTIONS" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                        <TextBlock Text="{Binding TotalRecordsCount}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Filters -->
+            <Border Grid.Row="1"
+                    Background="{ThemeResource SurfaceDefault}"
+                    BorderBrush="{ThemeResource BorderDefault}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="🔍 Search patient name, phone, doctor name, invoice no..."
+                             Margin="0,0,12,0" />
+
+                    <Button Grid.Column="1"
+                            Command="{Binding LoadRegisterCommand}"
+                            Content="Apply Filter"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Margin="0,0,8,0" />
+
+                    <Button Grid.Column="2"
+                            Command="{Binding LoadRegisterCommand}"
+                            Content="🔄 Refresh" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 2. Statutory Register Table -->
+        <Border Grid.Row="1"
+                Background="{ThemeResource SurfaceDefault}"
+                BorderBrush="{ThemeResource BorderDefault}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Column Header -->
+                <Grid Grid.Row="0"
+                      ColumnDefinitions="1.5*,2*,1.2*,1*,1*,2*,2*,1*"
+                      Padding="12,8"
+                      Background="{ThemeResource SurfaceSubtle}"
+                      CornerRadius="4"
+                      Margin="0,0,0,4">
+                    <TextBlock Grid.Column="0" Text="INVOICE &amp; DATE" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="1" Text="PRODUCT &amp; SCHEDULE" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="2" Text="BATCH &amp; EXP" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="3" Text="QTY" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="4" Text="PATIENT NAME" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="5" Text="DOCTOR &amp; REG NO" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="6" Text="PRESCRIPTION REF" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                    <TextBlock Grid.Column="7" Text="DISPENSER" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Center" />
+                </Grid>
+
+                <ListView Grid.Row="1"
+                          ItemsSource="{Binding RegisterEntries}"
+                          SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="1.5*,2*,1.2*,1*,1*,2*,2*,1*"
+                                  Padding="8,6"
+                                  BorderBrush="{ThemeResource BorderDefault}"
+                                  BorderThickness="0,0,0,1">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="{Binding InvoiceNo}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AccentPrimary}" />
+                                    <TextBlock Text="{Binding SaleDateFormatted}" FontSize="10" Foreground="{ThemeResource TextMuted}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource TextPrimary}" />
+                                    <TextBlock Text="{Binding ScheduleBadgeText}" FontSize="10" FontWeight="Bold" Foreground="#8B5CF6" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Spacing="2">
+                                    <TextBlock Text="{Binding BatchNumber}" FontFamily="Consolas, Fira Code" FontSize="11" />
+                                    <TextBlock Text="{Binding ExpiryFormatted}" FontSize="10" Foreground="{ThemeResource TextMuted}" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="3" Text="{Binding Quantity}" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+                                <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PatientName}" FontWeight="SemiBold" FontSize="12" />
+                                    <TextBlock Text="{Binding PatientPhone}" FontSize="10" Foreground="{ThemeResource TextMuted}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="5" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DoctorName}" FontSize="12" />
+                                    <TextBlock Text="{Binding DoctorRegNo}" FontSize="10" Foreground="{ThemeResource TextMuted}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PrescriptionRef}" FontSize="11" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="7" Text="{Binding DispensedByUserId}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{ThemeResource TextSecondary}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

@@ -37,6 +37,9 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddTransient<PosViewModel>();
         services.AddTransient<PosPage>();
+        services.AddTransient<InventoryViewModel>();
+        services.AddTransient<ExpiryDashboardViewModel>();
+        services.AddTransient<ScheduleRegisterViewModel>();
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

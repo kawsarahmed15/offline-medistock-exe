@@ -72,3 +72,19 @@ public enum ConnectivityState
     InternetDownB = 2,   // Local Workstation -> Local Server (Cloud Outbox Queued)
     LocalServerDownC = 3 // Local Workstation -> SQLite (LAN Outbox Queued)
 }
+
+public enum ExpiryBand
+{
+    Good = 0,     // > 90 days to expiry
+    Warning = 1,  // 31 - 90 days to expiry
+    Critical = 2, // 0 - 30 days to expiry
+    Expired = 3   // < 0 days (past expiry)
+}
+
+public enum StockAdjustmentType
+{
+    Add = 1,
+    Reduce = 2,
+    QuarantineExpired = 3,
+    DamageWriteOff = 4
+}

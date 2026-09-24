@@ -171,13 +171,36 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 
 ---
 
-## 6. Next Action Items (Phase 2 Roadmap)
-1. **Inventory & Batch Management Engine:**
-   - Multi-batch tracking, expiry alerts (<90 days, <30 days, expired), schedule drug register (H/H1/X/Narcotics).
-2. **Purchase Entry & Wholesaler Management:**
-   - Purchase invoice processing, automated batch creation, landed cost computation, GST input tax credit calculation.
-3. **Financial Accounting Core (Double Entry):**
+### ✅ Step 11 — Phase 2: Inventory & Batch Management, Expiry Dashboard & Schedule Drug Register
+- **1. Multi-Batch & Expiry Risk Engine (`Medistock.Domain` & `Medistock.Application`):**
+  - Added `ExpiryBand` categorization (`Expired`, `Critical` $\le 30$d, `Warning` 31–90d, `Good` $> 90$d).
+  - Added `StockAdjustmentType` (`Add`, `Reduce`, `QuarantineExpired`, `DamageWriteOff`).
+  - Added financial valuation algorithms calculating MRP valuation and acquisition cost value-at-risk.
+  - Implemented `InventoryService` and `IInventoryRepository`.
+- **2. Statutory Schedule Drug Register Subsystem (Compliance):**
+  - Created `ScheduleDrugRegisterEntry` entity meeting Indian Drugs and Cosmetics Rules (Form 35 / Schedule H1).
+  - Tracks mandatory patient name/phone/address, prescribing doctor & registration number, prescription date/reference, batch, expiry, quantity, and dispensing pharmacist.
+  - Implemented `ScheduleDrugService` and `IScheduleDrugRepository` with multi-criteria filtering (date ranges, schedule classes H/H1/X/Narcotics, search).
+- **3. Database Migration & Dapper Repositories (`Medistock.Infrastructure.Data`):**
+  - Added `002_InventoryAndScheduleDrugs.sql` migration with `schedule_drug_register` table and indexes.
+  - Implemented `SqliteInventoryRepository` with atomic stock adjustments, negative stock protection, and movement ledger logging.
+  - Implemented `SqliteScheduleDrugRepository` with Dapper query pipelines.
+- **4. WinUI 3 Desktop Views & ViewModels (`Medistock.Desktop`):**
+  - `InventoryViewModel` & `InventoryPage.xaml`: Stock grid, search, low stock filter, batch details, and action triggers.
+  - `ExpiryDashboardViewModel` & `ExpiryDashboardPage.xaml`: 4-band visual KPI cards with color-coded alerts and urgent action lists.
+  - `ScheduleRegisterViewModel` & `ScheduleRegisterPage.xaml`: Regulatory inspection-ready ledger with date/doctor/patient filtering.
+- **Verification & Test Status:**
+  - 32 automated unit & integration tests passing with **0 warnings and 0 errors** across all 14 projects.
+
+---
+
+## 6. Next Action Items (Phase 2 Continuation)
+1. **Purchase Entry & Wholesaler Management:**
+   - Rapid Purchase Invoice Entry (keyboard-first with tab jumping), Wholesaler ledger integration, Landed cost calculation (freight + scheme discount + GST input tax credit).
+2. **Financial Accounting Core (Double Entry):**
    - General Ledger, Chart of Accounts, Cash/Bank books, Customer/Vendor ledgers, automated voucher posting for sales and purchases.
+3. **App Shell Navigation Integration:**
+   - Wire sidebar / top toolbar navigation links to easily switch between POS, Inventory, Expiry Dashboard, and Schedule Register.
 
 ---
 

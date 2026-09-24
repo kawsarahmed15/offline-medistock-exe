@@ -34,34 +34,40 @@ public class DatabaseMigrator : IDatabaseMigrator
             );
         ");
 
-        var migrationSql = GetInitialSchemaSql();
-        var migrationName = "001_InitialSchema";
-
-        var exists = await connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM __schema_migrations WHERE version = @version",
-            new { version = migrationName });
-
-        if (exists == 0)
+        var migrations = new[]
         {
-            using var transaction = connection.BeginTransaction();
-            try
-            {
-                using var cmd = connection.CreateCommand();
-                cmd.Transaction = (System.Data.Common.DbTransaction)transaction;
-                cmd.CommandText = migrationSql;
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            ("001_InitialSchema", GetInitialSchemaSql()),
+            ("002_InventoryAndScheduleDrugs", GetScheduleDrugsSchemaSql())
+        };
 
-                await connection.ExecuteAsync(
-                    "INSERT INTO __schema_migrations (version, applied_at) VALUES (@version, @appliedAt)",
-                    new { version = migrationName, appliedAt = DateTime.UtcNow.ToString("o") },
-                    transaction);
+        foreach (var (version, sql) in migrations)
+        {
+            var exists = await connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM __schema_migrations WHERE version = @version",
+                new { version });
 
-                transaction.Commit();
-            }
-            catch
+            if (exists == 0)
             {
-                transaction.Rollback();
-                throw;
+                using var transaction = connection.BeginTransaction();
+                try
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.Transaction = (System.Data.Common.DbTransaction)transaction;
+                    cmd.CommandText = sql;
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+                    await connection.ExecuteAsync(
+                        "INSERT INTO __schema_migrations (version, applied_at) VALUES (@version, @appliedAt)",
+                        new { version, appliedAt = DateTime.UtcNow.ToString("o") },
+                        transaction);
+
+                    transaction.Commit();
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    throw;
+                }
             }
         }
     }
@@ -309,4 +315,58 @@ BEGIN
     DELETE FROM fts_products WHERE product_id = old.id;
 END;
 ";
+
+    private static string GetScheduleDrugsSchemaSql()
+    {
+        var assembly = typeof(DatabaseMigrator).Assembly;
+        var resourceName = "Medistock.Infrastructure.Data.Migrations.002_InventoryAndScheduleDrugs.sql";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "002_InventoryAndScheduleDrugs.sql");
+        if (File.Exists(localPath))
+        {
+            return File.ReadAllText(localPath);
+        }
+
+        return ScheduleDrugsSqlSchema;
+    }
+
+    private const string ScheduleDrugsSqlSchema = @"
+CREATE TABLE IF NOT EXISTS schedule_drug_register (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    sale_id TEXT NOT NULL,
+    invoice_no TEXT NOT NULL,
+    sale_date TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    schedule INTEGER NOT NULL,
+    batch_number TEXT NOT NULL,
+    expiry_date TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    patient_name TEXT NOT NULL,
+    patient_address TEXT,
+    patient_phone TEXT,
+    doctor_name TEXT NOT NULL,
+    doctor_reg_no TEXT,
+    doctor_address TEXT,
+    prescription_ref TEXT,
+    prescription_date TEXT,
+    dispensed_by_user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sch_reg_sale_date ON schedule_drug_register(sale_date);
+CREATE INDEX IF NOT EXISTS idx_sch_reg_schedule ON schedule_drug_register(schedule);
+CREATE INDEX IF NOT EXISTS idx_sch_reg_product ON schedule_drug_register(product_id);
+CREATE INDEX IF NOT EXISTS idx_sch_reg_patient_phone ON schedule_drug_register(patient_phone);
+";
 }
+
