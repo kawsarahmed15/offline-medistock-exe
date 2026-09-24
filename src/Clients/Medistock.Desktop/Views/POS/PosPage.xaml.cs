@@ -36,6 +36,7 @@ public sealed partial class PosPage : Page
         _shortcutService.RegisterAction("pos.prev_tab", () => ViewModel.PreviousTab());
         _shortcutService.RegisterAction("pos.new_sale", () => ViewModel.ClearBill());
         _shortcutService.RegisterAction("pos.search_product", () => SearchBox.Focus(FocusState.Programmatic));
+        _shortcutService.RegisterAction("pos.create_item", () => ViewModel.OpenCreateProductModal());
         _shortcutService.RegisterAction("pos.payment", async () => await ViewModel.FinalizeSaleAsync());
         _shortcutService.RegisterAction("pos.clear_cart", () => ViewModel.ClearBill());
         _shortcutService.RegisterAction("app.help_shortcuts", () => ViewModel.ToggleShortcutHelp());
@@ -78,6 +79,54 @@ public sealed partial class PosPage : Page
             return;
         }
 
+        if (e.Key == VirtualKey.F2)
+        {
+            if (ViewModel.IsCreateProductModalOpen)
+            {
+                _ = ViewModel.SaveCreateProductAsync();
+            }
+            else
+            {
+                ViewModel.OpenCreateProductModal();
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.F3)
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Escape)
+        {
+            if (ViewModel.IsCreateProductModalOpen)
+            {
+                ViewModel.CloseCreateProductModal();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
+            if (ViewModel.IsBatchPickerOpen)
+            {
+                ViewModel.CloseBatchPicker();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
+            if (ViewModel.IsShortcutHelpOpen)
+            {
+                ViewModel.CloseShortcutHelp();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (_shortcutService.TryExecuteShortcut(e.Key, isCtrl, isAlt, isShift, "POS"))
         {
             e.Handled = true;
@@ -93,6 +142,15 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private void BatchPickerList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ProductBatchDto batch)
+        {
+            ViewModel.SelectBatch(batch);
+            SearchBox.Focus(FocusState.Programmatic);
+        }
+    }
+
     private void RemoveItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is CartItemViewModel item)
@@ -103,6 +161,53 @@ public sealed partial class PosPage : Page
 
     private async void SearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.F2)
+        {
+            ViewModel.OpenCreateProductModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsBatchPickerOpen)
+        {
+            if (e.Key == VirtualKey.Down)
+            {
+                ViewModel.MoveBatchSelectionDown();
+                if (BatchPickerList.SelectedItem != null)
+                {
+                    BatchPickerList.ScrollIntoView(BatchPickerList.SelectedItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            else if (e.Key == VirtualKey.Up)
+            {
+                ViewModel.MoveBatchSelectionUp();
+                if (BatchPickerList.SelectedItem != null)
+                {
+                    BatchPickerList.ScrollIntoView(BatchPickerList.SelectedItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            else if (e.Key == VirtualKey.Enter)
+            {
+                if (ViewModel.SelectedBatchIndex >= 0 && ViewModel.SelectedBatchIndex < ViewModel.SelectedProductBatches.Count)
+                {
+                    ViewModel.SelectBatch(ViewModel.SelectedProductBatches[ViewModel.SelectedBatchIndex]);
+                    SearchBox.Text = string.Empty;
+                }
+                e.Handled = true;
+                return;
+            }
+            else if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CloseBatchPicker();
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (e.Key == VirtualKey.Down)
         {
             ViewModel.MoveSearchSelectionDown();
@@ -154,13 +259,26 @@ public sealed partial class PosPage : Page
                 }
                 else if (ViewModel.SelectedSearchIndex >= 0 && ViewModel.SelectedSearchIndex < ViewModel.SearchResults.Count)
                 {
-                    ViewModel.AddToCart(ViewModel.SearchResults[ViewModel.SelectedSearchIndex]);
-                    SearchBox.Text = string.Empty;
+                    var selected = ViewModel.SearchResults[ViewModel.SelectedSearchIndex];
+                    ViewModel.AddToCart(selected);
+                    if (!ViewModel.IsBatchPickerOpen)
+                    {
+                        SearchBox.Text = string.Empty;
+                    }
                 }
                 else if (ViewModel.SearchResults.Count > 0)
                 {
-                    ViewModel.AddToCart(ViewModel.SearchResults[0]);
-                    SearchBox.Text = string.Empty;
+                    var selected = ViewModel.SearchResults[0];
+                    ViewModel.AddToCart(selected);
+                    if (!ViewModel.IsBatchPickerOpen)
+                    {
+                        SearchBox.Text = string.Empty;
+                    }
+                }
+                else
+                {
+                    // If no search matches, open F2 create product with the query pre-filled!
+                    ViewModel.OpenCreateProductModal();
                 }
             }
             e.Handled = true;
@@ -194,4 +312,3 @@ public sealed partial class PosPage : Page
         }
     }
 }
-
