@@ -8,7 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Dapper" Version="2.1.89" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
@@ -20,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Medistock.Application\Medistock.Application.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Medistock.Infrastructure.Data\Medistock.Infrastructure.Data.csproj" />
   </ItemGroup>
 
 </Project>
