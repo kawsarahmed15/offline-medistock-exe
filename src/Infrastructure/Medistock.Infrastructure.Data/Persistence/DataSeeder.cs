@@ -30,10 +30,12 @@ public class DataSeeder : IDataSeeder
 
         var products = GetSeedProducts();
 
+        using var tx = conn.BeginTransaction();
+
         foreach (var p in products)
         {
             await conn.ExecuteAsync(@"
-                INSERT OR REPLACE INTO products (
+                INSERT OR IGNORE INTO products (
                     id, org_id, name, brand_name, generic_name, composition, strength,
                     dosage_form, pack_units, base_unit, hsn_code, gst_rate_percent,
                     schedule, is_prescription_required, is_cold_chain, is_narcotic,
@@ -63,16 +65,16 @@ public class DataSeeder : IDataSeeder
                 narc = p.IsNarcotic ? 1 : 0,
                 barcode = p.Barcode,
                 mfg = p.Manufacturer
-            });
+            }, tx);
 
             // Seed primary batch
             var b1Id = $"b_{p.Id}_1";
             var expiry1 = DateTime.UtcNow.AddDays(p.ExpiryOffsetDays1);
             await conn.ExecuteAsync(@"
-                INSERT OR REPLACE INTO batches (id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at)
+                INSERT OR IGNORE INTO batches (id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at)
                 VALUES (@id, @prodId, 'org-1', @batchNo, @expiry, @mrp, @prate, @srate, datetime('now'));
 
-                INSERT OR REPLACE INTO stock_balances (id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at)
+                INSERT OR IGNORE INTO stock_balances (id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at)
                 VALUES (@sbId, @id, @prodId, 'wh-1', @qty, 0.0, datetime('now'));
             ", new
             {
@@ -85,7 +87,7 @@ public class DataSeeder : IDataSeeder
                 srate = p.SaleRate,
                 sbId = "sb_" + b1Id,
                 qty = p.Quantity1
-            });
+            }, tx);
 
             // Optional secondary batch (e.g. for expiry testing or multi-batch tracking)
             if (!string.IsNullOrEmpty(p.BatchNo2))
@@ -93,10 +95,10 @@ public class DataSeeder : IDataSeeder
                 var b2Id = $"b_{p.Id}_2";
                 var expiry2 = DateTime.UtcNow.AddDays(p.ExpiryOffsetDays2);
                 await conn.ExecuteAsync(@"
-                    INSERT OR REPLACE INTO batches (id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at)
+                    INSERT OR IGNORE INTO batches (id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at)
                     VALUES (@id, @prodId, 'org-1', @batchNo, @expiry, @mrp, @prate, @srate, datetime('now'));
 
-                    INSERT OR REPLACE INTO stock_balances (id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at)
+                    INSERT OR IGNORE INTO stock_balances (id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at)
                     VALUES (@sbId, @id, @prodId, 'wh-1', @qty, 0.0, datetime('now'));
                 ", new
                 {
@@ -109,9 +111,11 @@ public class DataSeeder : IDataSeeder
                     srate = p.SaleRate,
                     sbId = "sb_" + b2Id,
                     qty = p.Quantity2
-                });
+                }, tx);
             }
         }
+
+        tx.Commit();
     }
 
     public record SeedItem(

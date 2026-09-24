@@ -6,6 +6,7 @@
     <controls:StringFormatConverter x:Key="StringFormatConverter" />
     <controls:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     <controls:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+    <ThemeShadow x:Key="SharedShadow" />
 
     <!-- Spacing Scale (8dp grid) -->
     <x:Double x:Key="SpacingXs">4</x:Double>

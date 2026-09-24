@@ -8,6 +8,10 @@
     mc:Ignorable="d"
     Background="{ThemeResource AppBackground}">
 
+    <Page.Resources>
+        <ThemeShadow x:Key="SharedShadow" />
+    </Page.Resources>
+
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
         <!-- 1. Top Chrome-Style Multi-Invoice Tabs Bar -->
         <Grid Grid.Row="0" Background="{ThemeResource SurfaceBackground}" Padding="12,6,12,4" ColumnDefinitions="Auto,*,Auto">
@@ -157,7 +161,7 @@
                         BorderBrush="{ThemeResource BorderStrong}"
                         BorderThickness="1.5"
                         CornerRadius="4"
-                        Shadow="{ThemeResource SharedShadow}"
+                        Shadow="{StaticResource SharedShadow}"
                         Visibility="{x:Bind ViewModel.SearchResults.Count, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Grid RowDefinitions="Auto,*">
                         <!-- Table Header -->
@@ -387,7 +391,7 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Padding="20"
-                    Shadow="{ThemeResource SharedShadow}">
+                    Shadow="{StaticResource SharedShadow}">
                 <Grid RowDefinitions="Auto,*,Auto">
                     <!-- Title -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
