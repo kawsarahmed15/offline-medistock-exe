@@ -1,0 +1,22 @@
+{
+  "profileName": "Medistock Standard",
+  "version": "1.0",
+  "description": "Modern SaaS Standard keyboard mapping with Ctrl+S=Save and intuitive F-keys.",
+  "bindings": [
+    { "command": "pos.new_sale", "key": "F2", "scope": "POS", "description": "Start a new sale invoice" },
+    { "command": "pos.search_product", "key": "F3", "scope": "POS", "description": "Focus product search / scan box" },
+    { "command": "pos.apply_discount", "key": "F4", "scope": "POS", "description": "Open line / bill discount panel" },
+    { "command": "pos.payment", "key": "F6", "scope": "POS", "description": "Open payment & finalize sale" },
+    { "command": "pos.hold_bill", "key": "Ctrl+H", "scope": "POS", "description": "Hold current bill in queue" },
+    { "command": "pos.resume_bill", "key": "Ctrl+R", "scope": "POS", "description": "Resume held bill" },
+    { "command": "pos.save_invoice", "key": "Ctrl+S", "scope": "POS", "description": "Save current invoice" },
+    { "command": "pos.clear_cart", "key": "Escape", "scope": "POS", "description": "Clear search or active selection" },
+    { "command": "app.help_shortcuts", "key": "Alt+F1", "scope": "Global", "description": "Open keyboard shortcut help overlay" },
+    { "command": "app.toggle_theme", "key": "Ctrl+Shift+T", "scope": "Global", "description": "Toggle between Light and Dark themes" },
+    { "command": "nav.pos", "key": "Ctrl+1", "scope": "Global", "description": "Navigate to POS Billing" },
+    { "command": "nav.inventory", "key": "Ctrl+2", "scope": "Global", "description": "Navigate to Inventory / Stocks" },
+    { "command": "nav.purchases", "key": "Ctrl+3", "scope": "Global", "description": "Navigate to Purchase Entry" },
+    { "command": "nav.accounting", "key": "Ctrl+4", "scope": "Global", "description": "Navigate to Financial Accounts" },
+    { "command": "nav.reports", "key": "Ctrl+5", "scope": "Global", "description": "Navigate to Reports" }
+  ]
+}

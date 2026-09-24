@@ -151,10 +151,33 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 
 ---
 
-## 6. Next Action Items (Phase 1 Continuation: Keyboard Shortcuts, Hardware & Sync)
-1. **Keyboard Shortcut Layer (`KEYBOARD_SHORTCUTS.md`):** Implement `ICommand` binding registry and JSON keymap loader (`Medistock Standard` + `MARG-Compatible` profiles) with `Alt+F1` context-aware help overlay in `Medistock.Desktop`.
-2. **Hardware Abstraction Layer (`Medistock.Infrastructure.Hardware`):** Implement `IReceiptPrinter` (ESC/POS thermal printer driver with 80mm/58mm templates) and `ICashDrawer`.
-3. **Local Sync Worker (`Medistock.Infrastructure.Sync`):** Implement background outbox processing worker draining pending events to Local Server / Cloud API.
+### ✅ Step 10 — Keyboard Shortcuts, Hardware HAL & Outbox Sync Worker (Items 1, 2, 3)
+- **1. Keyboard Shortcut System & Dynamic Keymaps (`Medistock.Desktop`):**
+  - Implemented `KeymapProfile` and `KeyBindingDefinition` with JSON serialization.
+  - Added [`default.json`](file:///D:/Projects/Medistock-offlinefirst/src/Clients/Medistock.Desktop/Keymaps/default.json) (Medistock Standard: `Ctrl+S=Save`, `F2=New`, `F3=Search`, `F4=Discount`, `F6=Payment`, `Alt+F1=Help`).
+  - Added [`marg-compatible.json`](file:///D:/Projects/Medistock-offlinefirst/src/Clients/Medistock.Desktop/Keymaps/marg-compatible.json) (MARG-Compatible: `Ctrl+W=Save`, `Ctrl+S=Flush Cache`).
+  - Implemented `ShortcutService` with hierarchical scope resolution (`Field` $\rightarrow$ `Panel` $\rightarrow$ `Screen` $\rightarrow$ `Global`).
+  - Built `ShortcutHelpDialog.xaml` (context-aware `Alt+F1` overlay dialog) and wired it into `PosPage.xaml.cs`.
+- **2. Hardware Abstraction Layer (`Medistock.Infrastructure.Hardware`):**
+  - Implemented `EscPosReceiptPrinter` supporting `IReceiptPrinter` and `ICashDrawer`.
+  - Generates binary ESC/POS byte streams for both 80mm (48 column standard) and 58mm (32 column compact) formats.
+  - Implemented cash drawer pulse (`\x1B\x70\x00\x19\xFA`), paper auto-cut (`\x1D\x56\x42\x00`), tax breakdown, and statutory pharmaceutical disclaimers.
+- **3. Local Sync Worker & Connectivity Engine (`Medistock.Infrastructure.Sync`):**
+  - Implemented `IConnectivityService` / `ConnectivityService` with 3-tier connectivity state detection (`FullA`, `DegradedLocalB`, `LocalServerDownC`).
+  - Implemented `OutboxSyncWorker` background service draining pending outbox events with exponential retry/failure backoff.
+  - Wired into `Medistock.Desktop`, `Medistock.LocalServer`, and unit test test harness.
+- **Verification & Test Status:**
+  - 25 automated unit & integration tests passing with **0 warnings and 0 errors** across all 14 projects.
+
+---
+
+## 6. Next Action Items (Phase 2 Roadmap)
+1. **Inventory & Batch Management Engine:**
+   - Multi-batch tracking, expiry alerts (<90 days, <30 days, expired), schedule drug register (H/H1/X/Narcotics).
+2. **Purchase Entry & Wholesaler Management:**
+   - Purchase invoice processing, automated batch creation, landed cost computation, GST input tax credit calculation.
+3. **Financial Accounting Core (Double Entry):**
+   - General Ledger, Chart of Accounts, Cash/Bank books, Customer/Vendor ledgers, automated voucher posting for sales and purchases.
 
 ---
 
@@ -165,3 +188,4 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 - [KEYBOARD_SHORTCUTS.md](file:///D:/Projects/Medistock-offlinefirst/KEYBOARD_SHORTCUTS.md) — Full keyboard/input architecture, both keymap profiles, scope system
 - [AGENT.md](file:///D:/Projects/Medistock-offlinefirst/AGENT.md) — Agent operational rules & coding protocols
 - [AGY_STATE.md](file:///D:/Projects/Medistock-offlinefirst/AGY_STATE.md) — Active session state and progress log
+

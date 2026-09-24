@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Medistock.Infrastructure.Data\Medistock.Infrastructure.Data.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Medistock.Infrastructure.Hardware\Medistock.Infrastructure.Hardware.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Medistock.Infrastructure.Sync\Medistock.Infrastructure.Sync.csproj" />
   </ItemGroup>
 

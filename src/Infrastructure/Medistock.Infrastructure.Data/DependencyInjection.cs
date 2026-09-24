@@ -12,6 +12,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<ISqliteConnectionFactory>(_ => new SqliteConnectionFactory(sqliteDbPath));
         services.AddScoped<IDatabaseMigrator, DatabaseMigrator>();
+        services.AddScoped<IDataSeeder, DataSeeder>();
         services.AddScoped<IProductSearchRepository, SqliteProductSearchRepository>();
         services.AddScoped<IStockRepository, SqliteStockRepository>();
         services.AddScoped<ISaleRepository, SqliteSaleRepository>();

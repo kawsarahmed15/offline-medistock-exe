@@ -1,0 +1,20 @@
+{
+  "profileName": "MARG-Compatible",
+  "version": "1.0",
+  "description": "Full keyboard compatibility mode matching MARG ERP 9+ (Ctrl+W=Save Bill, Ctrl+S=Flush Cache).",
+  "bindings": [
+    { "command": "pos.new_sale", "key": "F2", "scope": "POS", "description": "New sale invoice / Bill date" },
+    { "command": "pos.search_product", "key": "F3", "scope": "POS", "description": "Focus item lookup / Search" },
+    { "command": "pos.apply_discount", "key": "F4", "scope": "POS", "description": "Apply discount percentage" },
+    { "command": "pos.payment", "key": "F6", "scope": "POS", "description": "Direct payment / Tender amount" },
+    { "command": "pos.save_invoice", "key": "Ctrl+W", "scope": "POS", "description": "Save bill / Finalize (MARG Standard)" },
+    { "command": "pos.hold_bill", "key": "Ctrl+H", "scope": "POS", "description": "Hold running bill" },
+    { "command": "pos.resume_bill", "key": "Ctrl+R", "scope": "POS", "description": "Recall pending bill" },
+    { "command": "pos.clear_cart", "key": "Escape", "scope": "POS", "description": "Cancel current line or exit panel" },
+    { "command": "app.flush_cache", "key": "Ctrl+S", "scope": "Global", "description": "Flush local in-memory cache" },
+    { "command": "app.help_shortcuts", "key": "Alt+F1", "scope": "Global", "description": "Display active keyboard shortcut help" },
+    { "command": "nav.pos", "key": "Alt+S", "scope": "Global", "description": "Navigate to Sale" },
+    { "command": "nav.purchases", "key": "Alt+P", "scope": "Global", "description": "Navigate to Purchase" },
+    { "command": "nav.accounting", "key": "Alt+A", "scope": "Global", "description": "Navigate to Accounts" }
+  ]
+}

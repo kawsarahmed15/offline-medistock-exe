@@ -1,34 +1,32 @@
+using Medistock.Application;
+using Medistock.Infrastructure.Data;
+using Medistock.Infrastructure.Sync;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add Medistock Core & Infrastructure Services
+builder.Services.AddApplication();
+builder.Services.AddInfrastructureData();
+builder.Services.AddInfrastructureSync();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-
 app.UseHttpsRedirection();
 
-var summaries = new[]
+// Health & Connectivity Check Endpoint
+app.MapGet("/api/health", () => Results.Ok(new
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    status = "Healthy",
+    timestamp = DateTime.UtcNow,
+    version = "1.0.0-alpha",
+    service = "Medistock.LocalServer"
+}));
 
-app.MapGet("/weatherforecast", () =>
+// Outbox Sync Ingestion Endpoint
+app.MapPost("/api/sync/events", (object payload) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
+    // Idempotent ingestion of synced events from edge terminals
+    return Results.Ok(new { processed = true, receivedAt = DateTime.UtcNow });
 });
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

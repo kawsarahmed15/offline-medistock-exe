@@ -1,9 +1,13 @@
 using System;
 using Medistock.Application;
+using Medistock.Desktop.Commands;
 using Medistock.Desktop.ViewModels;
 using Medistock.Desktop.Views.POS;
 using Medistock.Infrastructure.Data;
 using Medistock.Infrastructure.Data.Migrations;
+using Medistock.Infrastructure.Data.Persistence;
+using Medistock.Infrastructure.Hardware;
+using Medistock.Infrastructure.Sync;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 
@@ -27,7 +31,10 @@ public partial class App : Microsoft.UI.Xaml.Application
     {
         services.AddApplication();
         services.AddInfrastructureData();
+        services.AddInfrastructureHardware();
+        services.AddInfrastructureSync();
 
+        services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddTransient<PosViewModel>();
         services.AddTransient<PosPage>();
     }
@@ -39,6 +46,9 @@ public partial class App : Microsoft.UI.Xaml.Application
             using var scope = Services.CreateScope();
             var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
             await migrator.MigrateAsync();
+
+            var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
+            await seeder.SeedIfEmptyAsync();
         }
         catch { }
 
