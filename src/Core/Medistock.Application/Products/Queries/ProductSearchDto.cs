@@ -19,6 +19,7 @@ public class ProductSearchDto
     public bool IsPrescriptionRequired { get; set; }
     public bool IsColdChain { get; set; }
     public bool IsNarcotic { get; set; }
+    public string? ManufacturerName { get; set; }
     public string? Barcode { get; set; }
     public string? BatchId { get; set; }
     public string? BatchNumber { get; set; }
@@ -26,6 +27,21 @@ public class ProductSearchDto
     public decimal Mrp { get; set; }
     public decimal SaleRate { get; set; }
     public decimal AvailableQuantity { get; set; }
+    public List<ProductBatchDto> Batches { get; set; } = new();
+}
+
+public class ProductBatchDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string ProductId { get; set; } = string.Empty;
+    public string BatchNumber { get; set; } = string.Empty;
+    public DateTime ExpiryDate { get; set; }
+    public decimal Mrp { get; set; }
+    public decimal PurchaseRate { get; set; }
+    public decimal SaleRate { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public bool IsExpired => ExpiryDate.Date <= DateTime.UtcNow.Date;
+    public bool IsNearExpiry => !IsExpired && ExpiryDate.Date <= DateTime.UtcNow.AddDays(90).Date;
 }
 
 public class BarcodeLookupDto

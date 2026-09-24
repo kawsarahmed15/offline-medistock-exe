@@ -22,7 +22,7 @@ public class SqliteProductSearchRepository : IProductSearchRepository
     public async Task<IReadOnlyList<ProductSearchDto>> SearchProductsAsync(
         string query,
         string warehouseId,
-        int limit = 20,
+        int limit = 25,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -32,7 +32,8 @@ public class SqliteProductSearchRepository : IProductSearchRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var cleaned = new string(query.Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray());
+        var trimmed = query.Trim();
+        var cleaned = new string(trimmed.Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray());
         var terms = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (terms.Length == 0)
         {
@@ -57,6 +58,7 @@ public class SqliteProductSearchRepository : IProductSearchRepository
                 p.is_prescription_required AS IsPrescriptionRequired,
                 p.is_cold_chain AS IsColdChain,
                 p.is_narcotic AS IsNarcotic,
+                p.manufacturer_name AS ManufacturerName,
                 p.primary_barcode AS Barcode,
                 b.id AS BatchId,
                 b.batch_number AS BatchNumber,
@@ -84,8 +86,80 @@ public class SqliteProductSearchRepository : IProductSearchRepository
             new { ftsQuery, warehouseId, limit },
             cancellationToken: cancellationToken);
 
-        var results = await connection.QueryAsync<ProductSearchDto>(command);
-        return results.ToList();
+        var products = (await connection.QueryAsync<ProductSearchDto>(command)).ToList();
+
+        if (products.Count > 0)
+        {
+            var productIds = products.Select(p => p.Id).ToList();
+            const string batchSql = @"
+                SELECT 
+                    b.id AS Id,
+                    b.product_id AS ProductId,
+                    b.batch_number AS BatchNumber,
+                    b.expiry_date AS ExpiryDate,
+                    CAST(b.mrp AS REAL) AS Mrp,
+                    CAST(b.purchase_rate AS REAL) AS PurchaseRate,
+                    CAST(b.sale_rate AS REAL) AS SaleRate,
+                    CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity
+                FROM batches b
+                LEFT JOIN stock_balances sb ON sb.batch_id = b.id AND sb.warehouse_id = @warehouseId
+                WHERE b.product_id IN @productIds
+                ORDER BY b.expiry_date ASC;
+            ";
+
+            var batches = (await connection.QueryAsync<ProductBatchDto>(
+                new CommandDefinition(batchSql, new { productIds, warehouseId }, cancellationToken: cancellationToken)
+            )).ToList();
+
+            var batchMap = batches.GroupBy(b => b.ProductId).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var p in products)
+            {
+                if (batchMap.TryGetValue(p.Id, out var pBatches))
+                {
+                    p.Batches = pBatches;
+                }
+            }
+        }
+
+        return products;
+    }
+
+    public async Task<IReadOnlyList<ProductBatchDto>> GetBatchesForProductAsync(
+        string productId,
+        string warehouseId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+        {
+            return Array.Empty<ProductBatchDto>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        const string sql = @"
+            SELECT 
+                b.id AS Id,
+                b.product_id AS ProductId,
+                b.batch_number AS BatchNumber,
+                b.expiry_date AS ExpiryDate,
+                CAST(b.mrp AS REAL) AS Mrp,
+                CAST(b.purchase_rate AS REAL) AS PurchaseRate,
+                CAST(b.sale_rate AS REAL) AS SaleRate,
+                CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity
+            FROM batches b
+            LEFT JOIN stock_balances sb ON sb.batch_id = b.id AND sb.warehouse_id = @warehouseId
+            WHERE b.product_id = @productId
+            ORDER BY b.expiry_date ASC;
+        ";
+
+        var command = new CommandDefinition(
+            sql,
+            new { productId, warehouseId },
+            cancellationToken: cancellationToken);
+
+        var batches = await connection.QueryAsync<ProductBatchDto>(command);
+        return batches.ToList();
     }
 
     public async Task<BarcodeLookupDto?> LookupByBarcodeAsync(

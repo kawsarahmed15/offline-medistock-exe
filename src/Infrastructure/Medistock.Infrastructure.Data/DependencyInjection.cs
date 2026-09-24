@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<IDatabaseMigrator, DatabaseMigrator>();
         services.AddScoped<IDataSeeder, DataSeeder>();
         services.AddScoped<IProductSearchRepository, SqliteProductSearchRepository>();
+        services.AddScoped<IProductRepository, SqliteProductRepository>();
         services.AddScoped<IStockRepository, SqliteStockRepository>();
         services.AddScoped<ISaleRepository, SqliteSaleRepository>();
         services.AddScoped<IInventoryRepository, SqliteInventoryRepository>();

@@ -13,6 +13,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IPosTransactionService, PosTransactionService>();
         services.AddScoped<IProductSearchService, ProductSearchService>();
+        services.AddScoped<Medistock.Application.Products.Commands.IProductService, Medistock.Application.Products.Commands.ProductService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IScheduleDrugService, ScheduleDrugService>();
         services.AddScoped<IPurchaseService, PurchaseService>();

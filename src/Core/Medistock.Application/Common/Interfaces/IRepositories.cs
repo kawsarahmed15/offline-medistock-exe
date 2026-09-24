@@ -30,6 +30,21 @@ public interface IProductSearchRepository
         string barcode,
         string warehouseId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProductBatchDto>> GetBatchesForProductAsync(
+        string productId,
+        string warehouseId,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IProductRepository
+{
+    Task<string> CreateProductWithBatchAsync(
+        Product product,
+        Batch batch,
+        decimal openingQuantity,
+        string warehouseId,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IStockRepository

@@ -75,4 +75,45 @@ public class ProductSearchAndSeedingTests : IDisposable
                                    || r.BrandName.Contains(singleCharQuery, StringComparison.OrdinalIgnoreCase)
                                    || r.GenericName.Contains(singleCharQuery, StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public async Task CreateProductWithBatch_CreatesAndRetrievesFefoBatchesCorrectly()
+    {
+        await _migrator.MigrateAsync();
+
+        var productRepo = new SqliteProductRepository(_connectionFactory);
+
+        var pId = "prod_custom_1";
+        var bId = "batch_custom_1";
+
+        var product = Medistock.Domain.Products.Product.Create(
+            pId, "org-1", "Azithral 500mg Tab", "Azithral", "Azithromycin 500mg",
+            "Azithromycin 500mg", "500mg", Medistock.Domain.Common.DosageForm.Tablet,
+            new Medistock.Domain.Common.PackSize(5, "TAB"), "3004", 12.0m,
+            Medistock.Domain.Common.DrugSchedule.ScheduleH,
+            primaryBarcode: "8901234567890",
+            manufacturerName: "Alembic Pharma"
+        );
+
+        var batch = Medistock.Domain.Inventory.Batch.Create(
+            bId, pId, "org-1", "AZ500-24", DateTime.UtcNow.AddMonths(18),
+            120.0m, 80.0m, 108.0m
+        );
+
+        await productRepo.CreateProductWithBatchAsync(product, batch, 50, "wh-1");
+
+        var searchResults = await _searchRepo.SearchProductsAsync("Azithral", "wh-1");
+        Assert.Single(searchResults);
+        var found = searchResults[0];
+        Assert.Equal("Azithral 500mg Tab", found.Name);
+        Assert.Equal("Alembic Pharma", found.ManufacturerName);
+        Assert.NotEmpty(found.Batches);
+        Assert.Equal("AZ500-24", found.Batches[0].BatchNumber);
+        Assert.Equal(50, found.Batches[0].AvailableQuantity);
+
+        var batches = await _searchRepo.GetBatchesForProductAsync(pId, "wh-1");
+        Assert.Single(batches);
+        Assert.Equal("AZ500-24", batches[0].BatchNumber);
+        Assert.Equal(120.0m, batches[0].Mrp);
+    }
 }
