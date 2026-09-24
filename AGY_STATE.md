@@ -112,41 +112,23 @@ Updated: `ARCHITECTURE.md` v1.1 — keyboard architecture section added (Section
 Updated: `AGENT.md` — keyboard command-layer rules + full reference index
 
 ### ✅ Step 6 — Full Product Requirements Document (PRD)
-Created: `PRD.md` — 26 sections, every module, every requirement, acceptance criteria:
-- **Document Convention:** REQ-XXX-NNN (functional), NFR-XXX-NNN (non-functional), P1–P4 priority
-- **2.x User Roles:** 12 roles defined, permission codes (SALE_CREATE, DISCOUNT_APPLY, etc.), contextual ABAC policies
-- **3.x First-Launch:** 7-step wizard, MSIX installer requirements, org setup, server detection
-- **4.x Org/Branch:** org, financial year, branch, warehouse, location, counter, device registration
-- **5.x Identity & Security:** Auth (bcrypt, PIN, MFA, token TTL), AuthZ (RBAC+ABAC), Audit (immutable, 6yr retention)
-- **6.x Product Master:** 12 REQs — full product identity, FTS5 search, pricing versioning, alternatives, reorder rules
-- **7.x Inventory:** 16 REQs — batch model, FEFO, atomic stock deduction, stock movements ledger, expiry bands, adjustments, transfers
-- **8.x POS:** 30 REQs — search (FTS5, ≤100ms), barcode (≤200ms), cart, hold/resume, schemes, discount gates, payment (5 modes), invoice, Schedule-H/Narcotic gates
-- **9.x Sales History/Returns:** Credit notes, return reasons, restock decisions, reversal journals, Narcotic return logging
-- **10.x Purchase:** Requisition → PO → GRN → Invoice → Return/Debit Note flow
-- **11.x Accounting:** Chart of accounts, double-entry auto-journals (8 transaction types), immutability, ledger, AR/AP aging, financial reports
-- **12.x GST:** Versioned rates, CGST/SGST/IGST auto-calc, e-Invoice (async outbox), e-Way Bill, GSTR-1/3B, ITC tracking
-- **13.x Suppliers:** Credit limit, outstanding, supplier payment, supplier statement
-- **14.x Customers/Patients/CRM:** Customer ledger, loyalty points, patient records, prescription refill reminders, doctor registry
-- **15.x B2B:** 13 REQs — full 14-state machine, purchase request, marketplace, pick list, packing, OTP pickup, discrepancy, returns
-- **16.x Multi-Branch:** Consolidated reports, branch isolation, central product master, cross-branch stock view
-- **17.x Reports:** 19 REQs — sales/purchase/inventory/financial/GST reports, export (Excel/PDF/CSV), print
-- **18.x Notifications:** In-app centre, toast, 8 business event triggers, SMS/WhatsApp/email channels
-- **19.x Settings:** Org, tax, appearance (theme/accent/density/font), keyboard profile, hardware, sync
-- **20.x Sync:** 3 connectivity states, outbox pattern, idempotency, conflict resolution per entity type
-- **21.x Hardware:** Barcode scanner (USB HID), thermal printer (ESC/POS), cash drawer, label printer, all via interfaces
-- **22.x Cloud Dashboard:** Phase 8 — web dashboard, consolidated reporting, remote user management
-- **23.x AI Layer:** Phase 9 — demand forecast, smart reorder, OCR, anomaly detection (advisory only, never autonomous)
-- **24.x Platform:** MSIX updates, migration scripts, data import (CSV/MARG), backup/restore (RTO 30min)
-- **25.x NFRs:** 50+ non-functional requirements across Performance (13), Reliability (8), Security (13), Scalability (5), Accessibility (8), Maintainability (8), Localisation (4)
-- **26.x Out of Scope:** 17 explicit exclusions with rationale
+Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance criteria for all modules (POS, Inventory, Accounting, GST, B2B, Multi-Branch, Platform).
+
+### ✅ Step 7 — Git Setup & Repository Cleanup
+- Initialized local git repository on branch `main`.
+- Created comprehensive `.gitignore` tailored for .NET 10, WinUI 3, Windows App SDK, and SQLite.
+- Removed obsolete intermediate scratch research files (`chatgpt-conversation.md`, `chatgpt-conversation-research.md`, `marg-research.md`, `shortcut-mapping.md`, `trd.md`) after full synthesis into the final documentation suite.
+- Created initial commit `a9a5fd3` containing the 6 final authoritative specification documents.
+- Clean working tree verified.
 
 ---
 
 ## 6. Next Action Items (Phase 0 → Phase 1)
 **All Phase 0 foundation documents are COMPLETE. Ready for Phase 1:**
-1. **Set up solution structure:** `Medistock.sln` with projects: `Medistock.Desktop` (WinUI 3), `Medistock.Core` (domain), `Medistock.Infrastructure` (data access), `Medistock.LocalApi` (ASP.NET Core), `Medistock.CloudApi` (ASP.NET Core)
-2. **Finalize DB migration scripts:** SQLite schema (workstation), PostgreSQL schema (local server + cloud)
-3. **Build vertical slice #1:** Barcode-scan → FTS5 search → add to cart → stock deduct → local commit — measure on baseline rig against NFR-PERF targets
+1. **Set up remote Git repository:** Configure `origin` remote URL when provided by user (`git remote add origin <url>` and `git push -u origin main`).
+2. **Set up solution structure:** `Medistock.sln` with projects: `Medistock.Desktop` (WinUI 3), `Medistock.Core` (domain), `Medistock.Infrastructure` (data access), `Medistock.LocalApi` (ASP.NET Core), `Medistock.CloudApi` (ASP.NET Core).
+3. **Finalize DB migration scripts:** SQLite schema (workstation), PostgreSQL schema (local server + cloud).
+4. **Build vertical slice #1:** Barcode-scan → FTS5 search → add to cart → stock deduct → local commit — measure on baseline rig against NFR-PERF targets.
 
 ---
 
