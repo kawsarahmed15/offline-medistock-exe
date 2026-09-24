@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using Microsoft.UI.Dispatching;
 
@@ -9,12 +10,31 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        WinRT.ComWrappersSupport.InitializeComWrappers();
-        global::Microsoft.UI.Xaml.Application.Start((p) =>
+        var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_error.log");
+        try
         {
-            var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
-            SynchronizationContext.SetSynchronizationContext(context);
-            _ = new App();
-        });
+            File.WriteAllText(logFile, $"Starting Medistock.Desktop at {DateTime.UtcNow:O}\n");
+
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+            global::Microsoft.UI.Xaml.Application.Start((p) =>
+            {
+                try
+                {
+                    var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
+                    SynchronizationContext.SetSynchronizationContext(context);
+                    _ = new App();
+                }
+                catch (Exception ex)
+                {
+                    File.AppendAllText(logFile, $"FATAL in Application.Start: {ex}\n");
+                    throw;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            File.AppendAllText(logFile, $"FATAL in Main: {ex}\n");
+        }
     }
 }
+
