@@ -733,7 +733,7 @@
                             <Grid ColumnDefinitions="*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Medicine / Product Name *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox x:Name="NewProductNameBox" TabIndex="1" Text="{x:Bind ViewModel.NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithral 500mg Tablet" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBox x:Name="NewProductNameBox" TabIndex="1" Text="{x:Bind ViewModel.NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithral 500mg Tablet" FontSize="13" KeyDown="CreateProductInput_KeyDown" Loaded="NewProductNameBox_Loaded" />
                                     <TextBlock Text="{x:Bind ViewModel.NewProductNameError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewProductNameError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,0,0">

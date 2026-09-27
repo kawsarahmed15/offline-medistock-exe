@@ -1428,6 +1428,8 @@ public partial class PosViewModel : ObservableObject
     [RelayCommand]
     public void OpenCreateProductModal()
     {
+        HasSearchResults = false;
+        SearchResults.Clear();
         NewProductName = !string.IsNullOrWhiteSpace(SearchQuery) ? SearchQuery.Trim() : string.Empty;
         NewBrandName = NewProductName;
         NewGenericName = string.Empty;

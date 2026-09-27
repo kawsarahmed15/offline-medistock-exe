@@ -85,11 +85,7 @@ public sealed partial class PosPage : Page
             {
                 if (ViewModel.IsCreateProductModalOpen)
                 {
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        NewProductNameBox.Focus(FocusState.Programmatic);
-                        NewProductNameBox.SelectAll();
-                    });
+                    FocusCreateProductModal();
                 }
                 else
                 {
@@ -264,6 +260,12 @@ public sealed partial class PosPage : Page
         {
             var focused = FocusManager.GetFocusedElement(this.XamlRoot);
 
+            // If focus is still outside the modal (e.g. SearchBox), redirect immediately
+            if (!IsModalInputElement(focused))
+            {
+                FocusCreateProductModal();
+            }
+
             if (e.Key == VirtualKey.Escape)
             {
                 ViewModel.CloseCreateProductModal();
@@ -304,6 +306,13 @@ public sealed partial class PosPage : Page
             }
 
             if (isCtrl || isAlt)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // If focus is not inside modal inputs, suppress the keystroke so it does not type into SearchBox
+            if (!IsModalInputElement(focused))
             {
                 e.Handled = true;
                 return;
@@ -675,6 +684,7 @@ public sealed partial class PosPage : Page
             else
             {
                 ViewModel.OpenCreateProductModal();
+                FocusCreateProductModal();
             }
             e.Handled = true;
             return;
@@ -1059,6 +1069,7 @@ public sealed partial class PosPage : Page
         if (e.Key == VirtualKey.F2)
         {
             ViewModel.OpenCreateProductModal();
+            FocusCreateProductModal();
             e.Handled = true;
             return;
         }
@@ -1250,6 +1261,7 @@ public sealed partial class PosPage : Page
             {
                 // If no search matches, open F2 create product with the query pre-filled
                 ViewModel.OpenCreateProductModal();
+                FocusCreateProductModal();
             }
             e.Handled = true;
         }
@@ -2674,6 +2686,72 @@ public sealed partial class PosPage : Page
                 }
             });
         }
+    }
+
+    private void NewProductNameBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsCreateProductModalOpen)
+        {
+            FocusCreateProductModal();
+        }
+    }
+
+    private async void FocusCreateProductModal()
+    {
+        // Try immediately
+        NewProductNameBox?.Focus(FocusState.Programmatic);
+        NewProductNameBox?.SelectAll();
+
+        // Enqueue on dispatcher at Normal priority
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, () =>
+        {
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        });
+
+        // Enqueue at Low priority (runs after layout pass)
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        });
+
+        // Polling retry to guarantee focus attaches as soon as the modal finishes WinUI 3 layout pass
+        for (int i = 0; i < 6; i++)
+        {
+            await Task.Delay(25 * (i + 1));
+            if (!ViewModel.IsCreateProductModalOpen) return;
+
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+            if (IsModalInputElement(focused))
+            {
+                return;
+            }
+
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        }
+    }
+
+    private bool IsModalInputElement(object? element)
+    {
+        if (element == null) return false;
+        return ReferenceEquals(element, NewProductNameBox)
+            || ReferenceEquals(element, NewGenericNameBox)
+            || ReferenceEquals(element, NewPackSizeTextBox)
+            || ReferenceEquals(element, NewBaseUnitBox)
+            || ReferenceEquals(element, NewManufacturerNameBox)
+            || ReferenceEquals(element, NewHsnCodeBox)
+            || ReferenceEquals(element, NewGstPercentBox)
+            || ReferenceEquals(element, NewBarcodeBox)
+            || ReferenceEquals(element, NewBatchNumberBox)
+            || ReferenceEquals(element, NewExpiryDatePicker)
+            || ReferenceEquals(element, NewMrpBox)
+            || ReferenceEquals(element, NewPurchaseRateBox)
+            || ReferenceEquals(element, NewSaleRateBox)
+            || ReferenceEquals(element, NewOpeningQtyBox)
+            || ReferenceEquals(element, CancelCreateProductButton)
+            || ReferenceEquals(element, SaveCreateProductButton);
     }
 }
 
