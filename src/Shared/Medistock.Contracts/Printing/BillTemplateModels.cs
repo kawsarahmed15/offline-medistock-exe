@@ -252,7 +252,14 @@ public record ReceiptItemModel(
     decimal Quantity,
     decimal UnitPrice,
     decimal NetAmount,
-    decimal GstPercent
+    decimal GstPercent,
+    decimal FreeQuantity = 0,
+    decimal DiscountPercent = 0,
+    decimal DiscountAmount = 0,
+    decimal Mrp = 0,
+    string HsnCode = "3004",
+    string Packing = "10's",
+    string Manufacturer = ""
 );
 
 public record ReceiptPaymentModel(

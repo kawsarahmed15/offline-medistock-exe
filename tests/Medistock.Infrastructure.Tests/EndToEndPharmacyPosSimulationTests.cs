@@ -220,7 +220,7 @@ public class EndToEndPharmacyPosSimulationTests : IDisposable
             },
             Payments: new List<SalePaymentInput>
             {
-                new SalePaymentInput(PaymentMode.Cash, 286.00m)
+                new SalePaymentInput(PaymentMode.Cash, 255.00m)
             }
         );
 
@@ -230,7 +230,7 @@ public class EndToEndPharmacyPosSimulationTests : IDisposable
 
         _output.WriteLine($"Sale committed in {sw.Elapsed.TotalMilliseconds:F2}ms. Invoice: {result.InvoiceNo}, Total: ₹{result.TotalAmount}");
         Assert.True(result.IsSuccess, result.ErrorMessage);
-        Assert.Equal(286.00m, result.TotalAmount); // 60 + 7.20 GST + 195 + 23.40 GST = 285.60 -> Round-off: 286.00
+        Assert.Equal(255.00m, result.TotalAmount); // 2x Dolo @ 30 = 60 + 1x Pan-D @ 195 = 255 (Inclusive GST)
 
         // Verify Database Stock Decrements
         using var conn = await _connectionFactory.CreateConnectionAsync();
@@ -254,7 +254,7 @@ public class EndToEndPharmacyPosSimulationTests : IDisposable
         var salesAcc = await accRepo.GetAccountHeadByIdAsync("acc_sales");
         Assert.NotNull(cashAcc);
         Assert.NotNull(salesAcc);
-        Assert.Equal(286.00m, cashAcc.CurrentBalance);
+        Assert.Equal(255.00m, cashAcc.CurrentBalance);
         Assert.True(salesAcc.CurrentBalance > 0);
     }
 

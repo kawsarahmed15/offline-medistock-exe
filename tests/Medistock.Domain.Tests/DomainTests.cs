@@ -64,13 +64,13 @@ public class DomainTests
             isInterstate: false,
             discountPct: 0);
 
-        Assert.Equal(100.00m, item.TaxableAmount);
+        Assert.Equal(89.29m, item.TaxableAmount);
         Assert.Equal(6.0m, item.CgstRate);
-        Assert.Equal(6.00m, item.CgstAmount);
+        Assert.Equal(5.36m, item.CgstAmount);
         Assert.Equal(6.0m, item.SgstRate);
-        Assert.Equal(6.00m, item.SgstAmount);
+        Assert.Equal(5.35m, item.SgstAmount);
         Assert.Equal(0.00m, item.IgstAmount);
-        Assert.Equal(112.00m, item.NetAmount);
+        Assert.Equal(100.00m, item.NetAmount);
     }
 
     [Fact]
@@ -91,13 +91,13 @@ public class DomainTests
             isInterstate: true,
             discountPct: 10);
 
-        Assert.Equal(90.00m, item.TaxableAmount);
+        Assert.Equal(76.27m, item.TaxableAmount);
         Assert.Equal(10.00m, item.DiscountAmount);
         Assert.Equal(0.00m, item.CgstAmount);
         Assert.Equal(0.00m, item.SgstAmount);
         Assert.Equal(18.0m, item.IgstRate);
-        Assert.Equal(16.20m, item.IgstAmount);
-        Assert.Equal(106.20m, item.NetAmount);
+        Assert.Equal(13.73m, item.IgstAmount);
+        Assert.Equal(90.00m, item.NetAmount);
     }
 
     [Fact]

@@ -284,6 +284,24 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 
 ---
 
+### ✅ Step 17 — Pharmacy-Standard Inclusive GST Engine & Multi-Slab Tax Breakdown
+- **1. Domain Mathematical Formulas (`Medistock.Domain.Sales.SaleItem` & `Sale`):**
+  - Refactored `SaleItem.Create` and `RecalculateTotals()` to extract GST backwards from discounted Net Amount:
+    $$\text{Taxable} = \frac{\text{NetAmount} \times 100}{100 + \text{GST\%}}, \quad \text{Total GST} = \text{NetAmount} - \text{Taxable}$$
+  - Intra-State: Split into equal CGST + SGST; Inter-State: Full IGST.
+  - Customer Net Payable matches exact MRP/Discounted price with zero unexpected tax surcharges.
+- **2. WinUI 3 Desktop ViewModels & POS Billing Flow (`Medistock.Desktop`):**
+  - Updated `CartItemViewModel` computed properties (`TaxableAmount`, `GstAmount`, `CgstAmount`, `SgstAmount`, `IgstAmount`, `NetAmount`).
+  - Updated `InvoiceTabViewModel.RecalculateTotals()` to dynamically summarize multi-item GST breakdown with support for pro-rated bill-level discounts.
+  - Wired into `PosPage.xaml.cs` `BuildReceiptModelFromActiveTab` passing all 19 column metadata fields (FreeQty, Disc, Mrp, Packing, HsnCode).
+- **3. Multi-Slab Tax Breakdown & Document Generation (`Medistock.Infrastructure.Hardware`):**
+  - Enhanced `ReceiptItemModel` with optional parameters for full pharmacy metadata without breaking existing call sites.
+  - Refactored `BillDocumentGenerator.cs`: `GetColumnValue` calculates line-level inclusive GST with precision, and the HTML Tax Summary table renders grouped multi-slab breakdowns (0%, 5%, 12%, 18%, 28%) with CGST, SGST, IGST, and Total Tax rows.
+- **Verification & Test Status:**
+  - **102 automated unit & integration tests passing with 0 warnings and 0 errors** across all solution projects (`Medistock.Desktop.Tests`, `Medistock.Domain.Tests`, `Medistock.Infrastructure.Tests`).
+
+---
+
 ## 6. Project Milestone Status
 | Milestone | Status | Key Deliverables |
 |---|---|---|

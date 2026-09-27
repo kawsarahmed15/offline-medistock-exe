@@ -251,9 +251,34 @@ public class BillDocumentGenerator : IBillDocumentGenerator
         {
             sb.AppendLine("<table class='tax-table'>");
             sb.AppendLine("<thead><tr><th>Tax Rate</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total Tax</th></tr></thead><tbody>");
+            
+            var taxGroups = receipt.Items
+                .GroupBy(i => i.GstPercent)
+                .OrderBy(g => g.Key);
+
+            foreach (var grp in taxGroups)
+            {
+                var grpRate = grp.Key;
+                var grpTaxable = grp.Sum(i => grpRate > 0 ? Math.Round((i.NetAmount * 100m) / (100m + grpRate), 2, MidpointRounding.AwayFromZero) : i.NetAmount);
+                var grpTotalGst = grp.Sum(i => i.NetAmount) - grpTaxable;
+                
+                decimal grpCgst = 0m, grpSgst = 0m, grpIgst = 0m;
+                if (receipt.IgstAmount > 0)
+                {
+                    grpIgst = grpTotalGst;
+                }
+                else
+                {
+                    grpCgst = Math.Round(grpTotalGst / 2m, 2, MidpointRounding.AwayFromZero);
+                    grpSgst = grpTotalGst - grpCgst;
+                }
+
+                sb.AppendLine($"<tr><td style='text-align:center;'>GST {grpRate:0.#}%</td><td>₹{grpTaxable:F2}</td><td>₹{grpCgst:F2}</td><td>₹{grpSgst:F2}</td><td>₹{grpIgst:F2}</td><td><strong>₹{grpTotalGst:F2}</strong></td></tr>");
+            }
+
             var totalTaxable = receipt.Subtotal;
             var totalTax = receipt.CgstAmount + receipt.SgstAmount + receipt.IgstAmount;
-            sb.AppendLine($"<tr><td style='text-align:center;'>GST</td><td>₹{totalTaxable:F2}</td><td>₹{receipt.CgstAmount:F2}</td><td>₹{receipt.SgstAmount:F2}</td><td>₹{receipt.IgstAmount:F2}</td><td><strong>₹{totalTax:F2}</strong></td></tr>");
+            sb.AppendLine($"<tr style='font-weight:bold; background:#f5f5f5;'><td style='text-align:center;'>TOTAL</td><td>₹{totalTaxable:F2}</td><td>₹{receipt.CgstAmount:F2}</td><td>₹{receipt.SgstAmount:F2}</td><td>₹{receipt.IgstAmount:F2}</td><td>₹{totalTax:F2}</td></tr>");
             sb.AppendLine("</tbody></table>");
         }
 
@@ -332,27 +357,36 @@ public class BillDocumentGenerator : IBillDocumentGenerator
 
     private static string GetColumnValue(ReceiptItemModel item, BillFieldType type, int srNo)
     {
+        var lineNet = item.NetAmount;
+        var lineTaxable = item.GstPercent > 0
+            ? Math.Round((lineNet * 100m) / (100m + item.GstPercent), 2, MidpointRounding.AwayFromZero)
+            : lineNet;
+        var lineGst = lineNet - lineTaxable;
+        var cgst = Math.Round(lineGst / 2m, 2, MidpointRounding.AwayFromZero);
+        var sgst = lineGst - cgst;
+        var igst = lineGst;
+
         return type switch
         {
             BillFieldType.SrNo => srNo.ToString(),
             BillFieldType.ItemName => item.ProductName,
-            BillFieldType.Packing => "10's",
-            BillFieldType.Manufacturer => "",
+            BillFieldType.Packing => !string.IsNullOrWhiteSpace(item.Packing) ? item.Packing : "10's",
+            BillFieldType.Manufacturer => item.Manufacturer,
             BillFieldType.BatchNumber => item.BatchNumber,
             BillFieldType.ExpiryDate => item.ExpiryDate.ToString("MM/yy"),
-            BillFieldType.HsnCode => "3004",
-            BillFieldType.Mrp => $"₹{item.UnitPrice:F2}",
+            BillFieldType.HsnCode => !string.IsNullOrWhiteSpace(item.HsnCode) ? item.HsnCode : "3004",
+            BillFieldType.Mrp => $"₹{(item.Mrp > 0 ? item.Mrp : item.UnitPrice):F2}",
             BillFieldType.UnitRate => $"₹{item.UnitPrice:F2}",
             BillFieldType.Quantity => $"{item.Quantity:0.#}",
-            BillFieldType.FreeQuantity => "0",
-            BillFieldType.DiscountPercent => "0%",
-            BillFieldType.DiscountAmount => "₹0.00",
+            BillFieldType.FreeQuantity => $"{item.FreeQuantity:0.#}",
+            BillFieldType.DiscountPercent => $"{item.DiscountPercent:0.#}%",
+            BillFieldType.DiscountAmount => $"₹{item.DiscountAmount:F2}",
             BillFieldType.GstPercent => $"{item.GstPercent:0.#}%",
-            BillFieldType.CgstAmount => $"₹{(item.NetAmount * (item.GstPercent / 200m)):F2}",
-            BillFieldType.SgstAmount => $"₹{(item.NetAmount * (item.GstPercent / 200m)):F2}",
-            BillFieldType.IgstAmount => "₹0.00",
-            BillFieldType.TaxableAmount => $"₹{item.NetAmount:F2}",
-            BillFieldType.TotalAmount => $"₹{item.NetAmount:F2}",
+            BillFieldType.CgstAmount => $"₹{cgst:F2}",
+            BillFieldType.SgstAmount => $"₹{sgst:F2}",
+            BillFieldType.IgstAmount => $"₹{igst:F2}",
+            BillFieldType.TaxableAmount => $"₹{lineTaxable:F2}",
+            BillFieldType.TotalAmount => $"₹{lineNet:F2}",
             _ => ""
         };
     }

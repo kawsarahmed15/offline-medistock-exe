@@ -181,24 +181,28 @@ public class SaleItem : Entity<string>
 
         var grossAmount = quantity * unitPrice;
         var discountAmt = Math.Round(grossAmount * (discountPct / 100m), 2, MidpointRounding.AwayFromZero);
-        var taxable = grossAmount - discountAmt;
+        var net = grossAmount - discountAmt;
+
+        var taxable = gstRatePercent > 0
+            ? Math.Round((net * 100m) / (100m + gstRatePercent), 2, MidpointRounding.AwayFromZero)
+            : net;
+
+        var totalGst = net - taxable;
 
         decimal cgstRate = 0, cgstAmt = 0, sgstRate = 0, sgstAmt = 0, igstRate = 0, igstAmt = 0;
 
         if (isInterstate)
         {
             igstRate = gstRatePercent;
-            igstAmt = Math.Round(taxable * (igstRate / 100m), 2, MidpointRounding.AwayFromZero);
+            igstAmt = totalGst;
         }
         else
         {
             cgstRate = gstRatePercent / 2m;
             sgstRate = gstRatePercent / 2m;
-            cgstAmt = Math.Round(taxable * (cgstRate / 100m), 2, MidpointRounding.AwayFromZero);
-            sgstAmt = Math.Round(taxable * (sgstRate / 100m), 2, MidpointRounding.AwayFromZero);
+            cgstAmt = Math.Round(totalGst / 2m, 2, MidpointRounding.AwayFromZero);
+            sgstAmt = totalGst - cgstAmt;
         }
-
-        var net = taxable + cgstAmt + sgstAmt + igstAmt;
 
         return new SaleItem
         {

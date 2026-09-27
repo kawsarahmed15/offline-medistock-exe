@@ -354,9 +354,14 @@ public partial class CartItemViewModel : ObservableObject
     }
 
     public decimal DiscountAmount => Math.Round(GrossAmount * (DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
-    public decimal TaxableAmount => GrossAmount - DiscountAmount;
-    public decimal GstAmount => 0m;
     public decimal NetAmount => Math.Round(GrossAmount - DiscountAmount, 2, MidpointRounding.AwayFromZero);
+    public decimal TaxableAmount => GstRatePercent > 0
+        ? Math.Round((NetAmount * 100m) / (100m + GstRatePercent), 2, MidpointRounding.AwayFromZero)
+        : NetAmount;
+    public decimal GstAmount => NetAmount - TaxableAmount;
+    public decimal CgstAmount => Math.Round(GstAmount / 2m, 2, MidpointRounding.AwayFromZero);
+    public decimal SgstAmount => GstAmount - CgstAmount;
+    public decimal IgstAmount => GstAmount;
 }
 
 public partial class InvoiceTabViewModel : ObservableObject
@@ -675,9 +680,50 @@ public partial class InvoiceTabViewModel : ObservableObject
         // Net Payable is Subtotal minus Total Discount
         GrandTotal = Math.Max(0m, Subtotal - TotalDiscount);
         RoundOff = 0m;
-        Cgst = 0m;
-        Sgst = 0m;
-        Igst = 0m;
+
+        decimal totalCgst = 0m;
+        decimal totalSgst = 0m;
+        decimal totalIgst = 0m;
+
+        foreach (var item in CartItems)
+        {
+            decimal itemDiscPct = item.DiscountPercent;
+            if (itemDiscPct == 0)
+            {
+                if (BillDiscountPercent > 0)
+                {
+                    itemDiscPct = BillDiscountPercent;
+                }
+                else if (BillDiscountAmount > 0 && eligibleSubtotal > 0)
+                {
+                    itemDiscPct = Math.Round((BillDiscountAmount / eligibleSubtotal) * 100m, 2, MidpointRounding.AwayFromZero);
+                }
+            }
+
+            var lineGross = item.GrossAmount;
+            var lineDisc = Math.Round(lineGross * (itemDiscPct / 100m), 2, MidpointRounding.AwayFromZero);
+            var lineNet = lineGross - lineDisc;
+            var lineTaxable = item.GstRatePercent > 0
+                ? Math.Round((lineNet * 100m) / (100m + item.GstRatePercent), 2, MidpointRounding.AwayFromZero)
+                : lineNet;
+            var lineGst = lineNet - lineTaxable;
+
+            if (IsInterstate)
+            {
+                totalIgst += lineGst;
+            }
+            else
+            {
+                var cgst = Math.Round(lineGst / 2m, 2, MidpointRounding.AwayFromZero);
+                var sgst = lineGst - cgst;
+                totalCgst += cgst;
+                totalSgst += sgst;
+            }
+        }
+
+        Cgst = totalCgst;
+        Sgst = totalSgst;
+        Igst = totalIgst;
 
         if (AmountReceived < GrandTotal && PaymentMode == PaymentMode.Cash)
         {

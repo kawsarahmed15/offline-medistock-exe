@@ -178,7 +178,7 @@ public class SqliteIntegrationTests : IDisposable
             },
             Payments: new List<SalePaymentInput>
             {
-                new SalePaymentInput(PaymentMode.Cash, 67.00m)
+                new SalePaymentInput(PaymentMode.Cash, 60.00m)
             }
         );
 
@@ -190,7 +190,7 @@ public class SqliteIntegrationTests : IDisposable
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.NotNull(result.InvoiceNo);
         Assert.StartsWith("INV-", result.InvoiceNo!);
-        Assert.Equal(67.00m, result.TotalAmount); // 60 subtotal + 7.20 GST = 67.20 -> 67 round
+        Assert.Equal(60.00m, result.TotalAmount); // 2x Dolo @ 30 = 60.00 (Inclusive GST)
         Assert.True(sw.ElapsedMilliseconds < 1000, $"Sale commit took {sw.ElapsedMilliseconds}ms, exceeding test runner budget");
 
         // Verify outbox queue

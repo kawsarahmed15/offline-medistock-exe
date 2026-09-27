@@ -2316,7 +2316,9 @@ public sealed partial class PosPage : Page
                 }
             }
 
-            decimal net = c.GrossAmount - Math.Round(c.GrossAmount * (itemDiscPct / 100m), 2, MidpointRounding.AwayFromZero);
+            var lineGross = c.GrossAmount;
+            var lineDisc = Math.Round(lineGross * (itemDiscPct / 100m), 2, MidpointRounding.AwayFromZero);
+            decimal net = lineGross - lineDisc;
 
             return new ReceiptItemModel(
                 c.ProductName,
@@ -2325,13 +2327,23 @@ public sealed partial class PosPage : Page
                 c.Quantity,
                 c.UnitPrice,
                 net,
-                c.GstRatePercent
+                c.GstRatePercent,
+                c.FreeQuantity,
+                itemDiscPct,
+                lineDisc,
+                c.Mrp,
+                "3004",
+                c.PackSizeDescription,
+                string.Empty
             );
         }).ToList() ?? new List<ReceiptItemModel>();
 
         var subtotal = tab?.Subtotal ?? 0m;
-        var totalTax = tab != null ? (tab.Cgst + tab.Sgst + tab.Igst) : 0m;
+        var cgst = tab?.Cgst ?? 0m;
+        var sgst = tab?.Sgst ?? 0m;
+        var igst = tab?.Igst ?? 0m;
         var grandTotal = tab?.GrandTotal ?? 0m;
+        var taxable = grandTotal - (cgst + sgst + igst);
 
         return new SaleReceiptModel(
             PharmacyName: "MEDISTOCK PHARMACY & HEALTHCARE",
@@ -2346,10 +2358,10 @@ public sealed partial class PosPage : Page
             CustomerName: string.IsNullOrWhiteSpace(tab?.CustomerName) ? "WALK-IN CUSTOMER" : tab.CustomerName.Trim().ToUpperInvariant(),
             DoctorName: string.IsNullOrWhiteSpace(tab?.DoctorName) ? string.Empty : tab.DoctorName.Trim().ToUpperInvariant(),
             Items: items,
-            Subtotal: subtotal,
-            CgstAmount: totalTax / 2,
-            SgstAmount: totalTax / 2,
-            IgstAmount: 0m,
+            Subtotal: taxable > 0 ? taxable : subtotal,
+            CgstAmount: cgst,
+            SgstAmount: sgst,
+            IgstAmount: igst,
             RoundOff: 0m,
             GrandTotal: grandTotal,
             Payments: new List<ReceiptPaymentModel>
