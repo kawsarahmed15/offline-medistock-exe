@@ -81,6 +81,25 @@ public sealed partial class PosPage : Page
                     CancelCloseTabButton.Focus(FocusState.Programmatic);
                 });
             }
+            else if (ev.PropertyName == nameof(PosViewModel.IsCreateProductModalOpen))
+            {
+                if (ViewModel.IsCreateProductModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        NewProductNameBox.Focus(FocusState.Programmatic);
+                        NewProductNameBox.SelectAll();
+                    });
+                }
+                else
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        SearchBox.Focus(FocusState.Programmatic);
+                        SearchBox.SelectAll();
+                    });
+                }
+            }
             else if (ev.PropertyName == nameof(PosViewModel.IsBatchPickerOpen))
             {
                 if (ViewModel.IsBatchPickerOpen)
@@ -237,6 +256,62 @@ public sealed partial class PosPage : Page
         var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isAlt = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isShift = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        // Modal Keyboard Trap: When Create Product (Item Master) modal is open,
+        // completely isolate keyboard focus to the modal. Only Tab, Arrow navigation, Escape, and Enter (or F2) are permitted.
+        // Background shortcuts, search inputs, tabs, and POS hotkeys are strictly blocked.
+        if (ViewModel.IsCreateProductModalOpen)
+        {
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CloseCreateProductModal();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Enter)
+            {
+                if (ReferenceEquals(focused, CancelCreateProductButton))
+                {
+                    ViewModel.CloseCreateProductModal();
+                    SearchBox.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    _ = HandleCreateProductSaveAndFocusAsync();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Tab || e.Key == VirtualKey.Left || e.Key == VirtualKey.Right || e.Key == VirtualKey.Up || e.Key == VirtualKey.Down)
+            {
+                // Allow focus traversal and field editing
+                return;
+            }
+
+            if (e.Key >= VirtualKey.F1 && e.Key <= VirtualKey.F24)
+            {
+                if (e.Key == VirtualKey.F2)
+                {
+                    _ = HandleCreateProductSaveAndFocusAsync();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (isCtrl || isAlt)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Normal typing into active input control allowed
+            return;
+        }
 
         if (ViewModel.IsSaleTypePromptOpen)
         {
@@ -2529,5 +2604,77 @@ public sealed partial class PosPage : Page
             }
         }
     }
+
+    private async void CreateProductInput_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, CancelCreateProductButton))
+            {
+                ViewModel.CloseCreateProductModal();
+                SearchBox.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                await HandleCreateProductSaveAndFocusAsync();
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseCreateProductModal();
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    private async void SaveCreateProductButton_Click(object sender, RoutedEventArgs e)
+    {
+        await HandleCreateProductSaveAndFocusAsync();
+    }
+
+    private async Task HandleCreateProductSaveAndFocusAsync()
+    {
+        var success = await ViewModel.SaveCreateProductAsync();
+        if (success)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            });
+        }
+        else
+        {
+            // Set focus to the first invalid field for rapid correction
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!string.IsNullOrEmpty(ViewModel.NewProductNameError))
+                {
+                    NewProductNameBox.Focus(FocusState.Programmatic);
+                    NewProductNameBox.SelectAll();
+                }
+                else if (!string.IsNullOrEmpty(ViewModel.NewPackSizeTextError))
+                {
+                    NewPackSizeTextBox.Focus(FocusState.Programmatic);
+                    NewPackSizeTextBox.SelectAll();
+                }
+                else if (!string.IsNullOrEmpty(ViewModel.NewBatchNumberError))
+                {
+                    NewBatchNumberBox.Focus(FocusState.Programmatic);
+                    NewBatchNumberBox.SelectAll();
+                }
+                else if (!string.IsNullOrEmpty(ViewModel.NewMrpError))
+                {
+                    NewMrpBox.Focus(FocusState.Programmatic);
+                }
+                else if (!string.IsNullOrEmpty(ViewModel.NewSaleRateError))
+                {
+                    NewSaleRateBox.Focus(FocusState.Programmatic);
+                }
+            });
+        }
+    }
 }
+
 

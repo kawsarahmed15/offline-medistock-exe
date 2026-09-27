@@ -1066,6 +1066,24 @@ public partial class PosViewModel : ObservableObject
     [ObservableProperty]
     private double _newOpeningQty = 100.0;
 
+    [ObservableProperty]
+    private string _newProductNameError = string.Empty;
+
+    [ObservableProperty]
+    private string _newPackSizeTextError = string.Empty;
+
+    [ObservableProperty]
+    private string _newBatchNumberError = string.Empty;
+
+    [ObservableProperty]
+    private string _newMrpError = string.Empty;
+
+    [ObservableProperty]
+    private string _newSaleRateError = string.Empty;
+
+    [ObservableProperty]
+    private string _createProductFormError = string.Empty;
+
     private readonly string? _draftStorageFilePath;
 
     public PosViewModel(
@@ -1431,36 +1449,71 @@ public partial class PosViewModel : ObservableObject
         NewSaleRate = 90.0;
         NewOpeningQty = 50.0;
 
+        ClearCreateProductErrors();
+
         IsCreateProductModalOpen = true;
-        StatusMessage = "Creating new item. Press [Enter/F2] to Save and insert to bill, [Esc] to cancel.";
+        StatusMessage = "Creating new item. Press [Enter] to Save, [Tab] to navigate fields, [Esc] to cancel.";
+    }
+
+    public void ClearCreateProductErrors()
+    {
+        NewProductNameError = string.Empty;
+        NewPackSizeTextError = string.Empty;
+        NewBatchNumberError = string.Empty;
+        NewMrpError = string.Empty;
+        NewSaleRateError = string.Empty;
+        CreateProductFormError = string.Empty;
     }
 
     [RelayCommand]
     public void CloseCreateProductModal()
     {
+        ClearCreateProductErrors();
         IsCreateProductModalOpen = false;
         StatusMessage = "Ready for billing.";
     }
 
     [RelayCommand]
-    public async Task SaveCreateProductAsync()
+    public async Task<bool> SaveCreateProductAsync()
     {
+        ClearCreateProductErrors();
+        bool hasError = false;
+
         if (string.IsNullOrWhiteSpace(NewProductName))
         {
-            StatusMessage = "Product Name is required.";
-            return;
+            NewProductNameError = "Medicine / Product Name is required.";
+            hasError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewPackSizeText))
+        {
+            NewPackSizeTextError = "Pack configuration is required (e.g. 10x10).";
+            hasError = true;
         }
 
         if (string.IsNullOrWhiteSpace(NewBatchNumber))
         {
-            StatusMessage = "Batch Number is required.";
-            return;
+            NewBatchNumberError = "Batch Number is required.";
+            hasError = true;
         }
 
         if (NewMrp <= 0)
         {
-            StatusMessage = "MRP must be greater than zero.";
-            return;
+            NewMrpError = "MRP must be greater than ₹0.00.";
+            hasError = true;
+        }
+
+        if (NewSaleRate <= 0 && NewMrp <= 0)
+        {
+            NewSaleRateError = "Sale Rate must be greater than ₹0.00.";
+            hasError = true;
+        }
+
+        if (hasError)
+        {
+            CreateProductFormError = "Please fill in all mandatory fields marked with an asterisk (*).";
+            StatusMessage = "Cannot save: required fields are missing or invalid.";
+            return false;
         }
 
         var packaging = PackagingHelper.Parse(NewPackSizeText, NewBaseUnit);
@@ -1494,6 +1547,7 @@ public partial class PosViewModel : ObservableObject
 
         if (result.Success && result.ProductId != null && result.BatchId != null)
         {
+            ClearCreateProductErrors();
             IsCreateProductModalOpen = false;
 
             // Automatically add newly created item to active tab cart
@@ -1531,10 +1585,13 @@ public partial class PosViewModel : ObservableObject
             SearchResults.Clear();
             HasSearchResults = false;
             StatusMessage = $"Created & Added: {cmd.Name} (Batch {cmd.BatchNumber})";
+            return true;
         }
         else
         {
+            CreateProductFormError = $"Failed to save item: {result.ErrorMessage}";
             StatusMessage = $"Error adding item: {result.ErrorMessage}";
+            return false;
         }
     }
 

@@ -705,7 +705,8 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Padding="20"
-                    Shadow="{StaticResource SharedShadow}">
+                    Shadow="{StaticResource SharedShadow}"
+                    TabNavigation="Cycle">
                 <Grid RowDefinitions="Auto,*,Auto">
                     <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
@@ -713,21 +714,31 @@
                             <TextBlock Text="➕ [F2] Fast Item Master &amp; Opening Batch Creation" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                             <TextBlock Text="Instantly registers medicine and opening stock batch into SQLite and active bill" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
                         </StackPanel>
-                        <Button Grid.Column="1" Content="✕" Command="{x:Bind ViewModel.CloseCreateProductModalCommand}" Background="Transparent" BorderThickness="0" FontSize="14" />
+                        <Button Grid.Column="1" Content="✕" Command="{x:Bind ViewModel.CloseCreateProductModalCommand}" Background="Transparent" BorderThickness="0" FontSize="14" IsTabStop="False" />
                     </Grid>
 
                     <!-- Content Form -->
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <StackPanel Spacing="10" Padding="0,4">
+                            <!-- Form Error Banner -->
+                            <Border Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="10,6"
+                                    Visibility="{x:Bind ViewModel.CreateProductFormError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="⚠️" FontSize="14" VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Bind ViewModel.CreateProductFormError, Mode=OneWay}" Foreground="#B91C1C" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
                             <!-- Row 1: Medicine Name & Brand -->
                             <Grid ColumnDefinitions="*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Medicine / Product Name *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithral 500mg Tablet" FontSize="13" />
+                                    <TextBox x:Name="NewProductNameBox" TabIndex="1" Text="{x:Bind ViewModel.NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithral 500mg Tablet" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBlock Text="{x:Bind ViewModel.NewProductNameError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewProductNameError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,0,0">
                                     <TextBlock Text="Generic / Salt Formulation" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewGenericName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithromycin 500mg" FontSize="13" />
+                                    <TextBox x:Name="NewGenericNameBox" TabIndex="2" Text="{x:Bind ViewModel.NewGenericName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Azithromycin 500mg" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
 
@@ -735,15 +746,16 @@
                             <Grid ColumnDefinitions="140,90,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Pack (e.g. 10x10, 10x5x5) *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewPackSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="10x10" FontSize="13" />
+                                    <TextBox x:Name="NewPackSizeTextBox" TabIndex="3" Text="{x:Bind ViewModel.NewPackSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="10x10" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBlock Text="{x:Bind ViewModel.NewPackSizeTextError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewPackSizeTextError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,6,0">
                                     <TextBlock Text="Base Unit" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewBaseUnit, Mode=TwoWay}" PlaceholderText="TAB" FontSize="13" />
+                                    <TextBox x:Name="NewBaseUnitBox" TabIndex="4" Text="{x:Bind ViewModel.NewBaseUnit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="TAB" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="6,0,0,0">
                                     <TextBlock Text="Company / Manufacturer" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewManufacturerName, Mode=TwoWay}" PlaceholderText="e.g. Alembic Pharma" FontSize="13" />
+                                    <TextBox x:Name="NewManufacturerNameBox" TabIndex="5" Text="{x:Bind ViewModel.NewManufacturerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Alembic Pharma" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
 
@@ -751,15 +763,15 @@
                             <Grid ColumnDefinitions="120,120,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="HSN Code" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewHsnCode, Mode=TwoWay}" PlaceholderText="3004" FontSize="13" />
+                                    <TextBox x:Name="NewHsnCodeBox" TabIndex="6" Text="{x:Bind ViewModel.NewHsnCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="3004" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,6,0">
                                     <TextBlock Text="GST Rate (%)" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <NumberBox Value="{x:Bind ViewModel.NewGstPercent, Mode=TwoWay}" SpinButtonPlacementMode="Inline" SmallChange="1" FontSize="13" />
+                                    <NumberBox x:Name="NewGstPercentBox" TabIndex="7" Value="{x:Bind ViewModel.NewGstPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Inline" SmallChange="1" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="6,0,0,0">
                                     <TextBlock Text="Barcode (Optional)" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewBarcode, Mode=TwoWay}" PlaceholderText="Scan or type barcode" FontSize="13" />
+                                    <TextBox x:Name="NewBarcodeBox" TabIndex="8" Text="{x:Bind ViewModel.NewBarcode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Scan or type barcode" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
 
@@ -772,11 +784,12 @@
                             <Grid ColumnDefinitions="*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Batch Number *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <TextBox Text="{x:Bind ViewModel.NewBatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. B2401" FontSize="13" />
+                                    <TextBox x:Name="NewBatchNumberBox" TabIndex="9" Text="{x:Bind ViewModel.NewBatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. B2401" FontSize="13" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBlock Text="{x:Bind ViewModel.NewBatchNumberError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewBatchNumberError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,0,0">
                                     <TextBlock Text="Expiry Date" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <DatePicker Date="{x:Bind ViewModel.NewExpiryDate, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                    <DatePicker x:Name="NewExpiryDatePicker" TabIndex="10" Date="{x:Bind ViewModel.NewExpiryDate, Mode=TwoWay}" HorizontalAlignment="Stretch" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
 
@@ -784,19 +797,21 @@
                             <Grid ColumnDefinitions="*,*,*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,4,0">
                                     <TextBlock Text="MRP (₹) *" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <NumberBox Value="{x:Bind ViewModel.NewMrp, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                    <NumberBox x:Name="NewMrpBox" TabIndex="11" Value="{x:Bind ViewModel.NewMrp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBlock Text="{x:Bind ViewModel.NewMrpError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewMrpError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="4,0,4,0">
                                     <TextBlock Text="Purchase (₹)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <NumberBox Value="{x:Bind ViewModel.NewPurchaseRate, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                    <NumberBox x:Name="NewPurchaseRateBox" TabIndex="12" Value="{x:Bind ViewModel.NewPurchaseRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="4,0,4,0">
                                     <TextBlock Text="Sale Rate (₹) *" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <NumberBox Value="{x:Bind ViewModel.NewSaleRate, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                    <NumberBox x:Name="NewSaleRateBox" TabIndex="13" Value="{x:Bind ViewModel.NewSaleRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
+                                    <TextBlock Text="{x:Bind ViewModel.NewSaleRateError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewSaleRateError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="3" Margin="4,0,0,0">
                                     <TextBlock Text="Opening Qty *" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
-                                    <NumberBox Value="{x:Bind ViewModel.NewOpeningQty, Mode=TwoWay}" SpinButtonPlacementMode="Compact" />
+                                    <NumberBox x:Name="NewOpeningQtyBox" TabIndex="14" Value="{x:Bind ViewModel.NewOpeningQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -804,9 +819,9 @@
 
                     <!-- Footer Action Buttons -->
                     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
-                        <TextBlock Grid.Column="0" Text="Press [Enter / F2] to Save &amp; Insert into Bill" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Cancel [Esc]" Command="{x:Bind ViewModel.CloseCreateProductModalCommand}" Margin="0,0,8,0" />
-                        <Button Grid.Column="2" Content="✔ Save &amp; Add to Bill [F2]" Command="{x:Bind ViewModel.SaveCreateProductCommand}" Style="{StaticResource AccentButtonStyle}" FontWeight="Bold" />
+                        <TextBlock Grid.Column="0" Text="Press [Enter / F2] to Save &amp; Insert into Bill | [Esc] Cancel" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                        <Button x:Name="CancelCreateProductButton" TabIndex="15" Content="Cancel [Esc]" Command="{x:Bind ViewModel.CloseCreateProductModalCommand}" Margin="0,0,8,0" KeyDown="CreateProductInput_KeyDown" />
+                        <Button x:Name="SaveCreateProductButton" TabIndex="16" Content="✔ Save &amp; Add to Bill [Enter]" Click="SaveCreateProductButton_Click" Style="{StaticResource AccentButtonStyle}" FontWeight="Bold" KeyDown="CreateProductInput_KeyDown" />
                     </Grid>
                 </Grid>
             </Border>
