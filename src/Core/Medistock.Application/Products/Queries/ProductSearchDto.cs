@@ -59,4 +59,5 @@ public class BarcodeLookupDto
     public bool IsColdChain { get; set; }
     public decimal AvailableQuantity { get; set; }
     public string Barcode { get; set; } = string.Empty;
+    public string PackSizeDescription { get; set; } = "1x10";
 }

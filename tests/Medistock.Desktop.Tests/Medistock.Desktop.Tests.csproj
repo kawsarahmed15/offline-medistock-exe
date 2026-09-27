@@ -21,10 +21,13 @@
 
   <ItemGroup>
     <Compile Include="..\..\src\Clients\Medistock.Desktop\ViewModels\PosViewModel.cs" Link="ViewModels\PosViewModel.cs" />
+    <Compile Include="..\..\src\Clients\Medistock.Desktop\ViewModels\PrintPreviewViewModel.cs" Link="ViewModels\PrintPreviewViewModel.cs" />
+    <Compile Include="..\..\src\Clients\Medistock.Desktop\ViewModels\BillCustomizerViewModel.cs" Link="ViewModels\BillCustomizerViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Medistock.Application\Medistock.Application.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Medistock.Contracts\Medistock.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Medistock.Infrastructure.Hardware\Medistock.Infrastructure.Hardware.csproj" />
   </ItemGroup>
-
 </Project>

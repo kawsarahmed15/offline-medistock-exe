@@ -9,17 +9,41 @@
     Title="Medistock — Pharmacy ERP &amp; POS"
     mc:Ignorable="d">
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="Medistock — Pharmacy ERP &amp; POS">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/AppIcon.ico" />
-            </TitleBar.IconSource>
-        </TitleBar>
+        <Grid Grid.Row="0" Background="{ThemeResource SurfaceBackground}" Padding="12,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Brand Logo & Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Image Source="ms-appx:///Assets/MedistockLogo.png" Width="24" Height="24" />
+                <TextBlock Text="Medistock" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                <TextBlock Text="— Pharmacy ERP &amp; POS" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Right Header Controls: Theme Toggle & Status -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="ThemeToggleButton"
+                        Click="ThemeToggleButton_Click"
+                        Content="🌙 / ☀️ Theme"
+                        ToolTipService.ToolTip="Toggle Dark / Light Theme"
+                        IsTabStop="False"
+                        Background="Transparent"
+                        BorderBrush="{ThemeResource BorderDefault}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        FontSize="11"
+                        Padding="8,4" />
+            </StackPanel>
+        </Grid>
 
         <NavigationView x:Name="NavView"
                         Grid.Row="1"
@@ -63,9 +87,131 @@
                         <SymbolIcon Symbol="AllApps" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+
+                <NavigationViewItem Content="Sales History &amp; Returns [F7]" Tag="sales_history">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Rotate" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="GST Reports (GSTR-1/2/3B)" Tag="gst_reports">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Calculator" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Stock Transfers (Multi-Branch)" Tag="stock_transfers">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Send" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="B2B Wholesaler Commerce" Tag="b2b_commerce">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="World" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Bill Customizer Studio" Tag="bill_customizer">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Print" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Content="Settings &amp; Preferences" Tag="settings">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Setting" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame" />
         </NavigationView>
+
+        <!-- First-Launch Theme Selection Modal Overlay -->
+        <Grid x:Name="ThemeOnboardingOverlay"
+              Grid.RowSpan="2"
+              Background="#CC000000"
+              Visibility="Collapsed"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource BorderStrong}"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    Padding="28,24"
+                    Width="520"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <!-- Header with Logo -->
+                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                        <Image Source="ms-appx:///Assets/MedistockLogo.png" Width="44" Height="44" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Welcome to Medistock" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Medical &amp; Pharmacy ERP Software" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Choose your preferred visual theme for billing and inventory:"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextSecondary}"
+                               HorizontalAlignment="Center"
+                               Margin="0,4,0,4" />
+
+                    <!-- Theme Option Cards -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                        <!-- Dark Theme Card -->
+                        <Button x:Name="DarkThemeCard"
+                                Grid.Column="0"
+                                Click="SelectDarkTheme_Click"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Padding="16,20"
+                                Background="{ThemeResource SurfaceSubtle}"
+                                BorderBrush="{ThemeResource AccentPrimary}"
+                                BorderThickness="2"
+                                CornerRadius="6">
+                            <StackPanel Spacing="8" HorizontalAlignment="Center">
+                                <TextBlock Text="🌙" FontSize="26" HorizontalAlignment="Center" />
+                                <TextBlock Text="Dark Mode" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" />
+                                <TextBlock Text="Recommended for POS" FontSize="11" Foreground="{ThemeResource AccentPrimary}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Text="High contrast, low eye fatigue in billing counters." FontSize="10" Foreground="{ThemeResource TextSecondary}" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Light Theme Card -->
+                        <Button x:Name="LightThemeCard"
+                                Grid.Column="1"
+                                Click="SelectLightTheme_Click"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Padding="16,20"
+                                Background="{ThemeResource SurfaceSubtle}"
+                                BorderBrush="{ThemeResource BorderDefault}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <StackPanel Spacing="8" HorizontalAlignment="Center">
+                                <TextBlock Text="☀️" FontSize="26" HorizontalAlignment="Center" />
+                                <TextBlock Text="Light Mode" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" />
+                                <TextBlock Text="Daytime Classic" FontSize="11" Foreground="{ThemeResource TextSecondary}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Text="Clean daylight look with crisp paper-white backgrounds." FontSize="10" Foreground="{ThemeResource TextSecondary}" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Button Content="Confirm &amp; Start Billing [Enter]"
+                            Click="ConfirmThemeSelection_Click"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Stretch"
+                            Height="38"
+                            FontWeight="Bold"
+                            FontSize="13"
+                            Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Medistock.Contracts.Printing;
 using Medistock.Infrastructure.Hardware;
 using Xunit;
 
@@ -119,5 +120,57 @@ public class HardwareTests
     {
         var drawer = new EscPosReceiptPrinter();
         await drawer.KickDrawerAsync("POS-PRINTER-01");
+    }
+
+    [Fact]
+    public async Task GenerateCreditNoteReport_GeneratesPlainTextAndEscPosBytes()
+    {
+        var generator = new Medistock.Infrastructure.Hardware.Printers.DocumentReportGenerator();
+        var model = new Medistock.Infrastructure.Hardware.Printers.CreditNotePrintModel(
+            PharmacyName: "City Meds Pharmacy",
+            PharmacyAddress: "123 Health Ave, Bengaluru",
+            PharmacyPhone: "080-12345678",
+            Gstin: "29AAAAA0000A1Z5",
+            CreditNoteNo: "CN-2026-0001",
+            OriginalInvoiceNo: "INV-2026-00042",
+            ReturnDate: DateTime.UtcNow,
+            CustomerName: "Rahul Sharma",
+            Items: new List<Medistock.Infrastructure.Hardware.Printers.CreditNoteItemPrintModel>
+            {
+                new("Dolo 650mg Tablet", "DOL2601", 1, 30.50m, 12m, 30.50m, "Restocked")
+            },
+            Subtotal: 27.23m,
+            TaxAmount: 3.27m,
+            TotalRefundAmount: 30.50m,
+            RefundMode: "Cash",
+            Reason: "Excess Quantity"
+        );
+
+        // Plain Text
+        var text = await generator.GeneratePlainTextCreditNoteAsync(model);
+        Assert.Contains("CREDIT NOTE", text);
+        Assert.Contains("CN-2026-0001", text);
+        Assert.Contains("INV-2026-00042", text);
+        Assert.Contains("30.50", text);
+
+        // ESC/POS Bytes
+        var bytes = await generator.GenerateEscPosCreditNoteAsync(model);
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 50);
+    }
+
+    [Fact]
+    public async Task GenerateHtmlTaxInvoice_ContainsValidHtmlStructure()
+    {
+        var generator = new Medistock.Infrastructure.Hardware.Printers.DocumentReportGenerator();
+        var receipt = CreateSampleReceipt();
+
+        var html = await generator.GenerateHtmlTaxInvoiceAsync(receipt);
+
+        Assert.Contains("<!DOCTYPE html>", html);
+        Assert.Contains("City Meds Pharmacy", html);
+        Assert.Contains("INV-2026-00042", html);
+        Assert.Contains("294.00", html);
+        Assert.Contains("Augmentin 625 Duo", html);
     }
 }

@@ -5,45 +5,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Medistock.Contracts.Printing;
+
 namespace Medistock.Infrastructure.Hardware;
-
-public record ReceiptItemModel(
-    string ProductName,
-    string BatchNumber,
-    DateTime ExpiryDate,
-    decimal Quantity,
-    decimal UnitPrice,
-    decimal NetAmount,
-    decimal GstPercent
-);
-
-public record ReceiptPaymentModel(
-    string Mode,
-    decimal Amount,
-    string? Reference
-);
-
-public record SaleReceiptModel(
-    string PharmacyName,
-    string PharmacyAddress,
-    string PharmacyPhone,
-    string Gstin,
-    string DlNumbers, // Drug License No.
-    string InvoiceNo,
-    DateTime InvoiceDate,
-    string CounterName,
-    string CashierName,
-    string? CustomerName,
-    string? DoctorName,
-    List<ReceiptItemModel> Items,
-    decimal Subtotal,
-    decimal CgstAmount,
-    decimal SgstAmount,
-    decimal IgstAmount,
-    decimal RoundOff,
-    decimal GrandTotal,
-    List<ReceiptPaymentModel> Payments
-);
 
 public class PrinterOptions
 {

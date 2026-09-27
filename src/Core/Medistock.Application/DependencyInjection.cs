@@ -18,6 +18,11 @@ public static class DependencyInjection
         services.AddScoped<IScheduleDrugService, ScheduleDrugService>();
         services.AddScoped<IPurchaseService, PurchaseService>();
         services.AddScoped<Medistock.Application.Accounting.Services.IAccountingService, Medistock.Application.Accounting.Services.AccountingService>();
+        services.AddScoped<Medistock.Application.Sales.Services.ISaleReturnService, Medistock.Application.Sales.Services.SaleReturnService>();
+        services.AddScoped<IGstReportService, GstReportService>();
+        services.AddScoped<IStockTransferService, StockTransferService>();
+        services.AddScoped<Medistock.Application.Sync.ISyncEngineService, Medistock.Application.Sync.SyncEngineService>();
+        services.AddScoped<Medistock.Application.B2B.Services.IB2bCommerceService, Medistock.Application.B2B.Services.B2bCommerceService>();
         return services;
     }
 }

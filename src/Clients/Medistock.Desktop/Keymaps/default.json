@@ -10,6 +10,8 @@
     { "command": "pos.hold_bill", "key": "Ctrl+H", "scope": "POS", "description": "Hold current bill in queue" },
     { "command": "pos.resume_bill", "key": "Ctrl+R", "scope": "POS", "description": "Resume held bill" },
     { "command": "pos.save_invoice", "key": "Ctrl+S", "scope": "POS", "description": "Save current invoice" },
+    { "command": "pos.print", "key": "Ctrl+P", "scope": "POS", "description": "Print receipt / open print prompt" },
+    { "command": "pos.print", "key": "F7", "scope": "POS", "description": "Print receipt / open print prompt" },
     { "command": "pos.clear_cart", "key": "Escape", "scope": "POS", "description": "Clear search or active selection" },
     { "command": "app.help_shortcuts", "key": "Alt+F1", "scope": "Global", "description": "Open keyboard shortcut help overlay" },
     { "command": "app.toggle_theme", "key": "Ctrl+Shift+T", "scope": "Global", "description": "Toggle between Light and Dark themes" },

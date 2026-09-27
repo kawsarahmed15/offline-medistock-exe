@@ -11,6 +11,8 @@
 # Build Results & Binaries
 [Bb]in/
 [Oo]bj/
+dist/
+installer/
 [Aa]pp[Pp]ackages/
 _UpgradeReport_Files/
 Backup*/

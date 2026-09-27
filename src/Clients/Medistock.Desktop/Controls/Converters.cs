@@ -30,7 +30,15 @@ public class BoolToVisibilityConverter : IValueConverter
         {
             return b ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         }
-        return Microsoft.UI.Xaml.Visibility.Collapsed;
+        if (value is int count)
+        {
+            return count > 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        }
+        if (value is string s)
+        {
+            return !string.IsNullOrWhiteSpace(s) ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        }
+        return value != null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
@@ -47,7 +55,15 @@ public class InverseBoolToVisibilityConverter : IValueConverter
         {
             return !b ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         }
-        return Microsoft.UI.Xaml.Visibility.Visible;
+        if (value is int count)
+        {
+            return count == 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        }
+        if (value is string s)
+        {
+            return string.IsNullOrWhiteSpace(s) ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        }
+        return value == null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)

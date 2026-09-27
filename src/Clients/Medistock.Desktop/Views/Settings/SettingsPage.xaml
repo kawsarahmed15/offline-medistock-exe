@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Medistock.Desktop.Views.Settings.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Medistock.Desktop.Views.Settings"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:Medistock.Desktop.ViewModels"
+    Background="{ThemeResource AppBackground}"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="24,16">
+        <StackPanel MaxWidth="900" Spacing="20" HorizontalAlignment="Left">
+            <!-- Header Banner -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <Image Source="ms-appx:///Assets/MedistockLogo.png" Width="42" Height="42" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Medistock Configuration &amp; Preferences" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Customize application theme, font scale, store details, and printer defaults" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Grid.Column="2"
+                            Content="💾 Save Settings"
+                            Command="{x:Bind ViewModel.SaveSettingsCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            FontWeight="Bold"
+                            Height="36"
+                            Padding="16,0"
+                            VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Status Banner -->
+            <Border Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Padding="12,8">
+                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+            </Border>
+
+            <!-- 1. Appearance & Visual Customization -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="🎨 Visual Theme &amp; Typography" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+
+                    <!-- Theme Selector -->
+                    <Grid ColumnDefinitions="200,*">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Application Theme" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Switch between Dark and Light mode" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" SelectedValue="{x:Bind ViewModel.Theme, Mode=TwoWay}" Width="240">
+                            <x:String>Dark</x:String>
+                            <x:String>Light</x:String>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Font Size Scaling -->
+                    <Grid ColumnDefinitions="200,*">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="System Font Size Scaling" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Adjust app &amp; table readability" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" SelectedValue="{x:Bind ViewModel.FontSize, Mode=TwoWay}" Width="240">
+                            <x:String>Compact (11px)</x:String>
+                            <x:String>Standard (13px)</x:String>
+                            <x:String>Medium (14px)</x:String>
+                            <x:String>Large (15px)</x:String>
+                            <x:String>Extra Large (17px)</x:String>
+                            <x:String>Huge (19px)</x:String>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 2. Pharmacy / Store Metadata -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="🏥 Pharmacy &amp; Business Information" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                        <!-- Store Name -->
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Pharmacy / Store Name" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
+                        </StackPanel>
+
+                        <!-- GSTIN -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <TextBlock Text="GSTIN / Tax ID" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox Text="{x:Bind ViewModel.Gstin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
+                        </StackPanel>
+
+                        <!-- Phone -->
+                        <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Contact Phone / Mobile" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox Text="{x:Bind ViewModel.ContactPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
+                        </StackPanel>
+
+                        <!-- Invoice Prefix -->
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Invoice Number Prefix" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox Text="{x:Bind ViewModel.InvoicePrefix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
+                        </StackPanel>
+
+                        <!-- Address -->
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
+                            <TextBlock Text="Store Address (Printed on Invoices)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox Text="{x:Bind ViewModel.StoreAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. Hardware & POS Scanner Preferences -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="⚙ POS Scanner &amp; Hardware" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+
+                    <CheckBox IsChecked="{x:Bind ViewModel.EnableBarcodeAudio, Mode=TwoWay}"
+                              Content="Enable Audio Sound / Beep Feedback on Barcode Scan"
+                              FontSize="13" />
+                </StackPanel>
+            </Border>
+
+            <!-- 4. Bill Customizer Studio Card -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="🧾 Bill &amp; Invoice Customizer Studio" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                        <TextBlock Text="Configure 100% of your bill: customize headers, pick columns, reorder items, setup signatures, and preview live." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Open Customizer Studio ➔" Click="OpenCustomizer_Click" Style="{StaticResource AccentButtonStyle}" Height="36" Padding="14,0" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Action Save Button -->
+            <Button Content="💾 Save All Preferences"
+                    Command="{x:Bind ViewModel.SaveSettingsCommand}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    HorizontalAlignment="Right"
+                    Height="40"
+                    Width="200"
+                    FontWeight="Bold"
+                    FontSize="13" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

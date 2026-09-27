@@ -8,6 +8,8 @@
     { "command": "pos.apply_discount", "key": "F4", "scope": "POS", "description": "Apply discount percentage" },
     { "command": "pos.payment", "key": "F6", "scope": "POS", "description": "Direct payment / Tender amount" },
     { "command": "pos.save_invoice", "key": "Ctrl+W", "scope": "POS", "description": "Save bill / Finalize (MARG Standard)" },
+    { "command": "pos.print", "key": "Ctrl+P", "scope": "POS", "description": "Print receipt / open print prompt" },
+    { "command": "pos.print", "key": "F7", "scope": "POS", "description": "Print receipt / open print prompt" },
     { "command": "pos.hold_bill", "key": "Ctrl+H", "scope": "POS", "description": "Hold running bill" },
     { "command": "pos.resume_bill", "key": "Ctrl+R", "scope": "POS", "description": "Recall pending bill" },
     { "command": "pos.clear_cart", "key": "Escape", "scope": "POS", "description": "Cancel current line or exit panel" },

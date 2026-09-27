@@ -174,6 +174,8 @@ public class ShortcutService : IShortcutService
                 new() { Command = "pos.hold_bill", Key = "Ctrl+H", Scope = "POS", Description = "Hold current bill in queue" },
                 new() { Command = "pos.resume_bill", Key = "Ctrl+R", Scope = "POS", Description = "Resume held bill" },
                 new() { Command = "pos.save_invoice", Key = "Ctrl+S", Scope = "POS", Description = "Save current invoice" },
+                new() { Command = "pos.print", Key = "Ctrl+P", Scope = "POS", Description = "Print receipt / open print prompt" },
+                new() { Command = "pos.print", Key = "F7", Scope = "POS", Description = "Print receipt / open print prompt" },
                 new() { Command = "pos.clear_cart", Key = "Escape", Scope = "POS", Description = "Clear search or active selection" }
             }
         };

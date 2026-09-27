@@ -1,0 +1,250 @@
+<Page
+    x:Class="Medistock.Desktop.Views.Compliance.GstReportsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:dtos="using:Medistock.Application.Compliance.DTOs"
+    xmlns:vm="using:Medistock.Desktop.ViewModels"
+    mc:Ignorable="d"
+    Background="{ThemeResource AppBackground}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 1. Header Toolbar -->
+        <Grid Grid.Row="0" Background="{ThemeResource SurfaceBackground}" Padding="16,12" ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="GST STATUTORY FILING &amp; COMPLIANCE" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Padding="8,4">
+                    <TextBlock Text="● GSTR-1, GSTR-2B, GSTR-3B &amp; HSN Summary" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                </Border>
+            </StackPanel>
+
+            <!-- Month & Year Selectors -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                <TextBlock Text="Filing Month:" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{x:Bind ViewModel.MonthNames, Mode=OneWay}"
+                          SelectedIndex="{x:Bind ViewModel.SelectedMonth, Mode=TwoWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0}'}"
+                          Width="130" />
+
+                <TextBlock Text="Year:" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <ComboBox ItemsSource="{x:Bind ViewModel.AvailableYears, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedYear, Mode=TwoWay}"
+                          Width="90" />
+
+                <Button Content="↻ Generate Reports" Command="{x:Bind ViewModel.LoadReportsCommand}" Style="{StaticResource AccentButtonStyle}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Content="💾 Export GSTN JSON" Command="{x:Bind ViewModel.ExportGstr1JsonCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 2. KPI Summary Ribbon -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="16,12,16,12">
+            <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*" ColumnSpacing="12" Margin="0,0,0,12">
+                <!-- Outward Taxable Value -->
+                <Border Grid.Column="0" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="OUTWARD TAXABLE VALUE" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="{x:Bind ViewModel.Gstr1.TotalTaxableValue, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Total Output GST -->
+                <Border Grid.Column="1" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="TOTAL OUTPUT GST (TAXABLE)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="{x:Bind ViewModel.Gstr1.TotalOutputGst, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource StatusDanger}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Total Eligible ITC -->
+                <Border Grid.Column="2" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="AVAILABLE INPUT TAX CREDIT (ITC)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="{x:Bind ViewModel.Gstr2.TotalEligibleItc, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource StatusSuccess}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Net Cash Tax Payable -->
+                <Border Grid.Column="3" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="NET TAX PAYABLE IN CASH" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="{x:Bind ViewModel.Gstr3b.NetTotalPayable, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Main GST Reports TabView -->
+            <TabView Grid.Row="1" SelectedIndex="{x:Bind ViewModel.SelectedTabIndex, Mode=TwoWay}">
+                <!-- Tab 1: GSTR-1 (Outward Supplies) -->
+                <TabViewItem Header="GSTR-1 (Outward Supplies)" IsClosable="False">
+                    <Grid RowDefinitions="*,*" RowSpacing="12" Margin="0,8,0,0">
+                        <!-- Top: B2C & B2B Invoices -->
+                        <Border Grid.Row="0" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <Grid RowDefinitions="Auto,Auto,*">
+                                <TextBlock Grid.Row="0" Text="Outward Supplies (B2B &amp; B2C Small Breakdown)" FontSize="14" FontWeight="Bold" Margin="0,0,0,6" />
+                                
+                                <Grid Grid.Row="1" ColumnDefinitions="140,80,*,120,120,120,120" Padding="8,6" Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Margin="0,0,0,4">
+                                    <TextBlock Grid.Column="0" Text="Place of Supply" FontWeight="Bold" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="Rate" FontWeight="Bold" FontSize="12" />
+                                    <TextBlock Grid.Column="2" Text="Invoices" FontWeight="Bold" FontSize="12" />
+                                    <TextBlock Grid.Column="3" Text="Taxable (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="CGST (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="5" Text="SGST (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="6" Text="IGST (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Gstr1.B2cInvoices, Mode=OneWay}" SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="dtos:Gstr1B2cEntryDto">
+                                            <Grid ColumnDefinitions="140,80,*,120,120,120,120" Padding="8,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                                <TextBlock Grid.Column="0" Text="{x:Bind PlaceOfSupply}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind GstRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0}%'}" FontSize="12" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind InvoiceCount, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0} Retail Invoices'}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind TaxableValue, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="4" Text="{x:Bind CgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="5" Text="{x:Bind SgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="6" Text="{x:Bind IgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+
+                        <!-- Bottom: HSN-wise Summary Table -->
+                        <Border Grid.Row="1" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <Grid RowDefinitions="Auto,Auto,*">
+                                <TextBlock Grid.Row="0" Text="12. HSN Summary of Outward Supplies" FontSize="14" FontWeight="Bold" Margin="0,0,0,6" />
+
+                                <Grid Grid.Row="1" ColumnDefinitions="90,*,70,70,110,110,110,110,110" Padding="8,6" Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Margin="0,0,0,4">
+                                    <TextBlock Grid.Column="0" Text="HSN Code" FontWeight="Bold" FontSize="11" />
+                                    <TextBlock Grid.Column="1" Text="Description" FontWeight="Bold" FontSize="11" />
+                                    <TextBlock Grid.Column="2" Text="UQC" FontWeight="Bold" FontSize="11" />
+                                    <TextBlock Grid.Column="3" Text="Total Qty" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="Total Val (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="5" Text="Taxable (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="6" Text="CGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="7" Text="SGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="8" Text="IGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Gstr1.HsnSummary, Mode=OneWay}" SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="dtos:Gstr1HsnSummaryItemDto">
+                                            <Grid ColumnDefinitions="90,*,70,70,110,110,110,110,110" Padding="8,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                                <TextBlock Grid.Column="0" Text="{x:Bind HsnCode}" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Description}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind Uqc}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind TotalQuantity}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="4" Text="{x:Bind TotalValue, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="5" Text="{x:Bind TaxableValue, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="6" Text="{x:Bind CgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="7" Text="{x:Bind SgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="8" Text="{x:Bind IgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabViewItem>
+
+                <!-- Tab 2: GSTR-2 (Inward Purchases & ITC) -->
+                <TabViewItem Header="GSTR-2 (Inward Purchases &amp; ITC)" IsClosable="False">
+                    <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,8,0,0">
+                        <Grid RowDefinitions="Auto,Auto,*">
+                            <TextBlock Grid.Row="0" Text="Inward B2B Invoices (Input Tax Credit Register)" FontSize="14" FontWeight="Bold" Margin="0,0,0,8" />
+
+                            <Grid Grid.Row="1" ColumnDefinitions="140,*,110,90,110,100,100,100,100" Padding="8,6" Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Text="Supplier GSTIN" FontWeight="Bold" FontSize="11" />
+                                <TextBlock Grid.Column="1" Text="Supplier Name" FontWeight="Bold" FontSize="11" />
+                                <TextBlock Grid.Column="2" Text="Invoice No" FontWeight="Bold" FontSize="11" />
+                                <TextBlock Grid.Column="3" Text="Date" FontWeight="Bold" FontSize="11" />
+                                <TextBlock Grid.Column="4" Text="Taxable (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="5" Text="CGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="6" Text="SGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="7" Text="IGST (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Text="Total ITC (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                            </Grid>
+
+                            <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Gstr2.InwardInvoices, Mode=OneWay}" SelectionMode="None">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="dtos:Gstr2B2bEntryDto">
+                                        <Grid ColumnDefinitions="140,*,110,90,110,100,100,100,100" Padding="8,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                            <TextBlock Grid.Column="0" Text="{x:Bind SupplierGstin}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind SupplierName}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind InvoiceNo}" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind InvoiceDate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:yyyy-MM-dd}'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{x:Bind TaxableValue, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="5" Text="{x:Bind CgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="6" Text="{x:Bind SgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="7" Text="{x:Bind IgstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="8" Text="{x:Bind TotalGstAmount, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+                </TabViewItem>
+
+                <!-- Tab 3: GSTR-3B (Monthly Summary & Tax Offset) -->
+                <TabViewItem Header="GSTR-3B (Monthly Offset)" IsClosable="False">
+                    <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,8,0,0">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Summary Table: Outward Supplies, Eligible ITC &amp; Net Payment in Cash" FontSize="15" FontWeight="Bold" />
+
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="250,*,*,*,*" Margin="0,8,0,0">
+                                <!-- Header -->
+                                <Border Grid.Row="0" Grid.ColumnSpan="5" Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Padding="12,8">
+                                    <Grid ColumnDefinitions="250,*,*,*,*">
+                                        <TextBlock Grid.Column="0" Text="Description / Head" FontWeight="Bold" FontSize="12" />
+                                        <TextBlock Grid.Column="1" Text="Taxable Value (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                        <TextBlock Grid.Column="2" Text="Integrated Tax (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                        <TextBlock Grid.Column="3" Text="Central Tax (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                        <TextBlock Grid.Column="4" Text="State/UT Tax (₹)" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Row 1: Outward Supplies -->
+                                <Grid Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="250,*,*,*,*" Padding="12,10" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <TextBlock Grid.Column="0" Text="3.1 (a) Outward Taxable Supplies" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Gstr3b.OutwardSupplies.TotalTaxableValue, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.Gstr3b.OutwardSupplies.IntegratedTax, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind ViewModel.Gstr3b.OutwardSupplies.CentralTax, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ViewModel.Gstr3b.OutwardSupplies.StateTax, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- Row 2: Eligible ITC -->
+                                <Grid Grid.Row="2" Grid.ColumnSpan="5" ColumnDefinitions="250,*,*,*,*" Padding="12,10" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <TextBlock Grid.Column="0" Text="4. (A) (5) All Other ITC (Purchases)" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource StatusSuccess}" />
+                                    <TextBlock Grid.Column="1" Text="-" FontSize="13" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.Gstr3b.EligibleItc.IntegratedTaxItc, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind ViewModel.Gstr3b.EligibleItc.CentralTaxItc, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ViewModel.Gstr3b.EligibleItc.StateTaxItc, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- Row 3: Net Cash Payable -->
+                                <Grid Grid.Row="3" Grid.ColumnSpan="5" ColumnDefinitions="250,*,*,*,*" Padding="12,12" Background="{ThemeResource SurfaceSubtle}" CornerRadius="4">
+                                    <TextBlock Grid.Column="0" Text="6.1 Net Tax Payable in Cash" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" />
+                                    <TextBlock Grid.Column="1" Text="-" FontSize="13" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.Gstr3b.NetIgstPayable, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind ViewModel.Gstr3b.NetCgstPayable, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ViewModel.Gstr3b.NetSgstPayable, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </TabViewItem>
+            </TabView>
+        </Grid>
+
+        <!-- 3. Bottom Status Bar -->
+        <Border Grid.Row="2" Background="{ThemeResource SurfaceBackground}" Padding="16,6">
+            <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+        </Border>
+    </Grid>
+</Page>

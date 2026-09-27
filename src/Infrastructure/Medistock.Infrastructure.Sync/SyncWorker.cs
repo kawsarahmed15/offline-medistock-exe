@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Medistock.Application.Common.Interfaces;
+using Medistock.Contracts.Sync;
 using Medistock.Domain.Common;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,21 +20,20 @@ public interface IConnectivityService
 
 public class ConnectivityService : IConnectivityService
 {
-    private readonly HttpClient _httpClient;
+    private readonly HttpClient? _httpClient;
     private ConnectivityState _currentState = ConnectivityState.FullA;
 
     public ConnectivityState CurrentState => _currentState;
 
     public ConnectivityService(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        _httpClient = httpClient;
     }
 
     public Task<ConnectivityState> CheckConnectivityAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            // Try pinging local server first or fallback to local offline mode
             _currentState = ConnectivityState.FullA;
             return Task.FromResult(_currentState);
         }
@@ -49,17 +49,29 @@ public class OutboxSyncWorker : BackgroundService
 {
     private readonly IOutboxRepository _outboxRepository;
     private readonly IConnectivityService _connectivityService;
+    private readonly ICloudSyncClient? _cloudSyncClient;
     private readonly ILogger<OutboxSyncWorker>? _logger;
+    private readonly string _orgId;
+    private readonly string _branchId;
+    private readonly string _deviceId;
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
 
     public OutboxSyncWorker(
         IOutboxRepository outboxRepository,
         IConnectivityService connectivityService,
-        ILogger<OutboxSyncWorker>? logger = null)
+        ICloudSyncClient? cloudSyncClient = null,
+        ILogger<OutboxSyncWorker>? logger = null,
+        string orgId = "ORG-001",
+        string branchId = "BR-MAIN",
+        string deviceId = "POS-01")
     {
         _outboxRepository = outboxRepository;
         _connectivityService = connectivityService;
+        _cloudSyncClient = cloudSyncClient;
         _logger = logger;
+        _orgId = orgId;
+        _branchId = branchId;
+        _deviceId = deviceId;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -90,18 +102,66 @@ public class OutboxSyncWorker : BackgroundService
         if (pendingEvents.Count == 0) return 0;
 
         int syncedCount = 0;
-        foreach (var evt in pendingEvents)
+
+        if (_cloudSyncClient != null)
         {
-            try
+            var pushRequest = new SyncPushRequest
             {
-                // In production, posts to LocalServer API / Cloud Sync endpoint with Idempotency header
-                // Simulation / Local validation: Mark as synced once payload verified
-                await _outboxRepository.MarkEventSyncedAsync(evt.Id, cancellationToken);
-                syncedCount++;
+                OrgId = _orgId,
+                BranchId = _branchId,
+                DeviceId = _deviceId,
+                Events = pendingEvents.Select(e => new SyncEventDto
+                {
+                    EventId = e.Id,
+                    OrgId = _orgId,
+                    BranchId = _branchId,
+                    DeviceId = e.DeviceId,
+                    EventType = e.EventType,
+                    AggregateId = e.AggregateId,
+                    IdempotencyKey = $"{e.DeviceId}:{e.OperationId}",
+                    PayloadJson = e.PayloadJson,
+                    CreatedAtUtc = e.CreatedAt,
+                    ClientSequenceNumber = 0
+                }).ToList()
+            };
+
+            var response = await _cloudSyncClient.PushEventsAsync(pushRequest, cancellationToken);
+            var resultMap = response.Results.ToDictionary(r => r.EventId);
+
+            foreach (var evt in pendingEvents)
+            {
+                if (resultMap.TryGetValue(evt.Id, out var result))
+                {
+                    if (result.Status == SyncItemStatus.Success || result.Status == SyncItemStatus.Duplicate)
+                    {
+                        await _outboxRepository.MarkEventSyncedAsync(evt.Id, cancellationToken);
+                        syncedCount++;
+                    }
+                    else
+                    {
+                        await _outboxRepository.RecordEventFailureAsync(evt.Id, result.ErrorMessage ?? "Sync failed", cancellationToken);
+                    }
+                }
+                else
+                {
+                    await _outboxRepository.RecordEventFailureAsync(evt.Id, "No result returned for event", cancellationToken);
+                }
             }
-            catch (Exception ex)
+        }
+        else
+        {
+            // Standalone mode / Direct mark for unit testing
+            foreach (var evt in pendingEvents)
             {
-                await _outboxRepository.RecordEventFailureAsync(evt.Id, ex.Message, cancellationToken);
+                try
+                {
+                    await _outboxRepository.MarkEventSyncedAsync(evt.Id, cancellationToken);
+                    syncedCount++;
+                }
+                catch (Exception ex)
+                {
+                    await _outboxRepository.RecordEventFailureAsync(evt.Id, ex.Message, cancellationToken);
+                }
             }
         }
 

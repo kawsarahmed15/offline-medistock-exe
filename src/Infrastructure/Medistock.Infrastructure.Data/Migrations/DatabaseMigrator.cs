@@ -39,7 +39,11 @@ public class DatabaseMigrator : IDatabaseMigrator
             ("001_InitialSchema", GetInitialSchemaSql()),
             ("002_InventoryAndScheduleDrugs", GetScheduleDrugsSchemaSql()),
             ("003_PurchasesAndSuppliers", GetPurchasesSchemaSql()),
-            ("004_AccountingAndLedgers", GetAccountingSchemaSql())
+            ("004_AccountingAndLedgers", GetAccountingSchemaSql()),
+            ("005_SalesReturnsAndCreditNotes", GetSalesReturnsSchemaSql()),
+            ("006_StockTransfers", GetStockTransfersSchemaSql()),
+            ("007_SyncHubAndB2bCommerce", GetSyncHubAndB2bSchemaSql()),
+            ("008_BillCustomizationAndPrinters", GetBillCustomizationSchemaSql())
         };
 
         foreach (var (version, sql) in migrations)
@@ -567,6 +571,335 @@ INSERT OR IGNORE INTO account_heads (id, org_id, code, name, category, parent_ac
 ('acc_rent_exp', 'org-1', '5005', 'Store Rent Expense', 5, NULL, 0, 1, 0.0, datetime('now')),
 ('acc_salaries', 'org-1', '5006', 'Staff Salaries Expense', 5, NULL, 0, 1, 0.0, datetime('now')),
 ('acc_electricity', 'org-1', '5007', 'Electricity & Utilities', 5, NULL, 0, 1, 0.0, datetime('now'));
+";
+
+    private static string GetSalesReturnsSchemaSql()
+    {
+        var assembly = typeof(DatabaseMigrator).Assembly;
+        var resourceName = "Medistock.Infrastructure.Data.Migrations.005_SalesReturnsAndCreditNotes.sql";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "005_SalesReturnsAndCreditNotes.sql");
+        if (File.Exists(localPath))
+        {
+            return File.ReadAllText(localPath);
+        }
+
+        return SalesReturnsSqlSchema;
+    }
+
+    private const string SalesReturnsSqlSchema = @"
+CREATE TABLE IF NOT EXISTS sale_returns (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    counter_id TEXT NOT NULL,
+    warehouse_id TEXT NOT NULL,
+    original_sale_id TEXT NOT NULL REFERENCES sales(id),
+    original_invoice_no TEXT NOT NULL,
+    credit_note_no TEXT NOT NULL UNIQUE,
+    return_date TEXT NOT NULL,
+    customer_id TEXT,
+    customer_name TEXT,
+    user_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    status INTEGER NOT NULL DEFAULT 1,
+    reason TEXT,
+    subtotal REAL NOT NULL DEFAULT 0.0,
+    tax_amount REAL NOT NULL DEFAULT 0.0,
+    round_off REAL NOT NULL DEFAULT 0.0,
+    total_amount REAL NOT NULL DEFAULT 0.0,
+    refund_mode INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    posted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_returns_sale ON sale_returns(original_sale_id);
+CREATE INDEX IF NOT EXISTS idx_sale_returns_cn ON sale_returns(credit_note_no);
+CREATE INDEX IF NOT EXISTS idx_sale_returns_date ON sale_returns(org_id, branch_id, return_date);
+
+CREATE TABLE IF NOT EXISTS sale_return_items (
+    id TEXT PRIMARY KEY,
+    sale_return_id TEXT NOT NULL REFERENCES sale_returns(id) ON DELETE CASCADE,
+    sale_item_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    batch_id TEXT NOT NULL,
+    batch_number TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    taxable_amount REAL NOT NULL,
+    cgst_rate REAL NOT NULL DEFAULT 0.0,
+    cgst_amount REAL NOT NULL DEFAULT 0.0,
+    sgst_rate REAL NOT NULL DEFAULT 0.0,
+    sgst_amount REAL NOT NULL DEFAULT 0.0,
+    igst_rate REAL NOT NULL DEFAULT 0.0,
+    igst_amount REAL NOT NULL DEFAULT 0.0,
+    net_amount REAL NOT NULL,
+    restock_decision INTEGER NOT NULL DEFAULT 1,
+    reason TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_return_items_return ON sale_return_items(sale_return_id);
+CREATE INDEX IF NOT EXISTS idx_sale_return_items_batch ON sale_return_items(batch_id);
+";
+
+    private static string GetStockTransfersSchemaSql()
+    {
+        var assembly = typeof(DatabaseMigrator).Assembly;
+        var resourceName = "Medistock.Infrastructure.Data.Migrations.006_StockTransfers.sql";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "006_StockTransfers.sql");
+        if (File.Exists(localPath))
+        {
+            return File.ReadAllText(localPath);
+        }
+
+        return StockTransfersSqlSchema;
+    }
+
+    private const string StockTransfersSqlSchema = @"
+CREATE TABLE IF NOT EXISTS stock_transfers (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    transfer_no TEXT NOT NULL UNIQUE,
+    source_branch_id TEXT NOT NULL,
+    source_warehouse_id TEXT NOT NULL,
+    destination_branch_id TEXT NOT NULL,
+    destination_warehouse_id TEXT NOT NULL,
+    status INTEGER NOT NULL DEFAULT 1,
+    notes TEXT,
+    requested_by_user_id TEXT NOT NULL,
+    dispatched_by_user_id TEXT,
+    received_by_user_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    dispatched_at TEXT,
+    received_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_org ON stock_transfers(org_id, status);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_no ON stock_transfers(transfer_no);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_src ON stock_transfers(source_branch_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_dest ON stock_transfers(destination_branch_id);
+
+CREATE TABLE IF NOT EXISTS stock_transfer_items (
+    id TEXT PRIMARY KEY,
+    transfer_id TEXT NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    batch_id TEXT NOT NULL,
+    batch_number TEXT NOT NULL,
+    expiry_date TEXT NOT NULL,
+    requested_quantity REAL NOT NULL,
+    dispatched_quantity REAL NOT NULL,
+    received_quantity REAL NOT NULL DEFAULT 0.0,
+    discrepancy_quantity REAL NOT NULL DEFAULT 0.0,
+    unit_cost REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE INDEX IF NOT EXISTS idx_transfer_items_tr ON stock_transfer_items(transfer_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_items_batch ON stock_transfer_items(batch_id);
+";
+
+    private static string GetSyncHubAndB2bSchemaSql()
+    {
+        var assembly = typeof(DatabaseMigrator).Assembly;
+        var resourceName = "Medistock.Infrastructure.Data.Migrations.007_SyncHubAndB2bCommerce.sql";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "007_SyncHubAndB2bCommerce.sql");
+        if (File.Exists(localPath))
+        {
+            return File.ReadAllText(localPath);
+        }
+
+        return SyncHubAndB2bSqlSchema;
+    }
+
+    private const string SyncHubAndB2bSqlSchema = @"
+CREATE TABLE IF NOT EXISTS server_sync_events (
+    server_sequence_number INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL,
+    org_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    aggregate_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    client_created_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_server_sync_idempotency 
+ON server_sync_events(org_id, idempotency_key);
+
+CREATE INDEX IF NOT EXISTS idx_server_sync_pull 
+ON server_sync_events(org_id, branch_id, server_sequence_number);
+
+CREATE TABLE IF NOT EXISTS b2b_wholesalers (
+    wholesaler_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    gstin TEXT NOT NULL,
+    drug_license_no TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    min_order_value REAL NOT NULL DEFAULT 0,
+    credit_days INTEGER NOT NULL DEFAULT 30,
+    is_verified INTEGER NOT NULL DEFAULT 1,
+    rating REAL NOT NULL DEFAULT 4.8,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS b2b_wholesaler_catalogs (
+    catalog_id TEXT PRIMARY KEY,
+    wholesaler_id TEXT NOT NULL,
+    product_code TEXT NOT NULL,
+    brand_name TEXT NOT NULL,
+    generic_name TEXT NOT NULL,
+    dosage_form TEXT NOT NULL,
+    strength TEXT NOT NULL,
+    manufacturer TEXT NOT NULL,
+    hsn_code TEXT NOT NULL,
+    mrp REAL NOT NULL,
+    wholesale_rate REAL NOT NULL,
+    gst_rate REAL NOT NULL,
+    available_stock INTEGER NOT NULL DEFAULT 100,
+    scheme_description TEXT,
+    min_order_qty INTEGER NOT NULL DEFAULT 1,
+    free_ratio_buy INTEGER NOT NULL DEFAULT 0,
+    free_ratio_get INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(wholesaler_id) REFERENCES b2b_wholesalers(wholesaler_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_b2b_catalog_search 
+ON b2b_wholesaler_catalogs(brand_name, generic_name);
+
+CREATE TABLE IF NOT EXISTS b2b_purchase_orders (
+    order_id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    order_number TEXT NOT NULL UNIQUE,
+    wholesaler_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    sub_total REAL NOT NULL,
+    tax_amount REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    delivery_address TEXT NOT NULL,
+    notes TEXT,
+    dispatch_tracking_no TEXT,
+    ordered_at TEXT NOT NULL,
+    expected_delivery TEXT,
+    delivered_at TEXT,
+    converted_purchase_invoice_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(wholesaler_id) REFERENCES b2b_wholesalers(wholesaler_id)
+);
+
+CREATE TABLE IF NOT EXISTS b2b_purchase_order_items (
+    order_item_id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    catalog_id TEXT NOT NULL,
+    product_code TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    order_qty INTEGER NOT NULL,
+    free_qty INTEGER NOT NULL DEFAULT 0,
+    unit_wholesale_rate REAL NOT NULL,
+    gst_rate REAL NOT NULL,
+    tax_amount REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES b2b_purchase_orders(order_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_b2b_orders_org 
+ON b2b_purchase_orders(org_id, branch_id, status);
+
+INSERT OR IGNORE INTO b2b_wholesalers (wholesaler_id, name, gstin, drug_license_no, phone, email, city, state, min_order_value, credit_days, is_verified, rating) VALUES
+('w_apex', 'Apex Pharma Distributors', '27ABCDE1234F1Z5', 'DL-MH-2024-8899', '+91 98201 11223', 'orders@apexpharma.com', 'Mumbai', 'Maharashtra', 2000.0, 30, 1, 4.9),
+('w_medlink', 'MedLink Wholesale Logistics', '27FGHIJ5678K2Z6', 'DL-MH-2023-4455', '+91 98202 33445', 'supply@medlink.co.in', 'Pune', 'Maharashtra', 1500.0, 21, 1, 4.7),
+('w_sunhealth', 'SunHealth Distribution Network', '24KLMNO9012P3Z7', 'DL-GJ-2024-1122', '+91 98203 55667', 'care@sunhealthb2b.com', 'Ahmedabad', 'Gujarat', 5000.0, 45, 1, 4.8);
+
+INSERT OR IGNORE INTO b2b_wholesaler_catalogs (catalog_id, wholesaler_id, product_code, brand_name, generic_name, dosage_form, strength, manufacturer, hsn_code, mrp, wholesale_rate, gst_rate, available_stock, scheme_description, min_order_qty, free_ratio_buy, free_ratio_get) VALUES
+('cat_dolo_650', 'w_apex', 'MED-DOLO650', 'Dolo 650mg Tablet', 'Paracetamol', 'Tablet', '650mg', 'Micro Labs Ltd', '3004', 33.60, 24.50, 12.0, 500, '10 + 1 Free Deal', 10, 10, 1),
+('cat_pan_d', 'w_apex', 'MED-PAND', 'Pan D Capsule', 'Pantoprazole + Domperidone', 'Capsule', '40mg/30mg', 'Alkem Laboratories', '3004', 198.00, 145.00, 12.0, 300, '5% Extra Cash Discount', 5, 0, 0),
+('cat_augmentin_625', 'w_medlink', 'MED-AUG625', 'Augmentin 625 Duo Tablet', 'Amoxicillin + Clavulanic Acid', 'Tablet', '500mg/125mg', 'GlaxoSmithKline', '3004', 223.50, 168.00, 12.0, 250, '20 + 2 Free Deal', 20, 20, 2),
+('cat_azithral_500', 'w_medlink', 'MED-AZI500', 'Azithral 500mg Tablet', 'Azithromycin', 'Tablet', '500mg', 'Alembic Pharma', '3004', 132.00, 96.50, 12.0, 400, 'Special Seasonal Price', 5, 0, 0),
+('cat_glycomet_gp2', 'w_sunhealth', 'MED-GLYGP2', 'Glycomet GP 2 Tablet', 'Metformin + Glimepiride', 'Tablet', '500mg/2mg', 'USV Ltd', '3004', 145.00, 105.00, 12.0, 350, '15 + 1 Free Deal', 15, 15, 1),
+('cat_telma_40', 'w_sunhealth', 'MED-TEL40', 'Telma 40mg Tablet', 'Telmisartan', 'Tablet', '40mg', 'Glenmark Pharma', '3004', 115.00, 82.00, 12.0, 600, 'Volume Deal (>50 units)', 10, 0, 0);
+";
+
+    private static string GetBillCustomizationSchemaSql()
+    {
+        var assembly = typeof(DatabaseMigrator).Assembly;
+        var resourceName = "Medistock.Infrastructure.Data.Migrations.008_BillCustomizationAndPrinters.sql";
+
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+
+        var localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "008_BillCustomizationAndPrinters.sql");
+        if (File.Exists(localPath))
+        {
+            return File.ReadAllText(localPath);
+        }
+
+        return BillCustomizationSqlSchema;
+    }
+
+    private const string BillCustomizationSqlSchema = @"
+CREATE TABLE IF NOT EXISTS bill_templates (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    paper_size TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bill_templates_default ON bill_templates(is_default);
+
+CREATE TABLE IF NOT EXISTS printer_configurations (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    interface_type TEXT NOT NULL,
+    target_name_or_ip TEXT NOT NULL,
+    target_port INTEGER DEFAULT 9100,
+    paper_size TEXT NOT NULL,
+    assigned_template_id TEXT,
+    auto_cut_paper INTEGER NOT NULL DEFAULT 1,
+    kick_cash_drawer INTEGER NOT NULL DEFAULT 1,
+    is_default_pos INTEGER NOT NULL DEFAULT 0,
+    is_default_a4 INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(assigned_template_id) REFERENCES bill_templates(id)
+);
 ";
 }
 

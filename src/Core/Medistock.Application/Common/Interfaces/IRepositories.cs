@@ -93,3 +93,78 @@ public interface IDocumentSequenceService
 {
     Task<string> GenerateInvoiceNumberAsync(string orgId, string branchId, string prefix = "INV", CancellationToken cancellationToken = default);
 }
+
+public interface ISaleReturnRepository
+{
+    Task<IReadOnlyList<Medistock.Application.Sales.DTOs.SaleSummaryDto>> GetRecentSalesAsync(
+        string orgId,
+        string branchId,
+        string? searchQuery = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Sales.DTOs.SaleDetailDto?> GetSaleByIdAsync(
+        string saleId,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Sales.DTOs.SaleDetailDto?> GetSaleByInvoiceNoAsync(
+        string orgId,
+        string branchId,
+        string invoiceNo,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Sales.DTOs.SaleReturnResult> CommitSaleReturnAtomicAsync(
+        SaleReturn saleReturn,
+        List<StockMovement> stockMovements,
+        OutboxEvent outboxEvent,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGstReportRepository
+{
+    Task<Medistock.Application.Compliance.DTOs.Gstr1ReportDto> GenerateGstr1Async(
+        Medistock.Application.Compliance.DTOs.GstPeriodFilter filter,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Compliance.DTOs.Gstr2ReportDto> GenerateGstr2Async(
+        Medistock.Application.Compliance.DTOs.GstPeriodFilter filter,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Compliance.DTOs.Gstr3bReportDto> GenerateGstr3bAsync(
+        Medistock.Application.Compliance.DTOs.GstPeriodFilter filter,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IStockTransferRepository
+{
+    Task<IReadOnlyList<Medistock.Application.Inventory.DTOs.StockTransferSummaryDto>> GetTransfersAsync(
+        string orgId,
+        string? branchId = null,
+        StockTransferStatus? status = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Inventory.DTOs.StockTransferDetailDto?> GetTransferByIdAsync(
+        string transferId,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Inventory.DTOs.TransferOperationResult> CreateTransferRequestAsync(
+        StockTransfer transfer,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Inventory.DTOs.TransferOperationResult> DispatchTransferAtomicAsync(
+        string transferId,
+        string dispatchedByUserId,
+        string deviceId,
+        List<StockMovement> stockMovements,
+        OutboxEvent outboxEvent,
+        CancellationToken cancellationToken = default);
+
+    Task<Medistock.Application.Inventory.DTOs.TransferOperationResult> ReceiveTransferAtomicAsync(
+        string transferId,
+        string receivedByUserId,
+        string deviceId,
+        Dictionary<string, decimal> receivedQuantities,
+        List<StockMovement> stockMovements,
+        OutboxEvent outboxEvent,
+        CancellationToken cancellationToken = default);
+}

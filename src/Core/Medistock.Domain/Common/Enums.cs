@@ -88,3 +88,27 @@ public enum StockAdjustmentType
     QuarantineExpired = 3,
     DamageWriteOff = 4
 }
+
+public enum RestockDecision
+{
+    RestockToAvailable = 1, // Return undamaged stock back to sellable inventory
+    QuarantineDamaged = 2,  // Patient returned broken/tampered item - quarantine
+    QuarantineExpired = 3   // Expired return - quarantine for supplier debit return
+}
+
+public enum SaleReturnStatus
+{
+    Draft = 0,
+    Posted = 1,
+    Cancelled = 2
+}
+
+public enum StockTransferStatus
+{
+    Draft = 0,
+    Requested = 1,
+    InTransit = 2,
+    ReceivedCompleted = 3,
+    Cancelled = 4,
+    Disputed = 5
+}

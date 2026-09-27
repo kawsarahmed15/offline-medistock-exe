@@ -46,8 +46,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddInfrastructureSync();
 
         services.AddSingleton<IShortcutService, ShortcutService>();
-        services.AddTransient<PosViewModel>();
-        services.AddTransient<PosPage>();
+        services.AddSingleton<PosViewModel>();
+        services.AddSingleton<PosPage>();
         services.AddTransient<InventoryViewModel>();
         services.AddTransient<Views.Inventory.InventoryPage>();
         services.AddTransient<ExpiryDashboardViewModel>();
@@ -58,6 +58,20 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<Views.Purchases.PurchaseEntryPage>();
         services.AddTransient<AccountingViewModel>();
         services.AddTransient<Views.Accounting.AccountingPage>();
+        services.AddTransient<SalesHistoryViewModel>();
+        services.AddTransient<Views.Sales.SalesHistoryPage>();
+        services.AddTransient<GstReportsViewModel>();
+        services.AddTransient<Views.Compliance.GstReportsPage>();
+        services.AddTransient<StockTransfersViewModel>();
+        services.AddTransient<Views.Inventory.StockTransfersPage>();
+        services.AddTransient<B2bCommerceViewModel>();
+        services.AddTransient<Views.B2B.B2bCommercePage>();
+        services.AddTransient<SettingsViewModel>();
+        services.AddTransient<Views.Settings.SettingsPage>();
+        services.AddTransient<PrintPreviewViewModel>();
+        services.AddTransient<Views.Sales.PrintPreviewDialog>();
+        services.AddTransient<BillCustomizerViewModel>();
+        services.AddTransient<Views.Settings.BillCustomizerPage>();
     }
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
@@ -70,24 +84,21 @@ public partial class App : Microsoft.UI.Xaml.Application
             _window.Activate();
             System.IO.File.AppendAllText(logFile, $"Window activated successfully at {DateTime.UtcNow:O}\n");
 
-            // Run database migrations and seeding in background
-            _ = System.Threading.Tasks.Task.Run(async () =>
+            // Ensure database migrations and seed medicines are populated immediately
+            try
             {
-                try
-                {
-                    using var scope = Services.CreateScope();
-                    var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
-                    await migrator.MigrateAsync();
+                using var scope = Services.CreateScope();
+                var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
+                migrator.MigrateAsync().GetAwaiter().GetResult();
 
-                    var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
-                    await seeder.SeedIfEmptyAsync();
-                    System.IO.File.AppendAllText(logFile, $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
-                }
-                catch (Exception ex)
-                {
-                    System.IO.File.AppendAllText(logFile, $"Database init error: {ex}\n");
-                }
-            });
+                var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
+                seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
+                System.IO.File.AppendAllText(logFile, $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
+            }
+            catch (Exception ex)
+            {
+                System.IO.File.AppendAllText(logFile, $"Database init error: {ex}\n");
+            }
         }
         catch (Exception ex)
         {

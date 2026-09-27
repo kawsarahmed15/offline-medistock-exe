@@ -202,18 +202,96 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
   - Built `PurchaseService.CreateAndPostPurchaseInvoiceAsync` executing atomic 6-step transactional commit (Invoice persistence, Batch upsert, Stock balance increment, Movement ledger entry, Supplier balance update, Outbox queue).
 - **3. WinUI 3 Desktop Views & ViewModels (`Medistock.Desktop`):**
   - `PurchaseEntryViewModel` & `PurchaseEntryPage.xaml`: High-speed tabular keyboard data entry grid with dynamic row addition (`F2`), automatic GST and discount math, and `[Ctrl+S]` post action.
-- **Verification & Test Status:**
-  - 25 automated unit & integration tests in test suites (Domain, Desktop, Infrastructure) passing with **0 warnings and 0 errors** across all 14 projects.
 
 ---
 
-## 6. Next Action Items (Phase 2 Continuation)
-1. **Financial Accounting Core (Double Entry):**
-   - General Ledger, Chart of Accounts, Cash/Bank books, Customer/Vendor ledgers, automated voucher posting for sales and purchases.
-2. **App Shell Navigation & Window Container (`MainWindow.xaml`):**
-   - NavigationView sidebar linking POS Billing (`F2`), Inventory Master (`Ctrl+2`), Expiry Risk Dashboard (`Ctrl+3`), Purchase Entry (`Ctrl+4`), and Schedule Drug Register (`Ctrl+5`).
-3. **Sales History & Returns (Credit Notes & Debit Notes):**
-   - Invoice reprint, full/partial sale returns, batch restocking vs damage quarantine decisions.
+### ✅ Step 13 — Financial Accounting Core (Double-Entry Engine)
+- **1. Domain Model (`Medistock.Domain.Accounting`):**
+  - `AccountHead` entity with standard 5-category chart of accounts (`Asset`, `Liability`, `Equity`, `Revenue`, `Expense`).
+  - `JournalEntry` and `JournalLine` double-entry aggregates enforcing mathematical balance ($\sum \text{Debits} = \sum \text{Credits}$).
+  - `VoucherType` enum: `Sales`, `Purchase`, `Payment`, `Receipt`, `Contra`, `Journal`, `CreditNote`, `DebitNote`.
+- **2. Database & Dapper Persistence (`Medistock.Infrastructure.Data`):**
+  - Added migration `004_AccountingAndLedgers.sql` (`account_heads`, `journal_entries`, `journal_lines`) seeded with standard Indian pharmacy chart of accounts (Cash, Bank, Debtors, Stock, GST Input/Output, Sales, Purchases, Discounts, Roundoff).
+  - Implemented `SqliteAccountingRepository` with running ledger statement computation, Day Book querying, Trial Balance extraction, and manual voucher posting.
+  - Automatic double-entry journal postings integrated into `SqliteSaleRepository` and `SqlitePurchaseRepository`.
+- **3. WinUI 3 Desktop Views & ViewModels (`Medistock.Desktop`):**
+  - `AccountingViewModel` & `AccountingPage.xaml`: Ribbon KPI cards (Debits, Credits, 30-day Revenue, Net Profit), TabView with Chart of Accounts & Individual Ledgers, Day Book (Daily Vouchers), Trial Balance statement, and Customer Receipt/Supplier Payment/Expense quick-entry modals.
+
+---
+
+### ✅ Step 14 — Sales History, Credit Notes & Batch Restocking Subsystem
+- **1. Domain Model (`Medistock.Domain.Sales`):**
+  - Implemented `SaleReturn` aggregate root and `SaleReturnItem` entities.
+  - Added `RestockDecision` enum (`RestockToAvailable`, `QuarantineDamaged`, `QuarantineExpired`) allowing granular pharmacist triage on returned goods.
+- **2. Application & Data Layer (`Medistock.Application` & `Medistock.Infrastructure.Data`):**
+  - Added migration `005_SalesReturnsAndCreditNotes.sql` (`sale_returns`, `sale_return_items`).
+  - Implemented `SqliteSaleReturnRepository` and `SaleReturnService` with atomic multi-step commit:
+    - Return persistence & original sale status updates.
+    - Automatic inventory restock into sellable batches or quarantine movement logging.
+    - Automatic Credit Note double-entry posting (`Dr Sales Return`, `Dr Output GST Reversal`, `Cr Cash / Customer Debtors`).
+    - Emitting `SALE_RETURNED` Outbox event for offline cloud synchronization.
+- **3. WinUI 3 Desktop Views & App Shell Navigation (`Medistock.Desktop`):**
+  - `SalesHistoryViewModel` & `SalesHistoryPage.xaml`: Two-panel layout with search by invoice #/customer, itemized breakdown, and full/partial return modal with restock selection.
+  - Integrated into `MainWindow.xaml` and `App.xaml.cs` alongside POS Billing (`F3`), Inventory (`Ctrl+2`), Expiry Engine (`Ctrl+3`), Schedule Drug Register (`Ctrl+4`), Purchases (`Ctrl+5`), and Financial Accounts.
+- **Verification & Test Status:**
+  - **46 automated unit & integration tests passing with 0 warnings and 0 errors** across all 14 projects.
+
+---
+
+### ✅ Step 15 — Cloud Sync Hub, B2B Wholesaler Commerce & Document Report Generation
+- **1. Cloud API & Synchronization Hub (`Medistock.Contracts`, `Medistock.CloudApi`, `Medistock.LocalServer`, `Medistock.Infrastructure.Sync`):**
+  - Contracts in `Medistock.Contracts.Sync`: `SyncPushRequest`, `SyncPushResponse`, `SyncPullRequest`, `SyncPullResponse`, `SyncEventDto`, `SyncItemResultDto`.
+  - Auth Contracts in `Medistock.Contracts.Auth`: `DeviceRegistrationRequest/Response`, `UserLoginRequest/Response`.
+  - `ISyncEngineService` / `SyncEngineService`: Enforces tenant isolation (`org_id` JWT claims verification), idempotency key deduplication, monotonic server sequence generation, and delta pull pagination.
+  - Minimal API Endpoints in `Medistock.CloudApi` and `Medistock.LocalServer`:
+    - `POST /api/v1/sync/push`
+    - `POST /api/v1/sync/pull`
+    - `POST /api/v1/auth/register-device`
+    - `POST /api/v1/auth/login`
+    - `GET /health` & `GET /api/health`
+  - `ICloudSyncClient` / `CloudSyncClient` in `Medistock.Infrastructure.Sync` integrated with `OutboxSyncWorker`.
+- **2. B2B Pharmacy-to-Wholesaler Commerce Engine (`Medistock.Domain.B2B`, `Medistock.Application`, `Medistock.Infrastructure.Data`):**
+  - Domain models: `Wholesaler`, `B2bOrder`, `B2bOrderItem`, `B2bOrderStatus`.
+  - Migration `007_SyncHubAndB2bCommerce.sql` (`server_sync_events`, `b2b_wholesalers`, `b2b_wholesaler_catalogs`, `b2b_purchase_orders`, `b2b_purchase_order_items`).
+  - Repositories & Services: `SqliteB2bCommerceRepository`, `B2bCommerceService` supporting live catalog scheme queries (free items math), PO placement, order state machine (`Draft` $\rightarrow$ `Submitted` $\rightarrow$ `Confirmed` $\rightarrow$ `Dispatched` $\rightarrow$ `Delivered`), and one-click conversion to `PurchaseInvoice` with automatic batch restock.
+  - WinUI 3 Desktop Views: `B2bCommercePage.xaml` / `B2bCommerceViewModel.cs` with KPI cards, multi-item PO cart, and live order tracking ribbon.
+- **3. Receipt & Report Document Generator (`Medistock.Infrastructure.Hardware`):**
+  - `DocumentReportGenerator`: ESC/POS 80mm & 58mm thermal commands, Credit Note sales return voucher plain text & ESC/POS bytes, and HTML Tax Invoice templates.
+- **Verification & Test Status:**
+  - **71 automated unit & integration tests passing with 0 warnings and 0 errors** across all 14 solution projects.
+
+---
+
+### ✅ Step 16 — 100% Bill Customization Studio, Print Preview with PDF Download & Real Hardware Printing
+- **1. Domain Models & Factory Presets (`Medistock.Contracts.Printing`):**
+  - Granular models: `BillTemplateConfig`, `BillHeaderConfig`, `BillMetadataConfig`, `BillColumnConfig`, `BillFooterConfig`, `BillTaxSummaryConfig`, `BillSignatureConfig`, `BillStyleConfig`.
+  - 19 fully customizable column fields: `SrNo`, `ItemName`, `Packing`, `Manufacturer`, `BatchNumber`, `ExpiryDate`, `HsnCode`, `Mrp`, `UnitRate`, `Quantity`, `FreeQuantity`, `DiscountPercent`, `DiscountAmount`, `GstPercent`, `CgstAmount`, `SgstAmount`, `IgstAmount`, `TaxableAmount`, `TotalAmount`.
+  - 4 standard factory presets: `A4 Standard Tax Invoice`, `A5 Compact Medical Memo`, `80mm High-Speed POS Thermal Slip`, `58mm Compact Thermal Slip`.
+- **2. Database Migration & SQLite Persistence (`Medistock.Infrastructure.Data`):**
+  - Migration `008_BillCustomizationAndPrinters.sql`: `bill_templates` table and `printer_configurations` table.
+  - Implemented `SqliteBillTemplateRepository` with automatic preset seeding, CRUD, and JSON import/export.
+- **3. Universal Bill Generator & Indian Currency Words Converter (`Medistock.Infrastructure.Hardware`):**
+  - `IndianCurrencyWordsConverter`: Formats decimal amounts into standard Indian English (Crores, Lakhs, Thousands, Hundreds, Rupees & Paise).
+  - `BillDocumentGenerator`: Generates responsive, self-contained HTML5/CSS3 matching paper dimensions (A4, A5, 80mm, 58mm) and dynamic ESC/POS binary streams.
+- **4. Real Hardware Printer Support & Win32 Spooler Integration (`Medistock.Infrastructure.Hardware`):**
+  - `RawPrinterHelper`: Direct unmanaged Win32 `winspool.drv` P/Invoke (`OpenPrinter`, `StartDocPrinter`, `WritePrinter`) streaming raw ESC/POS binary to USB/driverless thermal printers.
+  - `HardwarePrinterService`: Enumerates installed Windows printers, supports network TCP raw sockets (port 9100), and dispatches print jobs.
+- **5. WinUI 3 Desktop Views & ViewModels (`Medistock.Desktop`):**
+  - `PrintPreviewDialog.xaml` / `PrintPreviewViewModel.cs`: Embedded `WebView2` live invoice preview, direct high-res vector PDF download/export button (`CoreWebView2.PrintToPdfAsync`), template switcher, and printer dispatcher.
+  - `BillCustomizerPage.xaml` / `BillCustomizerViewModel.cs`: Split-screen studio with 5 configuration tabs (Header, Columns manager with up/down reorder & visibility toggles, Metadata, Totals/Tax, Signatures) and interactive live `WebView2` preview viewport.
+- **Verification & Test Status:**
+  - **101 automated unit & integration tests passing with 0 warnings and 0 errors** across all solution projects.
+
+---
+
+## 6. Project Milestone Status
+| Milestone | Status | Key Deliverables |
+|---|---|---|
+| **Phase 1: POS & Data Hot-Path** | ✅ Complete | SQLite WAL, FTS5 (<1ms search), Atomic POS checkout (<75ms), FEFO batch engine, ESC/POS HAL |
+| **Phase 2: Inventory & Compliance** | ✅ Complete | Expiry risk bands, Schedule Drug Register (Form 35 / H1), Purchases & Landed cost |
+| **Phase 3: Financial & Tax Core** | ✅ Complete | Double-entry ledger engine, Credit notes / Returns triage, GST (GSTR-1/2/3B, HSN) |
+| **Phase 4: Multi-Branch & B2B Hub** | ✅ Complete | Inter-branch transfers, Cloud sync engine, B2B Wholesaler commerce, Document generators |
+| **Phase 5: Bill Customization & Hardware** | ✅ Complete | 100% Bill Customizer Studio, Win32 RAW Spooler, WebView2 Print Preview & PDF Downloader |
 
 ---
 
@@ -224,4 +302,6 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 - [KEYBOARD_SHORTCUTS.md](file:///D:/Projects/Medistock-offlinefirst/KEYBOARD_SHORTCUTS.md) — Full keyboard/input architecture, both keymap profiles, scope system
 - [AGENT.md](file:///D:/Projects/Medistock-offlinefirst/AGENT.md) — Agent operational rules & coding protocols
 - [AGY_STATE.md](file:///D:/Projects/Medistock-offlinefirst/AGY_STATE.md) — Active session state and progress log
+
+
 

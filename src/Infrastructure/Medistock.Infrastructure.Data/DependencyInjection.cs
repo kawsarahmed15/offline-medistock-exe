@@ -22,8 +22,15 @@ public static class DependencyInjection
         services.AddScoped<ISupplierRepository, SqliteSupplierRepository>();
         services.AddScoped<IPurchaseRepository, SqlitePurchaseRepository>();
         services.AddScoped<IAccountingRepository, SqliteAccountingRepository>();
+        services.AddScoped<ISaleReturnRepository, SqliteSaleReturnRepository>();
+        services.AddScoped<IGstReportRepository, SqliteGstReportRepository>();
+        services.AddScoped<IStockTransferRepository, SqliteStockTransferRepository>();
+        services.AddScoped<ISyncStore, SqliteSyncStore>();
+        services.AddScoped<IB2bCommerceRepository, SqliteB2bCommerceRepository>();
         services.AddScoped<IOutboxRepository, SqliteOutboxRepository>();
         services.AddScoped<IDocumentSequenceService, SqliteDocumentSequenceService>();
+        services.AddScoped<IBillTemplateRepository, SqliteBillTemplateRepository>();
+        services.AddScoped<IPrinterConfigRepository, SqliteBillTemplateRepository>();
 
         return services;
     }
