@@ -47,14 +47,12 @@ public partial class App : Microsoft.UI.Xaml.Application
     private static void ConfigureServices(IServiceCollection services)
     {
         services.AddApplication();
+        var cloudServerUri = new Uri("https://offline-medistock.teklin.in");
+
         services.AddInfrastructureData();
         services.AddInfrastructureHardware();
-        services.AddInfrastructureSync();
-
-        // Activation / Licensing
-        // In production, replace the URI with your live server URL:
-        // services.AddInfrastructureIdentity(new Uri("https://api.medistock.in"));
-        services.AddInfrastructureIdentity(new Uri("http://localhost:5000"));
+        services.AddInfrastructureSync(cloudServerUri);
+        services.AddInfrastructureIdentity(cloudServerUri);
 
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<PosViewModel>();
