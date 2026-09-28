@@ -12,7 +12,8 @@
 [Bb]in/
 [Oo]bj/
 dist/
-installer/
+installer/Output/
+installer/*.exe
 [Aa]pp[Pp]ackages/
 _UpgradeReport_Files/
 Backup*/

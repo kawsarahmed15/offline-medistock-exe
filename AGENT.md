@@ -62,10 +62,19 @@ At the conclusion of **EVERY successful step/turn**, the agent MUST update `AGY_
 
 ---
 
-## 3. Workflow & Verification Rules
-- **No Assumptions:** Always inspect files directly.
-- **Empirical Log Verification:** Never claim success without running build/test commands.
+## 3. Workflow, Verification & Communication Rules
+
+### A. Pre-Execution Clarification & Understanding
+- **Understand Before Coding:** Deeply analyze requirements before making any code modifications.
+- **Direct Clarification:** If any requirement, edge case, or architecture detail is ambiguous or not 100% clear, **ask the user directly** first. Proceed with implementation only once fully understood and aligned.
+
+### B. Post-Response Build & Auto-Launch Verification
+- **Mandatory Build & Launch:** After every turn/response involving code changes, the agent MUST:
+  1. Build/publish the project to verify zero compilation or packaging errors.
+  2. Launch/open the software automatically using commands (e.g. `Start-Process` / `dotnet run`) so the user can immediately test and verify the live application.
+- **Empirical Log Verification:** Never claim success without running build/test/launch commands with live exit code verification.
 - **Superficial Patching Forbidden:** Always fix root causes rather than swallowing exceptions or returning dummy data.
+- **No Assumptions:** Always inspect files directly before and after editing.
 
 ---
 
