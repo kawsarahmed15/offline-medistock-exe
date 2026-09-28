@@ -118,6 +118,36 @@ public sealed partial class PosPage : Page
                     });
                 }
             }
+            else if (ev.PropertyName == nameof(PosViewModel.IsPartyPickerOpen))
+            {
+                if (ViewModel.IsPartyPickerOpen)
+                {
+                    FocusPartyPicker();
+                }
+                else if (!ViewModel.IsCreatePartyModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        SearchBox.Focus(FocusState.Programmatic);
+                        SearchBox.SelectAll();
+                    });
+                }
+            }
+            else if (ev.PropertyName == nameof(PosViewModel.IsCreatePartyModalOpen))
+            {
+                if (ViewModel.IsCreatePartyModalOpen)
+                {
+                    FocusCreatePartyModal();
+                }
+                else if (!ViewModel.IsPartyPickerOpen)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        SearchBox.Focus(FocusState.Programmatic);
+                        SearchBox.SelectAll();
+                    });
+                }
+            }
         };
 
         Loaded += PosPage_Loaded;
@@ -252,6 +282,139 @@ public sealed partial class PosPage : Page
         var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isAlt = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isShift = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        // Modal Keyboard Trap: When Create Party (Customer Ledger) modal is open,
+        // completely isolate keyboard focus to the modal. Only Tab, Arrow navigation, Escape, and Enter are permitted.
+        if (ViewModel.IsCreatePartyModalOpen)
+        {
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+
+            if (!IsCreatePartyModalInputElement(focused))
+            {
+                FocusCreatePartyModal();
+            }
+
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CloseCreatePartyModal();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Enter)
+            {
+                if (ReferenceEquals(focused, CancelCreatePartyButton))
+                {
+                    ViewModel.CloseCreatePartyModal();
+                }
+                else
+                {
+                    _ = HandleCreatePartySaveAndFocusAsync();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Tab || e.Key == VirtualKey.Left || e.Key == VirtualKey.Right || e.Key == VirtualKey.Up || e.Key == VirtualKey.Down)
+            {
+                return;
+            }
+
+            if (e.Key >= VirtualKey.F1 && e.Key <= VirtualKey.F24)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (isCtrl || isAlt)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (!IsCreatePartyModalInputElement(focused))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            return;
+        }
+
+        // Modal Keyboard Trap: When Party Selection (Debtor Picker) dialog is open,
+        // navigate list with arrows, select on enter, F2 to create party, Esc to cancel.
+        if (ViewModel.IsPartyPickerOpen)
+        {
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+
+            if (!IsPartyPickerInputElement(focused))
+            {
+                FocusPartyPicker();
+            }
+
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.ClosePartyPicker();
+                FocusHeaderStart();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.F2)
+            {
+                ViewModel.OpenCreatePartyModal();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Up)
+            {
+                ViewModel.MovePartySelectionUp();
+                PartySearchList?.ScrollIntoView(ViewModel.SelectedParty);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Down)
+            {
+                ViewModel.MovePartySelectionDown();
+                PartySearchList?.ScrollIntoView(ViewModel.SelectedParty);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Enter)
+            {
+                SelectActivePartyAndStartBilling();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Tab || e.Key == VirtualKey.Left || e.Key == VirtualKey.Right)
+            {
+                return;
+            }
+
+            if (e.Key >= VirtualKey.F1 && e.Key <= VirtualKey.F24)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (isCtrl || isAlt)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (!IsPartyPickerInputElement(focused))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            return;
+        }
 
         // Modal Keyboard Trap: When Create Product (Item Master) modal is open,
         // completely isolate keyboard focus to the modal. Only Tab, Arrow navigation, Escape, and Enter (or F2) are permitted.
@@ -1899,83 +2062,158 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private bool IsLightTheme()
+    {
+        if (this.ActualTheme == ElementTheme.Light) return true;
+        if (this.ActualTheme == ElementTheme.Dark) return false;
+
+        if (this.XamlRoot?.Content is FrameworkElement rootFe)
+        {
+            if (rootFe.ActualTheme == ElementTheme.Light || rootFe.RequestedTheme == ElementTheme.Light) return true;
+            if (rootFe.ActualTheme == ElementTheme.Dark || rootFe.RequestedTheme == ElementTheme.Dark) return false;
+        }
+
+        try
+        {
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Medistock", "user_settings.json");
+            if (File.Exists(settingsPath))
+            {
+                var json = File.ReadAllText(settingsPath);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("Theme", out var tp))
+                {
+                    return string.Equals(tp.GetString(), "Light", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+        }
+        catch { }
+
+        return Microsoft.UI.Xaml.Application.Current?.RequestedTheme == ApplicationTheme.Light;
+    }
+
     private Brush GetThemeBrush(string key)
     {
-        var isLight = this.ActualTheme == ElementTheme.Light;
+        var isLight = IsLightTheme();
         var themeDictName = isLight ? "Light" : "Dark";
 
-        if (Microsoft.UI.Xaml.Application.Current.Resources.ThemeDictionaries.TryGetValue(themeDictName, out var dictObj) &&
-            dictObj is ResourceDictionary themeDict &&
-            themeDict.TryGetValue(key, out var val) &&
-            val is Brush themeBrush)
+        Brush? FindInDictionary(ResourceDictionary rd)
         {
-            return themeBrush;
+            if (rd.ThemeDictionaries.TryGetValue(themeDictName, out var tdObj) &&
+                tdObj is ResourceDictionary td &&
+                td.TryGetValue(key, out var bObj) &&
+                bObj is Brush b)
+            {
+                return b;
+            }
+
+            if (rd.ThemeDictionaries.TryGetValue("Default", out var defObj) &&
+                defObj is ResourceDictionary defTd &&
+                defTd.TryGetValue(key, out var defBObj) &&
+                defBObj is Brush defB)
+            {
+                return defB;
+            }
+
+            if (rd.TryGetValue(key, out var directObj) && directObj is Brush directB)
+            {
+                return directB;
+            }
+
+            foreach (var merged in rd.MergedDictionaries)
+            {
+                var found = FindInDictionary(merged);
+                if (found != null) return found;
+            }
+
+            return null;
         }
 
-        if (this.Resources.TryGetValue(key, out var pageVal) && pageVal is Brush pageBrush)
-        {
-            return pageBrush;
-        }
+        var res = FindInDictionary(this.Resources)
+               ?? (Microsoft.UI.Xaml.Application.Current != null ? FindInDictionary(Microsoft.UI.Xaml.Application.Current.Resources) : null);
 
-        if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(key, out var rootVal) && rootVal is Brush rootBrush)
-        {
-            return rootBrush;
-        }
+        if (res != null) return res;
 
-        return new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        if (isLight)
+        {
+            return key switch
+            {
+                "AccentPrimary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 21, 128, 61)),    // #15803D
+                "AccentSubtle" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 252, 231)),   // #DCFCE7
+                "SurfaceSubtle" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 241, 245, 249)),  // #F1F5F9
+                "SurfaceElevated" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),// #FFFFFF
+                "SurfaceBackground" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                "BorderDefault" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 226, 232, 240)),  // #E2E8F0
+                "BorderStrong" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 203, 213, 225)),   // #CBD5E1
+                "TextPrimary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 15, 23, 42)),       // #0F172A
+                "TextSecondary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 71, 85, 105)),    // #475569
+                "StatusWarning" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 217, 119, 6)),    // #D97706
+                "StatusInfo" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 3, 105, 161)),       // #0369A1
+                _ => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 241, 245, 249))
+            };
+        }
+        else
+        {
+            return key switch
+            {
+                "AccentPrimary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 34, 197, 94)),    // #22C55E
+                "AccentSubtle" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 83, 45)),      // #14532D
+                "SurfaceSubtle" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 13, 17, 23)),     // #0D1117
+                "SurfaceElevated" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 38, 45)),   // #21262D
+                "SurfaceBackground" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 22, 27, 34)), // #161B22
+                "BorderDefault" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 48, 54, 61)),     // #30363D
+                "BorderStrong" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 72, 79, 88)),      // #484F58
+                "TextPrimary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 230, 237, 243)),   // #E6EDF3
+                "TextSecondary" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 139, 148, 158)), // #8B949E
+                "StatusWarning" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 158, 11)),   // #F59E0B
+                "StatusInfo" => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 56, 189, 248)),     // #38BDF8
+                _ => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 22, 27, 34))
+            };
+        }
     }
 
     private void UpdateSaleTypeVisuals(int index)
     {
-        var accentBrush = GetThemeBrush("AccentPrimary");
-        var defaultBorder = GetThemeBrush("BorderDefault");
-        var subtleAccentBg = GetThemeBrush("AccentSubtle");
-        var defaultBg = GetThemeBrush("SurfaceSubtle");
-        var elevatedBg = GetThemeBrush("SurfaceElevated");
+        var isLight = IsLightTheme();
 
-        if (SaleTypeCashBtn != null)
+        Brush accentBrush = isLight
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 21, 128, 61))   // #15803D (Emerald)
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 34, 197, 94));  // #22C55E
+
+        Brush subtleAccentBg = isLight
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 252, 231)) // #DCFCE7 (Light Emerald Tint)
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 83, 45));   // #14532D
+
+        Brush defaultBg = isLight
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 241, 245, 249)) // #F1F5F9 (Light Surface Subtle)
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 13, 17, 23));   // #0D1117
+
+        Brush defaultBorder = isLight
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 226, 232, 240)) // #E2E8F0 (Light Border)
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 48, 54, 61));   // #30363D
+
+        Brush elevatedBg = isLight
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)) // #FFFFFF (Light Surface Elevated)
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 33, 38, 45));   // #21262D
+
+        void StyleButton(Button? btn, Border? badge, bool isSelected)
         {
-            SaleTypeCashBtn.BorderBrush = index == 0 ? accentBrush : defaultBorder;
-            SaleTypeCashBtn.BorderThickness = new Thickness(index == 0 ? 2.5 : 1.5);
-            SaleTypeCashBtn.Background = index == 0 ? subtleAccentBg : defaultBg;
-            if (SaleTypeCashBadge != null)
+            if (btn == null) return;
+            btn.BorderBrush = isSelected ? accentBrush : defaultBorder;
+            btn.BorderThickness = new Thickness(isSelected ? 2.5 : 1.5);
+            btn.Background = isSelected ? subtleAccentBg : defaultBg;
+            if (badge != null)
             {
-                SaleTypeCashBadge.Background = index == 0 ? subtleAccentBg : elevatedBg;
+                badge.Background = isSelected ? subtleAccentBg : elevatedBg;
+                badge.BorderBrush = isSelected ? accentBrush : defaultBorder;
             }
         }
 
-        if (SaleTypeCreditBtn != null)
-        {
-            SaleTypeCreditBtn.BorderBrush = index == 3 ? accentBrush : defaultBorder;
-            SaleTypeCreditBtn.BorderThickness = new Thickness(index == 3 ? 2.5 : 1.5);
-            SaleTypeCreditBtn.Background = index == 3 ? subtleAccentBg : defaultBg;
-            if (SaleTypeCreditBadge != null)
-            {
-                SaleTypeCreditBadge.Background = index == 3 ? subtleAccentBg : elevatedBg;
-            }
-        }
-
-        if (SaleTypeUpiBtn != null)
-        {
-            SaleTypeUpiBtn.BorderBrush = index == 1 ? accentBrush : defaultBorder;
-            SaleTypeUpiBtn.BorderThickness = new Thickness(index == 1 ? 2.5 : 1.5);
-            SaleTypeUpiBtn.Background = index == 1 ? subtleAccentBg : defaultBg;
-            if (SaleTypeUpiBadge != null)
-            {
-                SaleTypeUpiBadge.Background = index == 1 ? subtleAccentBg : elevatedBg;
-            }
-        }
-
-        if (SaleTypeCardBtn != null)
-        {
-            SaleTypeCardBtn.BorderBrush = index == 2 ? accentBrush : defaultBorder;
-            SaleTypeCardBtn.BorderThickness = new Thickness(index == 2 ? 2.5 : 1.5);
-            SaleTypeCardBtn.Background = index == 2 ? subtleAccentBg : defaultBg;
-            if (SaleTypeCardBadge != null)
-            {
-                SaleTypeCardBadge.Background = index == 2 ? subtleAccentBg : elevatedBg;
-            }
-        }
+        StyleButton(SaleTypeCashBtn, SaleTypeCashBadge, index == 0);
+        StyleButton(SaleTypeCreditBtn, SaleTypeCreditBadge, index == 3);
+        StyleButton(SaleTypeUpiBtn, SaleTypeUpiBadge, index == 1);
+        StyleButton(SaleTypeCardBtn, SaleTypeCardBadge, index == 2);
     }
 
     private void HighlightSaleType(int index)
@@ -2752,6 +2990,262 @@ public sealed partial class PosPage : Page
             || ReferenceEquals(element, NewOpeningQtyBox)
             || ReferenceEquals(element, CancelCreateProductButton)
             || ReferenceEquals(element, SaveCreateProductButton);
+    }
+
+    private void PartySearchBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsPartyPickerOpen)
+        {
+            FocusPartyPicker();
+        }
+    }
+
+    private void PartySearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Down)
+        {
+            ViewModel.MovePartySelectionDown();
+            PartySearchList?.ScrollIntoView(ViewModel.SelectedParty);
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Up)
+        {
+            ViewModel.MovePartySelectionUp();
+            PartySearchList?.ScrollIntoView(ViewModel.SelectedParty);
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Enter)
+        {
+            SelectActivePartyAndStartBilling();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.F2)
+        {
+            ViewModel.OpenCreatePartyModal();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.ClosePartyPicker();
+            FocusHeaderStart();
+            e.Handled = true;
+        }
+    }
+
+    private void PartySearchList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Medistock.Application.Customers.DTOs.CustomerDto customer)
+        {
+            ViewModel.SelectParty(customer);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            });
+        }
+    }
+
+    private void PartySearchList_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            SelectActivePartyAndStartBilling();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.F2)
+        {
+            ViewModel.OpenCreatePartyModal();
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.ClosePartyPicker();
+            FocusHeaderStart();
+            e.Handled = true;
+        }
+    }
+
+    private void SelectActivePartyAndStartBilling()
+    {
+        if (ViewModel.SelectedParty != null)
+        {
+            ViewModel.SelectParty(ViewModel.SelectedParty);
+        }
+        else if (ViewModel.PartySearchResults.Count > 0)
+        {
+            ViewModel.SelectParty(ViewModel.PartySearchResults[0]);
+        }
+        else
+        {
+            // If no party found, open fast create party with search query
+            ViewModel.OpenCreatePartyModal();
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
+        });
+    }
+
+    private async void FocusPartyPicker()
+    {
+        // Try immediately
+        PartySearchBox?.Focus(FocusState.Programmatic);
+        PartySearchBox?.SelectAll();
+
+        // Enqueue on dispatcher at Normal priority
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, () =>
+        {
+            PartySearchBox?.Focus(FocusState.Programmatic);
+            PartySearchBox?.SelectAll();
+        });
+
+        // Enqueue at Low priority (runs after layout pass)
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            PartySearchBox?.Focus(FocusState.Programmatic);
+            PartySearchBox?.SelectAll();
+        });
+
+        // Polling retry to guarantee focus attaches as soon as the modal finishes WinUI 3 layout pass
+        for (int i = 0; i < 6; i++)
+        {
+            await Task.Delay(25 * (i + 1));
+            if (!ViewModel.IsPartyPickerOpen) return;
+
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+            if (IsPartyPickerInputElement(focused))
+            {
+                return;
+            }
+
+            PartySearchBox?.Focus(FocusState.Programmatic);
+            PartySearchBox?.SelectAll();
+        }
+    }
+
+    private bool IsPartyPickerInputElement(object? element)
+    {
+        if (element == null) return false;
+        return ReferenceEquals(element, PartySearchBox)
+            || ReferenceEquals(element, PartySearchList);
+    }
+
+    private void NewPartyNameBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsCreatePartyModalOpen)
+        {
+            FocusCreatePartyModal();
+        }
+    }
+
+    private async void CreatePartyInput_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, CancelCreatePartyButton))
+            {
+                ViewModel.CloseCreatePartyModal();
+            }
+            else
+            {
+                await HandleCreatePartySaveAndFocusAsync();
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseCreatePartyModal();
+            e.Handled = true;
+        }
+    }
+
+    private async void SaveCreatePartyButton_Click(object sender, RoutedEventArgs e)
+    {
+        await HandleCreatePartySaveAndFocusAsync();
+    }
+
+    private async Task HandleCreatePartySaveAndFocusAsync()
+    {
+        var success = await ViewModel.SaveCreatePartyAsync();
+        if (success)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            });
+        }
+        else
+        {
+            // Set focus to the first invalid field for rapid correction
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!string.IsNullOrEmpty(ViewModel.NewPartyNameError))
+                {
+                    NewPartyNameBox.Focus(FocusState.Programmatic);
+                    NewPartyNameBox.SelectAll();
+                }
+                else if (!string.IsNullOrEmpty(ViewModel.NewPartyPhoneError))
+                {
+                    NewPartyPhoneBox.Focus(FocusState.Programmatic);
+                    NewPartyPhoneBox.SelectAll();
+                }
+            });
+        }
+    }
+
+    private async void FocusCreatePartyModal()
+    {
+        // Try immediately
+        NewPartyNameBox?.Focus(FocusState.Programmatic);
+        NewPartyNameBox?.SelectAll();
+
+        // Enqueue on dispatcher at Normal priority
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, () =>
+        {
+            NewPartyNameBox?.Focus(FocusState.Programmatic);
+            NewPartyNameBox?.SelectAll();
+        });
+
+        // Enqueue at Low priority (runs after layout pass)
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            NewPartyNameBox?.Focus(FocusState.Programmatic);
+            NewPartyNameBox?.SelectAll();
+        });
+
+        // Polling retry to guarantee focus attaches as soon as the modal finishes WinUI 3 layout pass
+        for (int i = 0; i < 6; i++)
+        {
+            await Task.Delay(25 * (i + 1));
+            if (!ViewModel.IsCreatePartyModalOpen) return;
+
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+            if (IsCreatePartyModalInputElement(focused))
+            {
+                return;
+            }
+
+            NewPartyNameBox?.Focus(FocusState.Programmatic);
+            NewPartyNameBox?.SelectAll();
+        }
+    }
+
+    private bool IsCreatePartyModalInputElement(object? element)
+    {
+        if (element == null) return false;
+        return ReferenceEquals(element, NewPartyNameBox)
+            || ReferenceEquals(element, NewPartyPhoneBox)
+            || ReferenceEquals(element, NewPartyCityBox)
+            || ReferenceEquals(element, NewPartyAddressBox)
+            || ReferenceEquals(element, NewPartyCreditLimitBox)
+            || ReferenceEquals(element, NewPartyOpeningBalanceBox)
+            || ReferenceEquals(element, NewPartyGstinBox)
+            || ReferenceEquals(element, CancelCreatePartyButton)
+            || ReferenceEquals(element, SaveCreatePartyButton);
     }
 }
 

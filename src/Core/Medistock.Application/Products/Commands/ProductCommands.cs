@@ -30,7 +30,8 @@ public record CreateProductWithBatchCommand(
     decimal Mrp,
     decimal PurchaseRate,
     decimal SaleRate,
-    decimal OpeningQuantity
+    decimal OpeningQuantity,
+    decimal MinStockAlert = 10.0m
 );
 
 public record CreateProductResult(
@@ -97,7 +98,8 @@ public class ProductService : IProductService
                 command.Schedule,
                 command.PrimaryBarcode,
                 manufacturerName: command.ManufacturerName,
-                isColdChain: command.IsColdChain
+                isColdChain: command.IsColdChain,
+                minStockAlert: command.MinStockAlert > 0 ? command.MinStockAlert : 10.0m
             );
 
             var batch = Batch.Create(

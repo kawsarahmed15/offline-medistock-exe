@@ -124,6 +124,31 @@
                 </StackPanel>
             </Border>
 
+            <!-- 3.5. Inventory & Expiry Alert Thresholds -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="⚠️ Inventory &amp; Expiry Alerts" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+
+                    <Grid ColumnDefinitions="240,*">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Near-Expiry Alert Threshold" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Days before expiry to mark medicine in Red" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <NumberBox Value="{x:Bind ViewModel.NearExpiryDays, Mode=TwoWay}"
+                                       Minimum="1"
+                                       Maximum="730"
+                                       SmallChange="15"
+                                       SpinButtonPlacementMode="Inline"
+                                       Width="140"
+                                       Height="34"
+                                       FontSize="13" />
+                            <TextBlock Text="Days (e.g. 30, 60, 90, 180)" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- 4. Bill Customizer Studio Card -->
             <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
                 <Grid ColumnDefinitions="*,Auto">
@@ -133,6 +158,55 @@
                     </StackPanel>
                     <Button Grid.Column="1" Content="Open Customizer Studio ➔" Click="OpenCustomizer_Click" Style="{StaticResource AccentButtonStyle}" Height="36" Padding="14,0" VerticalAlignment="Center" />
                 </Grid>
+            </Border>
+
+            <!-- 5. Backup & Disaster Recovery -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="📦 Backup &amp; Disaster Recovery" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                    <TextBlock Text="Local backup exports are saved to your Documents folder. Cloud backups are AES-256 encrypted before upload." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Content="💾 Create Local Backup (ZIP)"
+                                Command="{x:Bind ViewModel.CreateLocalBackupCommand}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Height="36" />
+                        <Button Content="☁ Upload Cloud Backup"
+                                Command="{x:Bind ViewModel.UploadCloudBackupCommand}"
+                                Height="36" />
+                    </StackPanel>
+
+                    <TextBlock Text="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay}"
+                               FontSize="12"
+                               Foreground="{ThemeResource AccentPrimary}"
+                               FontWeight="SemiBold"
+                               Visibility="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 6. Software Updates & Licensing -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="🔄 Software Updates &amp; Activation" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                    
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="{x:Bind ViewModel.LicenseInfo, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Automatic updates run in the background. You can also check manually." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="🔍 Check for Updates"
+                                Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
+                                Height="36"
+                                Padding="14,0" />
+                    </Grid>
+
+                    <TextBlock Text="{x:Bind ViewModel.UpdateStatusMessage, Mode=OneWay}"
+                               FontSize="12"
+                               Foreground="{ThemeResource AccentPrimary}"
+                               FontWeight="SemiBold"
+                               Visibility="{x:Bind ViewModel.UpdateStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}" />
+                </StackPanel>
             </Border>
 
             <!-- Action Save Button -->

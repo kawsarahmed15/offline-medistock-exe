@@ -26,6 +26,59 @@ public class DataSeeder : IDataSeeder
         using var conn = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var count = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM products;");
+
+        var customerCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM customers;");
+        if (customerCount == 0)
+        {
+            var seedCustomers = new[]
+            {
+                new { Id = "cust-1", Name = "DR. SHARMA CLINIC & PHARMACY", Phone = "9876543210", City = "New Delhi", Address = "Sector 14, Main Road", Limit = 50000.0, Balance = 4500.0 },
+                new { Id = "cust-2", Name = "CITY HOSPITAL & RESEARCH CENTRE", Phone = "9812345678", City = "New Delhi", Address = "Ring Road, Civil Lines", Limit = 100000.0, Balance = 12400.0 },
+                new { Id = "cust-3", Name = "VIKAS MEDICAL & GENERAL STORE", Phone = "9823456789", City = "Gurugram", Address = "Old Railway Road", Limit = 30000.0, Balance = 0.0 },
+                new { Id = "cust-4", Name = "DR. MEHTA HEART CARE CENTRE", Phone = "9834567890", City = "Noida", Address = "Sector 62", Limit = 75000.0, Balance = 8200.0 },
+                new { Id = "cust-5", Name = "APOLLO DAY CLINIC", Phone = "9845678901", City = "New Delhi", Address = "Connaught Place", Limit = 60000.0, Balance = 1500.0 }
+            };
+
+            foreach (var c in seedCustomers)
+            {
+                await conn.ExecuteAsync(@"
+                    INSERT OR IGNORE INTO customers (
+                        id, org_id, name, phone, address, city, state, pincode,
+                        credit_limit, current_balance, is_active, created_at, updated_at
+                    ) VALUES (
+                        @Id, 'org-1', @Name, @Phone, @Address, @City, 'Delhi', '110001',
+                        @Limit, @Balance, 1, datetime('now'), datetime('now')
+                    );
+                ", c);
+            }
+        }
+
+        var supplierCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM suppliers;");
+        if (supplierCount == 0)
+        {
+            var seedSuppliers = new[]
+            {
+                new { Id = "sup-1", Name = "Apex Pharma Wholesalers & Distributors", Gstin = "07AABCU9603R1ZM", Dl = "DL-20B-112233", Phone = "+91 11 2345 6789", Email = "orders@apexpharma.in", Address = "Plot 42, Okhla Industrial Area Ph-III, New Delhi", CreditDays = 30, Balance = 28450.0 },
+                new { Id = "sup-2", Name = "Cipla Direct Distribution Depot", Gstin = "07AAACC1234F1Z5", Dl = "DL-21B-445566", Phone = "+91 11 4151 7890", Email = "depot.delhi@cipla.com", Address = "Building 8, Jhandewalan Extension, New Delhi", CreditDays = 45, Balance = 41200.0 },
+                new { Id = "sup-3", Name = "Sun Pharma Logistics Agency", Gstin = "07AABCS9876Q1Z2", Dl = "DL-20B-778899", Phone = "+91 11 2678 1234", Email = "orders@sunpharmalogistics.com", Address = "B-12, Naraina Industrial Area, New Delhi", CreditDays = 30, Balance = 15600.0 },
+                new { Id = "sup-4", Name = "Abbott Healthcare North Depot", Gstin = "07AAACA4567P1Z8", Dl = "DL-21B-990011", Phone = "+91 11 4987 6543", Email = "north.dist@abbott.in", Address = "15 Shivaji Marg, Najafgarh Road, New Delhi", CreditDays = 60, Balance = 53800.0 },
+                new { Id = "sup-5", Name = "Zydus Lifesciences Wholesalers", Gstin = "29AABCZ5432K1Z9", Dl = "DL-20B-334455", Phone = "+91 80 4455 7788", Email = "supply@zyduswholesale.in", Address = "77 Peenya Industrial Area, Bengaluru, Karnataka", CreditDays = 30, Balance = 0.0 }
+            };
+
+            foreach (var s in seedSuppliers)
+            {
+                await conn.ExecuteAsync(@"
+                    INSERT OR IGNORE INTO suppliers (
+                        id, org_id, name, gstin, dl_number, phone, email, address,
+                        credit_days, outstanding_balance, is_active, created_at
+                    ) VALUES (
+                        @Id, 'org-1', @Name, @Gstin, @Dl, @Phone, @Email, @Address,
+                        @CreditDays, @Balance, 1, datetime('now')
+                    );
+                ", s);
+            }
+        }
+
         if (count >= 200) return;
 
         var products = GetSeedProducts();

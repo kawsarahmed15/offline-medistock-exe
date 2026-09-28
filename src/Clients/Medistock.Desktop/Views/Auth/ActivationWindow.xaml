@@ -1,0 +1,93 @@
+<Window
+    x:Class="Medistock.Desktop.Views.Auth.ActivationWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Medistock — Activation Required">
+
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RequestedTheme="Dark">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Center panel -->
+        <StackPanel
+            Grid.Row="0"
+            VerticalAlignment="Center"
+            HorizontalAlignment="Center"
+            Spacing="0"
+            Width="420">
+
+            <!-- Logo + Title -->
+            <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,32">
+                <FontIcon Glyph="&#xE8F1;" FontSize="52"
+                          Foreground="{ThemeResource AccentAAFillColorDefaultBrush}" />
+                <TextBlock Text="Medistock" FontSize="28" FontWeight="Bold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Pharmacy ERP &amp; POS" FontSize="14"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Card -->
+            <Border
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="12" Padding="32" BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Sign in to activate your software"
+                               FontSize="15" FontWeight="SemiBold" />
+
+                    <!-- Email -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Email" FontSize="13"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBox x:Name="EmailBox"
+                                 PlaceholderText="you@pharmacy.com"
+                                 IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                 KeyDown="InputBox_KeyDown" />
+                    </StackPanel>
+
+                    <!-- Password -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Password" FontSize="13"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <PasswordBox x:Name="PasswordBox"
+                                     PlaceholderText="••••••••"
+                                     IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                     KeyDown="InputBox_KeyDown" />
+                    </StackPanel>
+
+                    <!-- Activate button -->
+                    <Button x:Name="ActivateButton"
+                            Content="{x:Bind ViewModel.ButtonText, Mode=OneWay}"
+                            HorizontalAlignment="Stretch"
+                            Style="{ThemeResource AccentButtonStyle}"
+                            Click="ActivateButton_Click"
+                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                            Margin="0,8,0,0" />
+
+                    <!-- Status message -->
+                    <TextBlock x:Name="StatusText"
+                               Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                               FontSize="13" TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               Foreground="{x:Bind ViewModel.StatusColor, Mode=OneWay}" />
+
+                    <!-- Progress indicator -->
+                    <ProgressBar IsIndeterminate="True"
+                                 Visibility="{x:Bind ViewModel.IsProgressVisible, Mode=OneWay}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Footer -->
+        <TextBlock Grid.Row="1"
+                   Text="This software requires a valid Medistock licence. Contact: support@medistock.in"
+                   FontSize="11"
+                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,16" />
+    </Grid>
+</Window>

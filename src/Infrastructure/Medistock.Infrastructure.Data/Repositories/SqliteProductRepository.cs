@@ -34,12 +34,12 @@ public class SqliteProductRepository : IProductRepository
                     id, org_id, name, brand_name, generic_name, composition, strength,
                     dosage_form, pack_units, base_unit, hsn_code, gst_rate_percent,
                     schedule, is_prescription_required, is_cold_chain, is_narcotic,
-                    is_active, primary_barcode, manufacturer_name, created_at
+                    is_active, min_stock_alert, primary_barcode, manufacturer_name, created_at
                 ) VALUES (
                     @Id, @OrgId, @Name, @BrandName, @GenericName, @Composition, @Strength,
                     @DosageForm, @PackUnits, @BaseUnit, @HsnCode, @GstRatePercent,
                     @Schedule, @IsPrescriptionRequired, @IsColdChain, @IsNarcotic,
-                    1, @PrimaryBarcode, @ManufacturerName, @CreatedAt
+                    1, @MinStockAlert, @PrimaryBarcode, @ManufacturerName, @CreatedAt
                 );
             ";
 
@@ -63,6 +63,7 @@ public class SqliteProductRepository : IProductRepository
                     IsPrescriptionRequired = product.IsPrescriptionRequired ? 1 : 0,
                     IsColdChain = product.IsColdChain ? 1 : 0,
                     IsNarcotic = product.IsNarcotic ? 1 : 0,
+                    MinStockAlert = product.MinStockAlert,
                     product.PrimaryBarcode,
                     product.ManufacturerName,
                     CreatedAt = product.CreatedAt.ToString("o")

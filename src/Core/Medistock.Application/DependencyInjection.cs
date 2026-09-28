@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IStockTransferService, StockTransferService>();
         services.AddScoped<Medistock.Application.Sync.ISyncEngineService, Medistock.Application.Sync.SyncEngineService>();
         services.AddScoped<Medistock.Application.B2B.Services.IB2bCommerceService, Medistock.Application.B2B.Services.B2bCommerceService>();
+        services.AddScoped<Medistock.Application.Customers.Services.ICustomerService, Medistock.Application.Customers.Services.CustomerService>();
         return services;
     }
 }

@@ -238,5 +238,109 @@ public class PurchaseTests : IDisposable
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(10080.00m, result.GrandTotal);
         Assert.Equal(110, result.TotalStockAdded); // 100 + 10 free
+
+        // Test GetPurchaseInvoiceDetailsAsync
+        var details = await _purchaseService.GetPurchaseInvoiceDetailsAsync(result.PurchaseInvoiceId!);
+        Assert.NotNull(details);
+        Assert.Equal("BOM-9921", details.SupplierInvoiceNo);
+        Assert.Equal("Mumbai Pharma Hub", details.SupplierName);
+        Assert.True(details.IsInterstate);
+        Assert.Single(details.Items);
+        Assert.Equal("PD26BOM", details.Items[0].BatchNumber);
+        Assert.Equal(110, details.Items[0].TotalQuantity);
+
+        // Test GetPurchaseKpiSummaryAsync
+        var kpis = await _purchaseService.GetPurchaseKpiSummaryAsync("org-1", "br-1");
+        Assert.True(kpis.TotalPurchaseAmount > 0);
+        Assert.True(kpis.TotalInvoicesCount >= 1);
+        Assert.True(kpis.TotalSuppliersCount >= 1);
+    }
+
+    [Fact]
+    public async Task PostPurchaseInvoice_DuplicateInvoiceNo_ReturnsFailed()
+    {
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "DupGuard Test Supplier", Gstin: "07DUPG1234R1ZM",
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 30, OpeningBalance: 0));
+
+        var cmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "DupGuard Test Supplier",
+            SupplierGstin: "07DUPG1234R1ZM", SupplierInvoiceNo: "TEST-DUP-001",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: null,
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_dolo", "Dolo 650", "30049099", "BATCHDUP001",
+                    DateTime.UtcNow.AddMonths(18), null, 10m, 0m, 22m, 30.5m, 30m, 0m, 12m)
+            });
+
+        var result1 = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.True(result1.Success, result1.ErrorMessage);
+
+        var result2 = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.False(result2.Success);
+        Assert.NotNull(result2.ErrorMessage);
+        Assert.Contains("duplicate", result2.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CancelPostedInvoice_ReversesStockAndBalance()
+    {
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "Cancel Test Supplier", Gstin: "07CNCL1234R1ZM",
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 30, OpeningBalance: 0));
+
+        var cmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "Cancel Test Supplier",
+            SupplierGstin: "07CNCL1234R1ZM", SupplierInvoiceNo: "CANCEL-TEST-001",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: null,
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_dolo", "Dolo 650", "30049099", "BATCHCANCEL01",
+                    DateTime.UtcNow.AddMonths(18), null, 20m, 0m, 22m, 30.5m, 30m, 0m, 12m)
+            });
+
+        var posted = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.True(posted.Success, posted.ErrorMessage);
+
+        var supplierAfterPost = await _supplierRepository.GetSupplierByIdAsync(supplierId);
+        Assert.True(supplierAfterPost!.CurrentOutstandingBalance > 0);
+
+        var cancelResult = await _purchaseService.CancelPurchaseInvoiceAsync(posted.PurchaseInvoiceId!, "user-1");
+        Assert.True(cancelResult.Success, cancelResult.ErrorMessage);
+
+        var details = await _purchaseService.GetPurchaseInvoiceDetailsAsync(posted.PurchaseInvoiceId!);
+        Assert.Equal(PurchaseInvoiceStatus.Cancelled, details!.Status);
+
+        var supplierAfterCancel = await _supplierRepository.GetSupplierByIdAsync(supplierId);
+        Assert.Equal(0m, supplierAfterCancel!.CurrentOutstandingBalance);
+    }
+
+    [Fact]
+    public async Task PostInvoice_WithZeroCostAndFreeQty_PostsSuccessfully()
+    {
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "Free Sample Supplier", Gstin: null,
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 0, OpeningBalance: 0));
+
+        var cmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "Free Sample Supplier",
+            SupplierGstin: null, SupplierInvoiceNo: "ZERO-COST-001",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: "Free samples",
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_dolo", "Dolo 650", "30049099", "FREEBATCH01",
+                    DateTime.UtcNow.AddMonths(18), null, 1m, 9m, 0m, 30.5m, 30m, 0m, 12m)
+            });
+
+        var result = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(10m, result.TotalStockAdded);
     }
 }
+

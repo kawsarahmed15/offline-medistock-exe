@@ -31,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<IDocumentSequenceService, SqliteDocumentSequenceService>();
         services.AddScoped<IBillTemplateRepository, SqliteBillTemplateRepository>();
         services.AddScoped<IPrinterConfigRepository, SqliteBillTemplateRepository>();
+        services.AddScoped<ICustomerRepository, SqliteCustomerRepository>();
+        services.AddScoped<Backup.ILocalBackupService, Backup.LocalBackupService>();
 
         return services;
     }

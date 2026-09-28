@@ -1,17 +1,28 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Medistock.Contracts.Backup;
+using Medistock.Contracts.Updates;
+using Medistock.Infrastructure.Data;
+using Medistock.Infrastructure.Data.Backup;
+using Medistock.Infrastructure.Identity.Services;
+using Medistock.Infrastructure.Sync.Backup;
+using Medistock.Infrastructure.Sync.Updates;
 
 namespace Medistock.Desktop.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
-    private static readonly string SettingsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Medistock");
-    private static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "user_settings.json");
+    private static readonly string SettingsFilePath = MedistockPaths.SettingsFile;
+
+    private readonly ILocalBackupService? _localBackupService;
+    private readonly ICloudBackupService? _cloudBackupService;
+    private readonly IUpdateService? _updateService;
+    private readonly IActivationService? _activationService;
 
     [ObservableProperty]
     private string _theme = "Dark";
@@ -38,14 +49,91 @@ public partial class SettingsViewModel : ObservableObject
     private bool _enableBarcodeAudio = true;
 
     [ObservableProperty]
+    private int _nearExpiryDays = 90;
+
+    [ObservableProperty]
+    private decimal _defaultGstRate = 5.0m;
+
+    [ObservableProperty]
     private string _statusMessage = "Settings loaded.";
+
+    [ObservableProperty]
+    private string _backupStatusMessage = "";
+
+    [ObservableProperty]
+    private string _updateStatusMessage = "";
+
+    [ObservableProperty]
+    private string _licenseInfo = "Activated";
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    public ObservableCollection<BackupFileInfo> LocalBackups { get; } = new();
+    public ObservableCollection<CloudBackupInfo> CloudBackups { get; } = new();
 
     public Action<string>? ThemeChangedCallback { get; set; }
     public Action<string>? FontSizeChangedCallback { get; set; }
 
-    public SettingsViewModel()
+    public SettingsViewModel(
+        ILocalBackupService? localBackupService = null,
+        ICloudBackupService? cloudBackupService = null,
+        IUpdateService? updateService = null,
+        IActivationService? activationService = null)
     {
+        _localBackupService = localBackupService;
+        _cloudBackupService = cloudBackupService;
+        _updateService = updateService;
+        _activationService = activationService;
+
         LoadSettings();
+        RefreshBackupsList();
+        RefreshLicenseInfo();
+    }
+
+    public static int GetNearExpiryDays()
+    {
+        return GetStoreInfo().NearExpiryDays;
+    }
+
+    public static decimal GetDefaultGstRate()
+    {
+        try
+        {
+            if (File.Exists(SettingsFilePath))
+            {
+                var json = File.ReadAllText(SettingsFilePath);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("DefaultGstRate", out var dg) && dg.GetDecimal() >= 0)
+                {
+                    return dg.GetDecimal();
+                }
+            }
+        }
+        catch { }
+        return 5.0m;
+    }
+
+    public static (string PharmacyName, string StoreAddress, string ContactPhone, string Gstin, int NearExpiryDays) GetStoreInfo()
+    {
+        try
+        {
+            if (File.Exists(SettingsFilePath))
+            {
+                var json = File.ReadAllText(SettingsFilePath);
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                string pharmacy = root.TryGetProperty("PharmacyName", out var pp) ? (pp.GetString() ?? "Medistock Pharmacy") : "Medistock Pharmacy";
+                string address = root.TryGetProperty("StoreAddress", out var sa) ? (sa.GetString() ?? "Medical Market") : "Medical Market";
+                string phone = root.TryGetProperty("ContactPhone", out var ph) ? (ph.GetString() ?? "+91 98765 43210") : "+91 98765 43210";
+                string gstin = root.TryGetProperty("Gstin", out var gp) ? (gp.GetString() ?? "07AAAAA0000A1Z5") : "07AAAAA0000A1Z5";
+                int nearExp = root.TryGetProperty("NearExpiryDays", out var ned) && ned.GetInt32() > 0 ? ned.GetInt32() : 90;
+
+                return (pharmacy, address, phone, gstin, nearExp);
+            }
+        }
+        catch { }
+        return ("Medistock Pharmacy", "Medical Market", "+91 98765 43210", "07AAAAA0000A1Z5", 90);
     }
 
     public void LoadSettings()
@@ -66,6 +154,8 @@ public partial class SettingsViewModel : ObservableObject
                 if (root.TryGetProperty("StoreAddress", out var sa)) StoreAddress = sa.GetString() ?? StoreAddress;
                 if (root.TryGetProperty("InvoicePrefix", out var ip)) InvoicePrefix = ip.GetString() ?? InvoicePrefix;
                 if (root.TryGetProperty("EnableBarcodeAudio", out var ea)) EnableBarcodeAudio = ea.GetBoolean();
+                if (root.TryGetProperty("NearExpiryDays", out var ned)) NearExpiryDays = ned.GetInt32();
+                if (root.TryGetProperty("DefaultGstRate", out var dgr)) DefaultGstRate = dgr.GetDecimal();
             }
         }
         catch { }
@@ -76,11 +166,6 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            if (!Directory.Exists(SettingsDirectory))
-            {
-                Directory.CreateDirectory(SettingsDirectory);
-            }
-
             var settingsObj = new
             {
                 Theme = Theme,
@@ -91,6 +176,8 @@ public partial class SettingsViewModel : ObservableObject
                 StoreAddress = StoreAddress,
                 InvoicePrefix = InvoicePrefix,
                 EnableBarcodeAudio = EnableBarcodeAudio,
+                NearExpiryDays = NearExpiryDays,
+                DefaultGstRate = DefaultGstRate,
                 LastUpdated = DateTime.UtcNow
             };
 
@@ -108,6 +195,141 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    public async Task CreateLocalBackupAsync()
+    {
+        if (_localBackupService == null)
+        {
+            BackupStatusMessage = "Backup service is not available.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            BackupStatusMessage = "Creating local backup archive...";
+            var path = await _localBackupService.CreateBackupAsync();
+            BackupStatusMessage = $"✓ Backup saved: {Path.GetFileName(path)}";
+            RefreshBackupsList();
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Backup failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task UploadCloudBackupAsync()
+    {
+        if (_cloudBackupService == null)
+        {
+            BackupStatusMessage = "Cloud backup service is not available.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            BackupStatusMessage = "Encrypting (AES-256) & uploading database snapshot...";
+            var result = await _cloudBackupService.UploadBackupAsync();
+            if (result.Success)
+            {
+                BackupStatusMessage = $"✓ Cloud backup uploaded! ID: {result.BackupId}";
+                await RefreshCloudBackupsListAsync();
+            }
+            else
+            {
+                BackupStatusMessage = $"Cloud upload failed: {result.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Cloud upload error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task CheckForUpdatesAsync()
+    {
+        if (_updateService == null)
+        {
+            UpdateStatusMessage = "Update service not configured.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            UpdateStatusMessage = "Checking server for latest version...";
+            var res = await _updateService.CheckForUpdateAsync();
+            if (res != null && res.UpdateAvailable)
+            {
+                UpdateStatusMessage = $"✓ Update v{res.Version} available! Downloading in background...";
+            }
+            else
+            {
+                UpdateStatusMessage = "✓ You are using the latest version of Medistock.";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusMessage = $"Update check error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public void RefreshBackupsList()
+    {
+        LocalBackups.Clear();
+        if (_localBackupService != null)
+        {
+            foreach (var b in _localBackupService.ListLocalBackups())
+            {
+                LocalBackups.Add(b);
+            }
+        }
+    }
+
+    public async Task RefreshCloudBackupsListAsync()
+    {
+        CloudBackups.Clear();
+        if (_cloudBackupService != null)
+        {
+            var list = await _cloudBackupService.ListCloudBackupsAsync();
+            foreach (var b in list)
+            {
+                CloudBackups.Add(b);
+            }
+        }
+    }
+
+    public void RefreshLicenseInfo()
+    {
+        if (_activationService != null)
+        {
+            var token = _activationService.GetCurrentToken();
+            if (token != null)
+            {
+                LicenseInfo = $"Org: {token.OrgName} | Plan: {token.Plan} | Exp: {token.ExpiresAt:yyyy-MM-dd}";
+            }
+            else
+            {
+                LicenseInfo = "Device Activated (Local Mode)";
+            }
+        }
+    }
+
     partial void OnThemeChanged(string value)
     {
         ThemeChangedCallback?.Invoke(value);
@@ -118,3 +340,4 @@ public partial class SettingsViewModel : ObservableObject
         FontSizeChangedCallback?.Invoke(value);
     }
 }
+

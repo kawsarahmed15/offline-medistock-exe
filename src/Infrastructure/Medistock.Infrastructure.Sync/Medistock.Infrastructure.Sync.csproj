@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\Core\Medistock.Domain\Medistock.Domain.csproj" />
     <ProjectReference Include="..\..\Core\Medistock.Application\Medistock.Application.csproj" />
     <ProjectReference Include="..\..\Shared\Medistock.Contracts\Medistock.Contracts.csproj" />
+    <ProjectReference Include="..\Medistock.Infrastructure.Data\Medistock.Infrastructure.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

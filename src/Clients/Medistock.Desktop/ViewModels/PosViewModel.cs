@@ -12,6 +12,8 @@ using System.IO;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Medistock.Application.Customers.DTOs;
+using Medistock.Application.Customers.Services;
 using Medistock.Application.Products.Commands;
 using Medistock.Application.Products.Queries;
 using Medistock.Application.Sales.Commands;
@@ -67,7 +69,7 @@ public class CartItemDraftDto
     public decimal DiscountPercent { get; set; } = 0;
 }
 
-public class ProductSearchItemViewModel
+public partial class ProductSearchItemViewModel : ObservableObject
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -91,9 +93,67 @@ public class ProductSearchItemViewModel
     public decimal Mrp { get; set; }
     public decimal SaleRate { get; set; }
     public decimal AvailableQuantity { get; set; }
+    public decimal MinStockAlert { get; set; } = 10;
+    public int NearExpiryDays { get; set; } = 90;
     public List<ProductBatchDto> Batches { get; set; } = new();
 
-    public static ProductSearchItemViewModel FromDto(ProductSearchDto dto)
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HighlightBackgroundHex));
+                OnPropertyChanged(nameof(HighlightBorderHex));
+            }
+        }
+    }
+
+    public bool IsExpired => NearestExpiryDate.HasValue && NearestExpiryDate.Value.Date <= DateTime.UtcNow.Date;
+    public bool IsNearExpiry => !IsExpired && NearestExpiryDate.HasValue && NearestExpiryDate.Value.Date <= DateTime.UtcNow.AddDays(NearExpiryDays).Date;
+    public bool IsOutOfStock => AvailableQuantity <= 0;
+    public bool IsLowStock => !IsOutOfStock && AvailableQuantity <= MinStockAlert;
+
+    public string StockDisplay => IsOutOfStock ? "0 (OOS)" : (IsLowStock ? $"{AvailableQuantity:0.#} (LOW)" : $"{AvailableQuantity:0.#}");
+    public string ExpiryDisplay => NearestExpiryDate.HasValue ? NearestExpiryDate.Value.ToString("MM/yy") : "--/--";
+    public string ExpiryBadge => IsExpired ? "EXPIRED" : (IsNearExpiry ? "EXP NEAR" : string.Empty);
+    public bool HasExpiryBadge => IsExpired || IsNearExpiry;
+
+    public string StockForegroundHex => IsOutOfStock 
+        ? "#DC2626" 
+        : (IsLowStock ? "#D97706" : "#16A34A");
+
+    public string ExpiryForegroundHex => (IsExpired || IsNearExpiry) 
+        ? "#DC2626" 
+        : "#64748B";
+
+    public string StockBadge => IsOutOfStock ? "OOS" : (IsLowStock ? "LOW" : string.Empty);
+    public bool HasStockBadge => IsOutOfStock || IsLowStock;
+
+    public string RowBackgroundHex => IsExpired 
+        ? "#35DC2626" 
+        : (IsNearExpiry 
+            ? "#22DC2626" 
+            : (IsOutOfStock 
+                ? "#25DC2626" 
+                : (IsLowStock ? "#20D97706" : "#00000000")));
+
+    public string RowBorderHex => IsExpired 
+        ? "#DC2626" 
+        : (IsNearExpiry 
+            ? "#80DC2626" 
+            : (IsOutOfStock 
+                ? "#DC2626" 
+                : (IsLowStock ? "#D97706" : "#00000000")));
+
+    public string HighlightBackgroundHex => IsSelected ? "#350D6EFD" : RowBackgroundHex;
+    public string HighlightBorderHex => IsSelected ? "#0D6EFD" : RowBorderHex;
+
+    public static ProductSearchItemViewModel FromDto(ProductSearchDto dto, int nearExpiryDays = 90)
     {
         return new ProductSearchItemViewModel
         {
@@ -119,6 +179,8 @@ public class ProductSearchItemViewModel
             Mrp = dto.Mrp,
             SaleRate = dto.SaleRate,
             AvailableQuantity = dto.AvailableQuantity,
+            MinStockAlert = dto.MinStockAlert > 0 ? dto.MinStockAlert : 10,
+            NearExpiryDays = nearExpiryDays > 0 ? nearExpiryDays : 90,
             Batches = dto.Batches ?? new List<ProductBatchDto>()
         };
     }
@@ -395,6 +457,9 @@ public partial class InvoiceTabViewModel : ObservableObject
             }
         }
     }
+
+    [ObservableProperty]
+    private string? _customerId;
 
     [ObservableProperty]
     private string _customerName = "WALK-IN CUSTOMER";
@@ -1067,6 +1132,12 @@ public partial class PosViewModel : ObservableObject
     private double _newOpeningQty = 100.0;
 
     [ObservableProperty]
+    private double _newMinStockAlert = 10.0;
+
+    [ObservableProperty]
+    private int _nearExpiryDays = 90;
+
+    [ObservableProperty]
     private string _newProductNameError = string.Empty;
 
     [ObservableProperty]
@@ -1084,19 +1155,82 @@ public partial class PosViewModel : ObservableObject
     [ObservableProperty]
     private string _createProductFormError = string.Empty;
 
+    // --- Party / Credit Customer Selection (Marg ERP Style) ---
+    private readonly ICustomerService? _customerService;
+
+    [ObservableProperty]
+    private bool _isPartyPickerOpen = false;
+
+    [ObservableProperty]
+    private string _partySearchQuery = string.Empty;
+
+    public ObservableCollection<CustomerDto> PartySearchResults { get; } = new();
+
+    [ObservableProperty]
+    private int _selectedPartyIndex = -1;
+
+    [ObservableProperty]
+    private CustomerDto? _selectedParty;
+
+    // --- Fast Party Creation Form Properties ---
+    [ObservableProperty]
+    private bool _isCreatePartyModalOpen = false;
+
+    [ObservableProperty]
+    private string _newPartyName = string.Empty;
+
+    [ObservableProperty]
+    private string _newPartyPhone = string.Empty;
+
+    [ObservableProperty]
+    private string _newPartyAddress = string.Empty;
+
+    [ObservableProperty]
+    private string _newPartyCity = "DELHI";
+
+    [ObservableProperty]
+    private double _newPartyCreditLimit = 25000.0;
+
+    [ObservableProperty]
+    private double _newPartyOpeningBalance = 0.0;
+
+    [ObservableProperty]
+    private string _newPartyGstin = string.Empty;
+
+    [ObservableProperty]
+    private string _newPartyNameError = string.Empty;
+
+    [ObservableProperty]
+    private string _newPartyPhoneError = string.Empty;
+
+    [ObservableProperty]
+    private string _createPartyFormError = string.Empty;
+
     private readonly string? _draftStorageFilePath;
 
     public PosViewModel(
         IProductSearchService searchService,
         IPosTransactionService posTransactionService,
         IProductService productService,
+        string draftStorageFilePath)
+        : this(searchService, posTransactionService, productService, null, draftStorageFilePath)
+    {
+    }
+
+    public PosViewModel(
+        IProductSearchService searchService,
+        IPosTransactionService posTransactionService,
+        IProductService productService,
+        ICustomerService? customerService = null,
         string? draftStorageFilePath = null)
     {
         _searchService = searchService;
         _posTransactionService = posTransactionService;
         _productService = productService;
+        _customerService = customerService;
         _draftStorageFilePath = draftStorageFilePath;
 
+        NearExpiryDays = SettingsViewModel.GetNearExpiryDays();
         LoadDraftState();
     }
 
@@ -1450,6 +1584,7 @@ public partial class PosViewModel : ObservableObject
         NewPurchaseRate = 70.0;
         NewSaleRate = 90.0;
         NewOpeningQty = 50.0;
+        NewMinStockAlert = 10.0;
 
         ClearCreateProductErrors();
 
@@ -1542,7 +1677,8 @@ public partial class PosViewModel : ObservableObject
             Mrp: (decimal)NewMrp,
             PurchaseRate: (decimal)NewPurchaseRate,
             SaleRate: (decimal)(NewSaleRate > 0 ? NewSaleRate : NewMrp),
-            OpeningQuantity: (decimal)NewOpeningQty
+            OpeningQuantity: (decimal)NewOpeningQty,
+            MinStockAlert: (decimal)(NewMinStockAlert > 0 ? NewMinStockAlert : 10.0)
         );
 
         var result = await _productService.CreateProductWithBatchAsync(cmd);
@@ -1625,7 +1761,7 @@ public partial class PosViewModel : ObservableObject
                 SearchResults.Clear();
                 foreach (var r in results)
                 {
-                    SearchResults.Add(ProductSearchItemViewModel.FromDto(r));
+                    SearchResults.Add(ProductSearchItemViewModel.FromDto(r, NearExpiryDays));
                 }
 
                 SelectedSearchIndex = SearchResults.Count > 0 ? 0 : -1;
@@ -1671,6 +1807,8 @@ public partial class PosViewModel : ObservableObject
         {
             foreach (var b in product.Batches)
             {
+                b.NearExpiryDays = NearExpiryDays;
+                b.MinStockAlert = product.MinStockAlert;
                 SelectedProductBatches.Add(b);
             }
         }
@@ -1685,7 +1823,9 @@ public partial class PosViewModel : ObservableObject
                 Mrp = product.Mrp,
                 SaleRate = product.SaleRate > 0 ? product.SaleRate : product.Mrp,
                 PurchaseRate = product.SaleRate * 0.8m,
-                AvailableQuantity = product.AvailableQuantity
+                AvailableQuantity = product.AvailableQuantity,
+                MinStockAlert = product.MinStockAlert,
+                NearExpiryDays = NearExpiryDays
             });
         }
 
@@ -1895,7 +2035,196 @@ public partial class PosViewModel : ObservableObject
         }
         SelectedSaleTypeIndex = index;
         IsSaleTypePromptOpen = false;
-        StatusMessage = $"Sale Type set to {ActiveTab?.PaymentMode}. Enter invoice details.";
+
+        if (index == 3) // Credit (Party Sale)
+        {
+            OpenPartyPicker();
+        }
+        else
+        {
+            StatusMessage = $"Sale Type set to {ActiveTab?.PaymentMode}. Enter invoice details.";
+        }
+    }
+
+    [RelayCommand]
+    public void OpenPartyPicker()
+    {
+        PartySearchQuery = string.Empty;
+        SelectedPartyIndex = -1;
+        SelectedParty = null;
+        IsPartyPickerOpen = true;
+        _ = SearchPartiesAsync(string.Empty);
+        StatusMessage = "Credit Sale: Select Party / Debtor or press [F2] to create new.";
+    }
+
+    [RelayCommand]
+    public void ClosePartyPicker()
+    {
+        IsPartyPickerOpen = false;
+        PartySearchResults.Clear();
+        SelectedPartyIndex = -1;
+        SelectedParty = null;
+    }
+
+    public async Task SearchPartiesAsync(string query)
+    {
+        if (_customerService == null) return;
+        var list = await _customerService.SearchCustomersAsync(OrgId, query);
+        PartySearchResults.Clear();
+        foreach (var c in list)
+        {
+            PartySearchResults.Add(c);
+        }
+        if (PartySearchResults.Count > 0)
+        {
+            SelectedPartyIndex = 0;
+            SelectedParty = PartySearchResults[0];
+        }
+        else
+        {
+            SelectedPartyIndex = -1;
+            SelectedParty = null;
+        }
+    }
+
+    async partial void OnPartySearchQueryChanged(string value)
+    {
+        await SearchPartiesAsync(value);
+    }
+
+    public void MovePartySelectionDown()
+    {
+        if (PartySearchResults.Count == 0) return;
+        if (SelectedPartyIndex < PartySearchResults.Count - 1)
+        {
+            SelectedPartyIndex++;
+            SelectedParty = PartySearchResults[SelectedPartyIndex];
+        }
+    }
+
+    public void MovePartySelectionUp()
+    {
+        if (PartySearchResults.Count == 0) return;
+        if (SelectedPartyIndex > 0)
+        {
+            SelectedPartyIndex--;
+            SelectedParty = PartySearchResults[SelectedPartyIndex];
+        }
+    }
+
+    [RelayCommand]
+    public void SelectParty(CustomerDto? party)
+    {
+        var target = party ?? SelectedParty;
+        if (target != null && ActiveTab != null)
+        {
+            ActiveTab.CustomerId = target.Id;
+            ActiveTab.CustomerName = target.Name;
+            ActiveTab.CustomerMobile = target.Phone ?? string.Empty;
+            ClosePartyPicker();
+            StatusMessage = $"Party selected: {target.Name} (Bal: ₹{target.CurrentBalance:N2}). Ready for billing.";
+        }
+    }
+
+    [RelayCommand]
+    public void OpenCreatePartyModal()
+    {
+        NewPartyName = !string.IsNullOrWhiteSpace(PartySearchQuery) ? PartySearchQuery.Trim() : string.Empty;
+        NewPartyPhone = string.Empty;
+        NewPartyAddress = string.Empty;
+        NewPartyCity = "DELHI";
+        NewPartyCreditLimit = 25000.0;
+        NewPartyOpeningBalance = 0.0;
+        NewPartyGstin = string.Empty;
+
+        ClearCreatePartyErrors();
+        IsPartyPickerOpen = false;
+        IsCreatePartyModalOpen = true;
+        StatusMessage = "Create New Party / Customer. Press [Enter] to Save, [Esc] to cancel.";
+    }
+
+    public void ClearCreatePartyErrors()
+    {
+        NewPartyNameError = string.Empty;
+        NewPartyPhoneError = string.Empty;
+        CreatePartyFormError = string.Empty;
+    }
+
+    [RelayCommand]
+    public void CloseCreatePartyModal()
+    {
+        ClearCreatePartyErrors();
+        IsCreatePartyModalOpen = false;
+        if (ActiveTab?.PaymentMode == PaymentMode.Credit && string.IsNullOrWhiteSpace(ActiveTab.CustomerId))
+        {
+            OpenPartyPicker();
+        }
+    }
+
+    [RelayCommand]
+    public async Task<bool> SaveCreatePartyAsync()
+    {
+        ClearCreatePartyErrors();
+        bool hasError = false;
+
+        if (string.IsNullOrWhiteSpace(NewPartyName))
+        {
+            NewPartyNameError = "Party / Customer Name is required.";
+            hasError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewPartyPhone))
+        {
+            NewPartyPhoneError = "Mobile Number is required.";
+            hasError = true;
+        }
+        else if (NewPartyPhone.Trim().Length < 10)
+        {
+            NewPartyPhoneError = "Please enter a valid 10-digit mobile number.";
+            hasError = true;
+        }
+
+        if (hasError)
+        {
+            CreatePartyFormError = "Please correct the errors before saving.";
+            StatusMessage = "Cannot save party: required fields are missing or invalid.";
+            return false;
+        }
+
+        if (_customerService == null)
+        {
+            CreatePartyFormError = "Customer service unavailable.";
+            return false;
+        }
+
+        var cmd = new CreateCustomerCommand(
+            OrgId: OrgId,
+            Name: NewPartyName.Trim(),
+            Phone: NewPartyPhone.Trim(),
+            Address: NewPartyAddress.Trim(),
+            City: NewPartyCity.Trim(),
+            State: "Delhi",
+            Pincode: "110001",
+            Gstin: NewPartyGstin.Trim(),
+            DlNumber: null,
+            CreditLimit: (decimal)NewPartyCreditLimit,
+            OpeningBalance: (decimal)NewPartyOpeningBalance
+        );
+
+        var result = await _customerService.CreateCustomerAsync(cmd);
+        if (result.Success && result.Customer != null)
+        {
+            ClearCreatePartyErrors();
+            IsCreatePartyModalOpen = false;
+            SelectParty(result.Customer);
+            return true;
+        }
+        else
+        {
+            CreatePartyFormError = result.ErrorMessage ?? "Failed to create party.";
+            StatusMessage = $"Error creating party: {result.ErrorMessage}";
+            return false;
+        }
     }
 
     [RelayCommand]

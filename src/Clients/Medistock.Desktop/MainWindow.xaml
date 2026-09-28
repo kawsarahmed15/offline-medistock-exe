@@ -58,6 +58,12 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Content="Purchases &amp; Inward [F4]" Tag="purchases">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Street" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Content="Inventory &amp; Stock" Tag="inventory">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Library" />
@@ -73,12 +79,6 @@
                 <NavigationViewItem Content="Schedule Drug Register" Tag="compliance">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Document" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Content="Purchases &amp; Suppliers" Tag="purchases">
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Street" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 

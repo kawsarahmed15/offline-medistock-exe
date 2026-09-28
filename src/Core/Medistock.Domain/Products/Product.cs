@@ -23,6 +23,7 @@ public class Product : AggregateRoot<string>
     public bool IsColdChain { get; private set; }
     public bool IsNarcotic { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public decimal MinStockAlert { get; private set; } = 10.0m;
     public string? PrimaryBarcode { get; private set; }
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; private set; }
@@ -48,7 +49,8 @@ public class Product : AggregateRoot<string>
         string? primaryBarcode = null,
         string? manufacturerId = null,
         string? manufacturerName = null,
-        bool isColdChain = false)
+        bool isColdChain = false,
+        decimal minStockAlert = 10.0m)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Product name cannot be empty.", nameof(name));
@@ -72,6 +74,7 @@ public class Product : AggregateRoot<string>
             IsPrescriptionRequired = schedule != DrugSchedule.OTC,
             IsNarcotic = schedule == DrugSchedule.ScheduleX_Narcotic,
             IsColdChain = isColdChain,
+            MinStockAlert = minStockAlert > 0 ? minStockAlert : 10.0m,
             PrimaryBarcode = primaryBarcode?.Trim(),
             ManufacturerId = manufacturerId,
             ManufacturerName = manufacturerName,
@@ -85,6 +88,12 @@ public class Product : AggregateRoot<string>
         }
 
         return product;
+    }
+
+    public void UpdateMinStockAlert(decimal minStockAlert)
+    {
+        MinStockAlert = minStockAlert > 0 ? minStockAlert : 10.0m;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public void AddBarcode(string barcode)

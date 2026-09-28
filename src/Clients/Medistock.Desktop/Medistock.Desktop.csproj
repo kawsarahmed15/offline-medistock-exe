@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Data\Medistock.Infrastructure.Data.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Hardware\Medistock.Infrastructure.Hardware.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Sync\Medistock.Infrastructure.Sync.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Medistock.Infrastructure.Identity\Medistock.Infrastructure.Identity.csproj" />
     <ProjectReference Include="..\..\Shared\Medistock.Contracts\Medistock.Contracts.csproj" />
   </ItemGroup>
 

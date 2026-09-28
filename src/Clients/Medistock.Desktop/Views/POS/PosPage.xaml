@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:Medistock.Desktop.ViewModels"
     xmlns:q="using:Medistock.Application.Products.Queries"
+    xmlns:cust="using:Medistock.Application.Customers.DTOs"
     mc:Ignorable="d"
     Background="{ThemeResource AppBackground}"
     PointerPressed="PageBackground_PointerPressed">
@@ -226,7 +227,8 @@
                      FontSize="15"
                      FontWeight="SemiBold"
                      Height="42"
-                     Padding="12,8"
+                     Padding="12,0"
+                     VerticalContentAlignment="Center"
                      BorderThickness="2"
                      BorderBrush="{ThemeResource AccentPrimary}"
                      KeyDown="SearchBox_KeyDown" />
@@ -246,7 +248,7 @@
                         Shadow="{StaticResource SharedShadow}">
                     <Grid RowDefinitions="Auto,*">
                         <!-- Table Header -->
-                        <Grid Grid.Row="0" ColumnDefinitions="2*,1.5*,85,95,85,65,80,80,70" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                        <Grid Grid.Row="0" ColumnDefinitions="2*,1.5*,85,95,85,75,80,80,75" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
                             <TextBlock Grid.Column="0" Text="Medicine / Product Name" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                             <TextBlock Grid.Column="1" Text="Generic / Salt" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                             <TextBlock Grid.Column="2" Text="Pack" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
@@ -268,19 +270,31 @@
                                   ItemClick="SearchResults_ItemClick">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ProductSearchItemViewModel">
-                                    <Grid ColumnDefinitions="2*,1.5*,85,95,85,65,80,80,70" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
-                                        <TextBlock Grid.Column="0" Text="{x:Bind Name}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind GenericName}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind PackSizeDescription}" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind BatchNumber, TargetNullValue='DEFAULT'}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="4" Text="{x:Bind NearestExpiryDate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:MM/yy}'}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="5" Text="{x:Bind AvailableQuantity}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="6" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="7" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <Border Grid.Column="8" Background="{ThemeResource SurfaceSubtle}" CornerRadius="2" Padding="4,1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind Schedule}" FontSize="11" FontWeight="SemiBold" />
-                                        </Border>
-                                    </Grid>
+                                    <Border Background="{x:Bind RowBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                            BorderBrush="{x:Bind RowBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Margin="1,1">
+                                        <Grid ColumnDefinitions="2*,1.5*,85,95,85,75,80,80,75" Padding="8,5">
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
+                                                <Border Background="#DC2626" CornerRadius="3" Padding="4,1" VerticalAlignment="Center"
+                                                        Visibility="{x:Bind HasExpiryBadge, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{x:Bind ExpiryBadge}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind GenericName}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind PackSizeDescription}" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind BatchNumber, TargetNullValue='DEFAULT'}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{x:Bind ExpiryDisplay}" FontSize="12" FontWeight="SemiBold" Foreground="{x:Bind ExpiryForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="5" Text="{x:Bind StockDisplay}" FontWeight="Bold" FontSize="12.5" Foreground="{x:Bind StockForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="6" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="7" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <Border Grid.Column="8" Background="{ThemeResource SurfaceSubtle}" CornerRadius="2" Padding="4,1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Schedule}" FontSize="11" FontWeight="SemiBold" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
@@ -505,7 +519,7 @@
 
                     <!-- Bill Disc % Input -->
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Disc %" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        <TextBlock Text="Disc %" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Center" Margin="0,0,0,2" />
                         <NumberBox x:Name="BottomBar_DiscountPercentBox"
                                    Value="{x:Bind ViewModel.ActiveTab.BillDiscountPercentDouble, Mode=TwoWay}"
                                    Minimum="0"
@@ -516,7 +530,10 @@
                                    Height="32"
                                    FontSize="13"
                                    FontWeight="SemiBold"
-                                   HorizontalContentAlignment="Right"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   VerticalContentAlignment="Center"
                                    GotFocus="CartCell_GotFocus"
                                    LostFocus="CartCell_LostFocus"
                                    ValueChanged="BottomBar_DiscountPercentBox_ValueChanged"
@@ -526,7 +543,7 @@
 
                     <!-- Bill Disc Flat ₹ Input -->
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Disc (₹)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        <TextBlock Text="Disc (₹)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Center" Margin="0,0,0,2" />
                         <NumberBox x:Name="BottomBar_DiscountFlatBox"
                                    Value="{x:Bind ViewModel.ActiveTab.BillDiscountAmountDouble, Mode=TwoWay}"
                                    Minimum="0"
@@ -536,7 +553,10 @@
                                    Height="32"
                                    FontSize="13"
                                    FontWeight="SemiBold"
-                                   HorizontalContentAlignment="Right"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   VerticalContentAlignment="Center"
                                    GotFocus="CartCell_GotFocus"
                                    LostFocus="CartCell_LostFocus"
                                    ValueChanged="BottomBar_DiscountFlatBox_ValueChanged"
@@ -792,8 +812,8 @@
                                 </StackPanel>
                             </Grid>
 
-                            <!-- Row 6: MRP, Purchase Rate, Sale Rate, Opening Stock Qty -->
-                            <Grid ColumnDefinitions="*,*,*,*">
+                            <!-- Row 6: MRP, Purchase Rate, Sale Rate, Opening Stock Qty, Min Stock Alert -->
+                            <Grid ColumnDefinitions="*,*,*,*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,4,0">
                                     <TextBlock Text="MRP (₹) *" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
                                     <NumberBox x:Name="NewMrpBox" TabIndex="11" Value="{x:Bind ViewModel.NewMrp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
@@ -808,9 +828,13 @@
                                     <NumberBox x:Name="NewSaleRateBox" TabIndex="13" Value="{x:Bind ViewModel.NewSaleRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
                                     <TextBlock Text="{x:Bind ViewModel.NewSaleRateError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewSaleRateError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="3" Margin="4,0,0,0">
+                                <StackPanel Grid.Column="3" Margin="4,0,4,0">
                                     <TextBlock Text="Opening Qty *" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
                                     <NumberBox x:Name="NewOpeningQtyBox" TabIndex="14" Value="{x:Bind ViewModel.NewOpeningQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreateProductInput_KeyDown" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Margin="4,0,0,0">
+                                    <TextBlock Text="Min Alert Qty" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                    <NumberBox x:Name="NewMinStockAlertBox" TabIndex="15" Value="{x:Bind ViewModel.NewMinStockAlert, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" Minimum="1" SmallChange="1" KeyDown="CreateProductInput_KeyDown" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -821,6 +845,183 @@
                         <TextBlock Grid.Column="0" Text="Press [Enter / F2] to Save &amp; Insert into Bill | [Esc] Cancel" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
                         <Button x:Name="CancelCreateProductButton" TabIndex="15" Content="Cancel [Esc]" Command="{x:Bind ViewModel.CloseCreateProductModalCommand}" Margin="0,0,8,0" KeyDown="CreateProductInput_KeyDown" />
                         <Button x:Name="SaveCreateProductButton" TabIndex="16" Content="✔ Save &amp; Add to Bill [Enter]" Click="SaveCreateProductButton_Click" Style="{StaticResource AccentButtonStyle}" FontWeight="Bold" KeyDown="CreateProductInput_KeyDown" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 8.5. Credit Sale Party Selection Dialog (Marg ERP Style) -->
+        <Grid Grid.Row="0" Grid.RowSpan="6"
+              Background="#80000000"
+              Canvas.ZIndex="2100"
+              Visibility="{x:Bind ViewModel.IsPartyPickerOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource AccentPrimary}"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    Width="740"
+                    MaxHeight="540"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="20"
+                    Shadow="{StaticResource SharedShadow}">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="👤 [CREDIT SALE] Select Ledger Party / Debtor" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                            <TextBlock Text="Select existing credit customer or press [F2] to add new party" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" Command="{x:Bind ViewModel.ClosePartyPickerCommand}" Background="Transparent" BorderThickness="0" FontSize="14" IsTabStop="False" />
+                    </Grid>
+
+                    <!-- Search and Fast Add Header Bar -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <TextBox x:Name="PartySearchBox"
+                                 Grid.Column="0"
+                                 PlaceholderText="🔍 Type Party Name, Mobile No, or City... [↑/↓ Navigate, Enter Select]"
+                                 Text="{x:Bind ViewModel.PartySearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="13"
+                                 Margin="0,0,8,0"
+                                 KeyDown="PartySearchBox_KeyDown"
+                                 Loaded="PartySearchBox_Loaded" />
+                        <Button Grid.Column="1"
+                                Content="➕ New Party [F2]"
+                                Command="{x:Bind ViewModel.OpenCreatePartyModalCommand}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                FontWeight="SemiBold"
+                                FontSize="12"
+                                IsTabStop="False" />
+                    </Grid>
+
+                    <!-- Party Table List -->
+                    <Border Grid.Row="2" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Background="{ThemeResource SurfaceSubtle}">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1.2*,100,100" Background="{ThemeResource SurfaceBackgroundSecondary}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                <TextBlock Grid.Column="0" Text="Party Name" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="Mobile No" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="2" Text="City / Area" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="3" Text="Balance (₹)" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="4" Text="Credit Limit" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextSecondary}" />
+                            </Grid>
+
+                            <!-- Results List -->
+                            <ListView x:Name="PartySearchList"
+                                      Grid.Row="1"
+                                      ItemsSource="{x:Bind ViewModel.PartySearchResults, Mode=OneWay}"
+                                      SelectedIndex="{x:Bind ViewModel.SelectedPartyIndex, Mode=TwoWay}"
+                                      SelectionMode="Single"
+                                      IsItemClickEnabled="True"
+                                      ItemClick="PartySearchList_ItemClick"
+                                      KeyDown="PartySearchList_KeyDown">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="cust:CustomerDto">
+                                        <Grid ColumnDefinitions="2*,1.2*,1.2*,100,100" Padding="0,4">
+                                            <TextBlock Grid.Column="0" Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind Phone}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind City}" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind CurrentBalance, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{ThemeResource AccentDanger}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{x:Bind CreditLimit, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N0}'}" FontSize="11" HorizontalAlignment="Right" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+
+                    <!-- Footer Help & Action -->
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                        <TextBlock Grid.Column="0" Text="[Enter] Select Party &amp; Start Bill | [F2] Create New Party | [Esc] Back" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Cancel [Esc]" Command="{x:Bind ViewModel.ClosePartyPickerCommand}" FontSize="12" IsTabStop="False" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 8.6. Fast Party Creation Sub-Modal Dialog -->
+        <Grid Grid.Row="0" Grid.RowSpan="6"
+              Background="#80000000"
+              Canvas.ZIndex="2200"
+              Visibility="{x:Bind ViewModel.IsCreatePartyModalOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource AccentPrimary}"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    Width="600"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="20"
+                    Shadow="{StaticResource SharedShadow}">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="➕ Register New Credit Customer / Party" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                            <TextBlock Text="Instantly adds party ledger into database and selects for current bill" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" Command="{x:Bind ViewModel.CloseCreatePartyModalCommand}" Background="Transparent" BorderThickness="0" FontSize="14" IsTabStop="False" />
+                    </Grid>
+
+                    <!-- Content Form -->
+                    <StackPanel Grid.Row="1" Spacing="10" Padding="0,4">
+                        <!-- Form Error Banner -->
+                        <Border Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="10,6"
+                                Visibility="{x:Bind ViewModel.CreatePartyFormError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="⚠️" FontSize="14" VerticalAlignment="Center" />
+                                <TextBlock Text="{x:Bind ViewModel.CreatePartyFormError, Mode=OneWay}" Foreground="#B91C1C" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Row 1: Party Name -->
+                        <StackPanel>
+                            <TextBlock Text="Party / Customer Name *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                            <TextBox x:Name="NewPartyNameBox" TabIndex="1" Text="{x:Bind ViewModel.NewPartyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Dr. A. K. Sharma Clinic" FontSize="13" KeyDown="CreatePartyInput_KeyDown" Loaded="NewPartyNameBox_Loaded" />
+                            <TextBlock Text="{x:Bind ViewModel.NewPartyNameError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewPartyNameError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <!-- Row 2: Mobile No & City -->
+                        <Grid ColumnDefinitions="*,*">
+                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <TextBlock Text="Mobile Number *" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                <TextBox x:Name="NewPartyPhoneBox" TabIndex="2" Text="{x:Bind ViewModel.NewPartyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="10-digit mobile" FontSize="13" KeyDown="CreatePartyInput_KeyDown" />
+                                <TextBlock Text="{x:Bind ViewModel.NewPartyPhoneError, Mode=OneWay}" Foreground="{ThemeResource AccentDanger}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{x:Bind ViewModel.NewPartyPhoneError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                <TextBlock Text="City / Area" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                <TextBox x:Name="NewPartyCityBox" TabIndex="3" Text="{x:Bind ViewModel.NewPartyCity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. Delhi" FontSize="13" KeyDown="CreatePartyInput_KeyDown" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Row 3: Address -->
+                        <StackPanel>
+                            <TextBlock Text="Full Address (Optional)" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                            <TextBox x:Name="NewPartyAddressBox" TabIndex="4" Text="{x:Bind ViewModel.NewPartyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Shop/Clinic address" FontSize="13" KeyDown="CreatePartyInput_KeyDown" />
+                        </StackPanel>
+
+                        <!-- Row 4: Credit Limit & Opening Balance -->
+                        <Grid ColumnDefinitions="*,*,*">
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                <TextBlock Text="Credit Limit (₹)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                <NumberBox x:Name="NewPartyCreditLimitBox" TabIndex="5" Value="{x:Bind ViewModel.NewPartyCreditLimit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreatePartyInput_KeyDown" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                <TextBlock Text="Opening Balance (₹)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                <NumberBox x:Name="NewPartyOpeningBalanceBox" TabIndex="6" Value="{x:Bind ViewModel.NewPartyOpeningBalance, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SpinButtonPlacementMode="Compact" KeyDown="CreatePartyInput_KeyDown" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                <TextBlock Text="GSTIN (Optional)" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" Margin="0,0,0,2" />
+                                <TextBox x:Name="NewPartyGstinBox" TabIndex="7" Text="{x:Bind ViewModel.NewPartyGstin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="15-digit GST" FontSize="13" KeyDown="CreatePartyInput_KeyDown" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Footer Action Buttons -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                        <TextBlock Grid.Column="0" Text="Press [Enter] to Save &amp; Select Party | [Esc] Cancel" FontSize="11" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                        <Button x:Name="CancelCreatePartyButton" TabIndex="8" Content="Cancel [Esc]" Command="{x:Bind ViewModel.CloseCreatePartyModalCommand}" Margin="0,0,8,0" KeyDown="CreatePartyInput_KeyDown" />
+                        <Button x:Name="SaveCreatePartyButton" TabIndex="9" Content="✔ Save &amp; Select [Enter]" Click="SaveCreatePartyButton_Click" Style="{StaticResource AccentButtonStyle}" FontWeight="Bold" KeyDown="CreatePartyInput_KeyDown" />
                     </Grid>
                 </Grid>
             </Border>
@@ -973,16 +1174,22 @@
                               Padding="0,4">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="q:ProductBatchDto">
-                                <Grid ColumnDefinitions="1.5*,1.2*,1*,1*,1*,1*" Padding="12,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
-                                    <TextBlock Grid.Column="0" Text="{x:Bind BatchNumber}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind ExpiryDate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:MM/yy}'}" FontSize="13" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind AvailableQuantity}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource StatusSuccess}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <Border Grid.Column="5" Background="{ThemeResource SurfaceSubtle}" CornerRadius="2" Padding="4,1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="Available" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource StatusSuccess}" />
-                                    </Border>
-                                </Grid>
+                                <Border Background="{x:Bind RowBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind RowBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Margin="1,1">
+                                    <Grid ColumnDefinitions="1.5*,1.2*,1*,1*,1*,1.1*" Padding="10,6">
+                                        <TextBlock Grid.Column="0" Text="{x:Bind BatchNumber}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind ExpiryDate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:MM/yy}'}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind ExpiryForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind StockDisplay}" FontWeight="Bold" FontSize="13" Foreground="{x:Bind StockForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <Border Grid.Column="5" Background="{x:Bind StatusBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" CornerRadius="3" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind StatusText}" FontSize="10.5" FontWeight="Bold" Foreground="{x:Bind StatusForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
@@ -1119,7 +1326,7 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="1.5">
                             <Grid ColumnDefinitions="Auto,*">
-                                <Border x:Name="SaleTypeCashBadge" Grid.Column="0" Background="{ThemeResource AccentSubtle}" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
+                                <Border x:Name="SaleTypeCashBadge" Grid.Column="0" Background="{ThemeResource AccentSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
                                     <TextBlock Text="[1]" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1145,7 +1352,7 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="1.5">
                             <Grid ColumnDefinitions="Auto,*">
-                                <Border x:Name="SaleTypeCreditBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
+                                <Border x:Name="SaleTypeCreditBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
                                     <TextBlock Text="[2]" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource StatusWarning}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1171,7 +1378,7 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="1.5">
                             <Grid ColumnDefinitions="Auto,*">
-                                <Border x:Name="SaleTypeUpiBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
+                                <Border x:Name="SaleTypeUpiBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
                                     <TextBlock Text="[3]" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1197,7 +1404,7 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="1.5">
                             <Grid ColumnDefinitions="Auto,*">
-                                <Border x:Name="SaleTypeCardBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
+                                <Border x:Name="SaleTypeCardBadge" Grid.Column="0" Background="{ThemeResource SurfaceElevated}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Width="40" Height="40" Margin="0,0,10,0">
                                     <TextBlock Text="[4]" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource StatusInfo}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1212,7 +1419,7 @@
                     <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="6" Padding="12,8">
                         <TextBlock Text="⌨ Hotkeys: Use [↑ / ↓ / ← / →] Arrow Keys to navigate, [Enter] to confirm | [1] Cash, [2] Credit, [3] UPI, [4] Card"
                                    FontSize="11"
-                                   Foreground="{ThemeResource TextMuted}"
+                                   Foreground="{ThemeResource TextSecondary}"
                                    HorizontalAlignment="Center" />
                     </Border>
                 </StackPanel>

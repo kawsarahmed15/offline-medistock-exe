@@ -16,8 +16,8 @@
     { "command": "app.help_shortcuts", "key": "Alt+F1", "scope": "Global", "description": "Open keyboard shortcut help overlay" },
     { "command": "app.toggle_theme", "key": "Ctrl+Shift+T", "scope": "Global", "description": "Toggle between Light and Dark themes" },
     { "command": "nav.pos", "key": "Ctrl+1", "scope": "Global", "description": "Navigate to POS Billing" },
-    { "command": "nav.inventory", "key": "Ctrl+2", "scope": "Global", "description": "Navigate to Inventory / Stocks" },
-    { "command": "nav.purchases", "key": "Ctrl+3", "scope": "Global", "description": "Navigate to Purchase Entry" },
+    { "command": "nav.purchases", "key": "Ctrl+2", "scope": "Global", "description": "Navigate to Purchase Entry" },
+    { "command": "nav.inventory", "key": "Ctrl+3", "scope": "Global", "description": "Navigate to Inventory / Stocks" },
     { "command": "nav.accounting", "key": "Ctrl+4", "scope": "Global", "description": "Navigate to Financial Accounts" },
     { "command": "nav.reports", "key": "Ctrl+5", "scope": "Global", "description": "Navigate to Reports" }
   ]

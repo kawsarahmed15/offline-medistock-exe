@@ -58,6 +58,7 @@ public class SqliteProductSearchRepository : IProductSearchRepository
                 p.is_prescription_required AS IsPrescriptionRequired,
                 p.is_cold_chain AS IsColdChain,
                 p.is_narcotic AS IsNarcotic,
+                CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert,
                 p.manufacturer_name AS ManufacturerName,
                 p.primary_barcode AS Barcode,
                 b.id AS BatchId,
@@ -117,6 +118,10 @@ public class SqliteProductSearchRepository : IProductSearchRepository
             {
                 if (batchMap.TryGetValue(p.Id, out var pBatches))
                 {
+                    foreach (var b in pBatches)
+                    {
+                        b.MinStockAlert = p.MinStockAlert;
+                    }
                     p.Batches = pBatches;
                 }
             }
@@ -146,8 +151,10 @@ public class SqliteProductSearchRepository : IProductSearchRepository
                 CAST(b.mrp AS REAL) AS Mrp,
                 CAST(b.purchase_rate AS REAL) AS PurchaseRate,
                 CAST(b.sale_rate AS REAL) AS SaleRate,
-                CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity
+                CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity,
+                CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert
             FROM batches b
+            JOIN products p ON p.id = b.product_id
             LEFT JOIN stock_balances sb ON sb.batch_id = b.id AND sb.warehouse_id = @warehouseId
             WHERE b.product_id = @productId
             ORDER BY b.expiry_date ASC;
@@ -187,6 +194,7 @@ public class SqliteProductSearchRepository : IProductSearchRepository
                 CAST(p.gst_rate_percent AS REAL) AS GstRatePercent,
                 p.schedule AS Schedule,
                 p.is_cold_chain AS IsColdChain,
+                CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert,
                 CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity,
                 @barcode AS Barcode
             FROM products p

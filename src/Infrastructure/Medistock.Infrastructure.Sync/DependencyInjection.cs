@@ -16,6 +16,16 @@ public static class DependencyInjection
                 client.BaseAddress = syncServerBaseUri;
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
+            services.AddHttpClient<Updates.IUpdateService, Updates.UpdateService>(client =>
+            {
+                client.BaseAddress = syncServerBaseUri;
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+            services.AddHttpClient<Backup.ICloudBackupService, Backup.CloudBackupService>(client =>
+            {
+                client.BaseAddress = syncServerBaseUri;
+                client.Timeout = TimeSpan.FromSeconds(60);
+            });
         }
         else
         {
@@ -24,9 +34,22 @@ public static class DependencyInjection
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
+            services.AddTransient<Updates.IUpdateService, Updates.UpdateService>();
+            services.AddHttpClient<Updates.UpdateService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+            services.AddTransient<Backup.ICloudBackupService, Backup.CloudBackupService>();
+            services.AddHttpClient<Backup.CloudBackupService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(60);
+            });
         }
 
         services.AddHostedService<OutboxSyncWorker>();
+        services.AddHostedService<Updates.UpdateCheckerWorker>();
+        services.AddHostedService<NetworkMonitorService>();
+        services.AddSingleton<Updates.IUpdateInstallCoordinator, Updates.UpdateInstallCoordinator>();
         return services;
     }
 }

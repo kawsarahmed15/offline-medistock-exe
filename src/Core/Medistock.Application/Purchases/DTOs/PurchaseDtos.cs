@@ -85,3 +85,67 @@ public record PurchaseInvoiceSummaryDto(
     DateTime CreatedAt,
     DateTime? PostedAt
 );
+
+public record PurchaseInvoiceItemDto(
+    string Id,
+    string ProductId,
+    string ProductName,
+    string HsnCode,
+    string BatchNumber,
+    DateTime ExpiryDate,
+    DateTime? ManufacturingDate,
+    decimal Quantity,
+    decimal FreeQuantity,
+    decimal TotalQuantity,
+    decimal UnitPrice,
+    decimal Mrp,
+    decimal SaleRate,
+    decimal DiscountPct,
+    decimal DiscountAmount,
+    decimal TaxableAmount,
+    decimal GstRatePercent,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal NetAmount,
+    decimal LandedCostPerUnit
+);
+
+public record PurchaseInvoiceDetailsDto(
+    string Id,
+    string OrgId,
+    string BranchId,
+    string WarehouseId,
+    string SupplierId,
+    string SupplierName,
+    string? SupplierGstin,
+    string SupplierInvoiceNo,
+    DateTime SupplierInvoiceDate,
+    PurchaseInvoiceStatus Status,
+    bool IsInterstate,
+    decimal Subtotal,
+    decimal DiscountAmount,
+    decimal TaxableAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal RoundOff,
+    decimal GrandTotal,
+    string? Notes,
+    string CreatedByUserId,
+    DateTime CreatedAt,
+    DateTime? PostedAt,
+    IReadOnlyList<PurchaseInvoiceItemDto> Items
+);
+
+public record PurchaseKpiSummaryDto(
+    decimal TotalPurchaseAmount,
+    int TotalInvoicesCount,
+    int TotalSuppliersCount,
+    decimal TotalOutstandingPayable
+);
+
+public record PurchaseCancelResult(
+    bool Success,
+    string? ErrorMessage = null
+);

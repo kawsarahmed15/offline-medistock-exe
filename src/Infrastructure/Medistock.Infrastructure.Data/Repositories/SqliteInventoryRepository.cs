@@ -40,6 +40,7 @@ public class SqliteInventoryRepository : IInventoryRepository
                 p.manufacturer_name AS Manufacturer,
                 p.base_unit AS CategoryName,
                 p.schedule AS Schedule,
+                CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert,
                 b.id AS BatchId,
                 b.batch_number AS BatchNumber,
                 b.expiry_date AS ExpiryDateStr,
@@ -78,7 +79,7 @@ public class SqliteInventoryRepository : IInventoryRepository
 
         if (lowStockOnly)
         {
-            sb.Append(" AND (sb.quantity - sb.reserved_quantity) <= 10");
+            sb.Append(" AND (sb.quantity - sb.reserved_quantity) <= IFNULL(p.min_stock_alert, 10.0)");
         }
 
         sb.Append(" ORDER BY b.expiry_date ASC LIMIT @limit;");
@@ -113,6 +114,7 @@ public class SqliteInventoryRepository : IInventoryRepository
             decimal mrp = Convert.ToDecimal(r.Mrp);
             decimal purchaseRate = Convert.ToDecimal(r.PurchaseRate);
             decimal saleRate = Convert.ToDecimal(r.SaleRate);
+            decimal minStockAlert = r.MinStockAlert != null ? Convert.ToDecimal(r.MinStockAlert) : 10.0m;
 
             list.Add(new StockSummaryItemDto(
                 ProductId: (string)r.ProductId,
@@ -134,7 +136,8 @@ public class SqliteInventoryRepository : IInventoryRepository
                 PurchaseRate: purchaseRate,
                 SaleRate: saleRate,
                 StockValueAtMrp: Math.Round(availQty * mrp, 2),
-                StockValueAtCost: Math.Round(availQty * purchaseRate, 2)
+                StockValueAtCost: Math.Round(availQty * purchaseRate, 2),
+                MinStockAlert: minStockAlert
             ));
         }
 

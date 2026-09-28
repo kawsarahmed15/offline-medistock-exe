@@ -43,7 +43,10 @@ public class DatabaseMigrator : IDatabaseMigrator
             ("005_SalesReturnsAndCreditNotes", GetSalesReturnsSchemaSql()),
             ("006_StockTransfers", GetStockTransfersSchemaSql()),
             ("007_SyncHubAndB2bCommerce", GetSyncHubAndB2bSchemaSql()),
-            ("008_BillCustomizationAndPrinters", GetBillCustomizationSchemaSql())
+            ("008_BillCustomizationAndPrinters", GetBillCustomizationSchemaSql()),
+            ("009_CustomersAndCreditParties", GetCustomersSchemaSql()),
+            ("010_AddMinStockAlertToProducts", GetMinStockAlertSchemaSql()),
+            ("011_AddBatchAndStockUniqueIndexes", GetBatchAndStockUniqueIndexesSql())
         };
 
         foreach (var (version, sql) in migrations)
@@ -158,6 +161,7 @@ CREATE TABLE IF NOT EXISTS batches (
 
 CREATE INDEX IF NOT EXISTS idx_batches_product_expiry ON batches(product_id, expiry_date);
 CREATE INDEX IF NOT EXISTS idx_batches_org_batch ON batches(org_id, batch_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_product_batch_org ON batches(product_id, batch_number, org_id);
 
 CREATE TABLE IF NOT EXISTS stock_balances (
     id TEXT PRIMARY KEY,
@@ -901,6 +905,50 @@ CREATE TABLE IF NOT EXISTS printer_configurations (
     FOREIGN KEY(assigned_template_id) REFERENCES bill_templates(id)
 );
 ";
+
+    private static string GetCustomersSchemaSql()
+    {
+        return CustomersSqlSchema;
+    }
+
+    private const string CustomersSqlSchema = @"
+CREATE TABLE IF NOT EXISTS customers (
+    id TEXT PRIMARY KEY NOT NULL,
+    org_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    pincode TEXT,
+    gstin TEXT,
+    dl_number TEXT,
+    credit_limit REAL DEFAULT 0,
+    current_balance REAL DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+CREATE INDEX IF NOT EXISTS idx_customers_org ON customers(org_id);
+";
+
+    private static string GetMinStockAlertSchemaSql()
+    {
+        return @"
+ALTER TABLE products ADD COLUMN min_stock_alert REAL NOT NULL DEFAULT 10.0;
+";
+    }
+
+    private static string GetBatchAndStockUniqueIndexesSql()
+    {
+        return @"
+CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_product_batch_org ON batches(product_id, batch_number, org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_balances_batch_wh ON stock_balances(batch_id, warehouse_id);
+";
+    }
 }
 
 

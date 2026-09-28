@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS batches (
 
 CREATE INDEX IF NOT EXISTS idx_batches_product_expiry ON batches(product_id, expiry_date);
 CREATE INDEX IF NOT EXISTS idx_batches_org_batch ON batches(org_id, batch_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_product_batch_org ON batches(product_id, batch_number, org_id);
 
 -- 4. Stock Balances (Authoritative Stock per Batch & Warehouse)
 CREATE TABLE IF NOT EXISTS stock_balances (

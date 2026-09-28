@@ -27,6 +27,7 @@ public class ProductSearchDto
     public decimal Mrp { get; set; }
     public decimal SaleRate { get; set; }
     public decimal AvailableQuantity { get; set; }
+    public decimal MinStockAlert { get; set; } = 10;
     public List<ProductBatchDto> Batches { get; set; } = new();
 }
 
@@ -40,8 +41,49 @@ public class ProductBatchDto
     public decimal PurchaseRate { get; set; }
     public decimal SaleRate { get; set; }
     public decimal AvailableQuantity { get; set; }
+    public decimal MinStockAlert { get; set; } = 10;
+    public int NearExpiryDays { get; set; } = 90;
+
     public bool IsExpired => ExpiryDate.Date <= DateTime.UtcNow.Date;
-    public bool IsNearExpiry => !IsExpired && ExpiryDate.Date <= DateTime.UtcNow.AddDays(90).Date;
+    public bool IsNearExpiry => !IsExpired && ExpiryDate.Date <= DateTime.UtcNow.AddDays(NearExpiryDays).Date;
+    public bool IsOutOfStock => AvailableQuantity <= 0;
+    public bool IsLowStock => !IsOutOfStock && AvailableQuantity <= MinStockAlert;
+
+    public string StatusText => IsExpired 
+        ? "EXPIRED" 
+        : (IsNearExpiry 
+            ? "EXP NEAR" 
+            : (IsOutOfStock 
+                ? "OUT OF STOCK" 
+                : (IsLowStock ? "LOW STOCK" : "AVAILABLE")));
+
+    public string StockDisplay => IsOutOfStock 
+        ? "0 (OOS)" 
+        : (IsLowStock ? $"{AvailableQuantity:0.#} (LOW)" : $"{AvailableQuantity:0.#}");
+
+    public string StockForegroundHex => IsOutOfStock 
+        ? "#DC2626" 
+        : (IsLowStock ? "#D97706" : "#16A34A");
+
+    public string ExpiryForegroundHex => (IsExpired || IsNearExpiry) 
+        ? "#DC2626" 
+        : "#64748B";
+
+    public string RowBackgroundHex => IsExpired 
+        ? "#35DC2626" 
+        : (IsNearExpiry ? "#22DC2626" : "#00000000");
+
+    public string RowBorderHex => IsExpired 
+        ? "#DC2626" 
+        : (IsNearExpiry ? "#80DC2626" : "#00000000");
+
+    public string StatusForegroundHex => (IsExpired || IsOutOfStock) 
+        ? "#DC2626" 
+        : ((IsNearExpiry || IsLowStock) ? "#D97706" : "#16A34A");
+
+    public string StatusBackgroundHex => (IsExpired || IsNearExpiry || IsOutOfStock) 
+        ? "#25DC2626" 
+        : (IsLowStock ? "#25D97706" : "#2016A34A");
 }
 
 public class BarcodeLookupDto
@@ -58,6 +100,7 @@ public class BarcodeLookupDto
     public DrugSchedule Schedule { get; set; }
     public bool IsColdChain { get; set; }
     public decimal AvailableQuantity { get; set; }
+    public decimal MinStockAlert { get; set; } = 10;
     public string Barcode { get; set; } = string.Empty;
     public string PackSizeDescription { get; set; } = "1x10";
 }

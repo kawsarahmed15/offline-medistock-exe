@@ -28,10 +28,30 @@ public interface IPurchaseRepository
     Task<IReadOnlyList<PurchaseInvoiceSummaryDto>> GetPurchaseInvoicesAsync(
         string orgId,
         string branchId,
-        int limit = 50,
+        int limit = 100,
         CancellationToken cancellationToken = default);
 
     Task<PurchaseInvoice?> GetPurchaseInvoiceByIdAsync(
         string invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<PurchaseInvoiceDetailsDto?> GetPurchaseInvoiceDetailsAsync(
+        string invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(
+        string orgId,
+        string branchId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> IsDuplicateInvoiceAsync(
+        string orgId,
+        string supplierId,
+        string supplierInvoiceNo,
+        CancellationToken cancellationToken = default);
+
+    Task<PurchaseCancelResult> CancelPurchaseInvoiceAsync(
+        string invoiceId,
+        string cancelledByUserId,
         CancellationToken cancellationToken = default);
 }

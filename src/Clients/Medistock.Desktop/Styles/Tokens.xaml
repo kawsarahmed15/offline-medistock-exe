@@ -7,6 +7,15 @@
     <controls:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     <controls:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
     <controls:InverseBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
+    <controls:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter" />
+    <controls:TabVisibilityConverter x:Key="TabVisibilityConverter" />
+    <controls:SelectedTabBackgroundConverter x:Key="SelectedTabBackgroundConverter" />
+    <controls:SelectedTabForegroundConverter x:Key="SelectedTabForegroundConverter" />
+    <controls:CurrencyFormatConverter x:Key="CurrencyFormatConverter" />
+    <controls:DateFormatConverter x:Key="DateFormatConverter" />
+    <controls:MonthYearFormatConverter x:Key="MonthYearFormatConverter" />
+    <controls:PostedStatusVisibilityConverter x:Key="PostedStatusVisibilityConverter" />
+    <controls:StatusColorConverter x:Key="StatusColorConverter" />
     <ThemeShadow x:Key="SharedShadow" />
 
     <Style x:Key="DeleteButtonStyle" TargetType="Button">

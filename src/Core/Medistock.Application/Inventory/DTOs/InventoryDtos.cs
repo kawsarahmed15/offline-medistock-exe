@@ -24,7 +24,8 @@ public record StockSummaryItemDto(
     decimal PurchaseRate,
     decimal SaleRate,
     decimal StockValueAtMrp,
-    decimal StockValueAtCost
+    decimal StockValueAtCost,
+    decimal MinStockAlert = 10.0m
 );
 
 public record ExpiryBandSummaryDto(

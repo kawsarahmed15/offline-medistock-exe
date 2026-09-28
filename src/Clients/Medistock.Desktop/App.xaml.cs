@@ -1,12 +1,16 @@
 using System;
+using System.Threading.Tasks;
 using Medistock.Application;
 using Medistock.Desktop.Commands;
 using Medistock.Desktop.ViewModels;
+using Medistock.Desktop.Views.Auth;
 using Medistock.Desktop.Views.POS;
 using Medistock.Infrastructure.Data;
 using Medistock.Infrastructure.Data.Migrations;
 using Medistock.Infrastructure.Data.Persistence;
 using Medistock.Infrastructure.Hardware;
+using Medistock.Infrastructure.Identity;
+using Medistock.Infrastructure.Identity.Services;
 using Medistock.Infrastructure.Sync;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -40,13 +44,17 @@ public partial class App : Microsoft.UI.Xaml.Application
         Services = services.BuildServiceProvider();
     }
 
-
     private static void ConfigureServices(IServiceCollection services)
     {
         services.AddApplication();
         services.AddInfrastructureData();
         services.AddInfrastructureHardware();
         services.AddInfrastructureSync();
+
+        // Activation / Licensing
+        // In production, replace the URI with your live server URL:
+        // services.AddInfrastructureIdentity(new Uri("https://api.medistock.in"));
+        services.AddInfrastructureIdentity(new Uri("http://localhost:5000"));
 
         services.AddSingleton<IShortcutService, ShortcutService>();
         services.AddSingleton<PosViewModel>();
@@ -77,31 +85,33 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddTransient<Views.Settings.BillCustomizerPage>();
     }
 
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         try
         {
-            _window = new MainWindow();
-            _window.Activate();
             System.IO.File.AppendAllText(MedistockPaths.StartupLog,
-                $"Window activated successfully at {DateTime.UtcNow:O}\n");
+                $"OnLaunched at {DateTime.UtcNow:O}\n");
 
-            // Ensure database migrations and seed medicines are populated immediately
-            try
-            {
-                using var scope = Services.CreateScope();
-                var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
-                migrator.MigrateAsync().GetAwaiter().GetResult();
+            // ── ACTIVATION GATE ───────────────────────────────────────────────
+            var activationService = Services.GetRequiredService<IActivationService>();
+            var status = await activationService.CheckActivationStatusAsync();
 
-                var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
-                seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
-                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
-                    $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
-            }
-            catch (Exception ex)
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                $"Activation status: {status} at {DateTime.UtcNow:O}\n");
+
+            switch (status)
             {
-                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
-                    $"Database init error: {ex}\n");
+                case ActivationStatus.Activated:
+                case ActivationStatus.GracePeriod:
+                    // Grace period: allow in, MainWindow will show a banner
+                    LaunchMainWindow(gracePeriod: status == ActivationStatus.GracePeriod);
+                    break;
+
+                case ActivationStatus.NotActivated:
+                case ActivationStatus.Expired:
+                case ActivationStatus.Revoked:
+                    LaunchActivationWindow();
+                    break;
             }
         }
         catch (Exception ex)
@@ -109,5 +119,58 @@ public partial class App : Microsoft.UI.Xaml.Application
             System.IO.File.AppendAllText(MedistockPaths.StartupLog, $"FATAL OnLaunched: {ex}\n");
             throw;
         }
+    }
+
+    private void LaunchActivationWindow()
+    {
+        var activationService = Services.GetRequiredService<IActivationService>();
+        var activationWindow = new ActivationWindow(activationService);
+
+        activationWindow.ActivationSucceeded += () =>
+        {
+            // Activation completed — migrate DB then open main window
+            activationWindow.Close();
+            LaunchMainWindow(gracePeriod: false);
+        };
+
+        _window = activationWindow;
+        _window.Activate();
+    }
+
+    private void LaunchMainWindow(bool gracePeriod = false)
+    {
+        // Run DB migration & seed before showing main window
+        try
+        {
+            using var scope = Services.CreateScope();
+            var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
+            migrator.MigrateAsync().GetAwaiter().GetResult();
+
+            var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
+            seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
+
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
+        }
+        catch (Exception ex)
+        {
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                $"Database init error: {ex}\n");
+        }
+
+        var mainWindow = new MainWindow();
+
+        if (gracePeriod)
+        {
+            // TODO (Phase B follow-up): Show grace period warning banner in MainWindow
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                "WARNING: App running in offline grace period\n");
+        }
+
+        _window = mainWindow;
+        _window.Activate();
+
+        System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+            $"MainWindow activated at {DateTime.UtcNow:O}\n");
     }
 }

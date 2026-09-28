@@ -20,7 +20,11 @@ public interface IPurchaseService
 
     Task<IReadOnlyList<SupplierDto>> GetSuppliersAsync(string orgId, CancellationToken cancellationToken = default);
     Task<string> CreateSupplierAsync(CreateSupplierCommand command, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PurchaseInvoiceSummaryDto>> GetRecentPurchasesAsync(string orgId, string branchId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PurchaseInvoiceSummaryDto>> GetRecentPurchasesAsync(string orgId, string branchId, int limit = 100, CancellationToken cancellationToken = default);
+    Task<PurchaseInvoiceDetailsDto?> GetPurchaseInvoiceDetailsAsync(string invoiceId, CancellationToken cancellationToken = default);
+    Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, CancellationToken cancellationToken = default);
+    Task<bool> IsDuplicateInvoiceAsync(string orgId, string supplierId, string supplierInvoiceNo, CancellationToken cancellationToken = default);
+    Task<PurchaseCancelResult> CancelPurchaseInvoiceAsync(string invoiceId, string cancelledByUserId, CancellationToken cancellationToken = default);
 }
 
 public class PurchaseService : IPurchaseService
@@ -108,7 +112,7 @@ public class PurchaseService : IPurchaseService
             );
             batches.Add(batch);
 
-            // Record stock movement (Purchase addition)
+            // Create inward stock movement
             var totalQty = itemInput.Quantity + itemInput.FreeQuantity;
             var movement = StockMovement.Record(
                 id: Guid.NewGuid().ToString("N"),
@@ -178,8 +182,28 @@ public class PurchaseService : IPurchaseService
         return _supplierRepository.CreateSupplierAsync(supplier, cancellationToken);
     }
 
-    public Task<IReadOnlyList<PurchaseInvoiceSummaryDto>> GetRecentPurchasesAsync(string orgId, string branchId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<PurchaseInvoiceSummaryDto>> GetRecentPurchasesAsync(string orgId, string branchId, int limit = 100, CancellationToken cancellationToken = default)
     {
-        return _purchaseRepository.GetPurchaseInvoicesAsync(orgId, branchId, limit: 50, cancellationToken);
+        return _purchaseRepository.GetPurchaseInvoicesAsync(orgId, branchId, limit, cancellationToken);
+    }
+
+    public Task<PurchaseInvoiceDetailsDto?> GetPurchaseInvoiceDetailsAsync(string invoiceId, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.GetPurchaseInvoiceDetailsAsync(invoiceId, cancellationToken);
+    }
+
+    public Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.GetPurchaseKpiSummaryAsync(orgId, branchId, cancellationToken);
+    }
+
+    public Task<bool> IsDuplicateInvoiceAsync(string orgId, string supplierId, string supplierInvoiceNo, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.IsDuplicateInvoiceAsync(orgId, supplierId, supplierInvoiceNo, cancellationToken);
+    }
+
+    public Task<PurchaseCancelResult> CancelPurchaseInvoiceAsync(string invoiceId, string cancelledByUserId, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.CancelPurchaseInvoiceAsync(invoiceId, cancelledByUserId, cancellationToken);
     }
 }
