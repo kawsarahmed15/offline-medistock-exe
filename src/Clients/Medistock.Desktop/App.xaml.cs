@@ -20,13 +20,15 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     public App()
     {
-        var logFile = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_error.log");
+        // Ensure all data directories exist before anything else runs
+        MedistockPaths.EnsureAllDirectoriesExist();
 
         this.UnhandledException += (s, e) =>
         {
             try
             {
-                System.IO.File.AppendAllText(logFile, $"[UNHANDLED XAML EXCEPTION] {e.Message} \n {e.Exception}\n");
+                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                    $"[UNHANDLED XAML EXCEPTION] {e.Message} \n {e.Exception}\n");
             }
             catch { }
         };
@@ -37,6 +39,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
     }
+
 
     private static void ConfigureServices(IServiceCollection services)
     {
@@ -76,13 +79,12 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        var logFile = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_error.log");
-
         try
         {
             _window = new MainWindow();
             _window.Activate();
-            System.IO.File.AppendAllText(logFile, $"Window activated successfully at {DateTime.UtcNow:O}\n");
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                $"Window activated successfully at {DateTime.UtcNow:O}\n");
 
             // Ensure database migrations and seed medicines are populated immediately
             try
@@ -93,18 +95,19 @@ public partial class App : Microsoft.UI.Xaml.Application
 
                 var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
                 seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
-                System.IO.File.AppendAllText(logFile, $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
+                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                    $"Database migration & seeding completed at {DateTime.UtcNow:O}\n");
             }
             catch (Exception ex)
             {
-                System.IO.File.AppendAllText(logFile, $"Database init error: {ex}\n");
+                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                    $"Database init error: {ex}\n");
             }
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText(logFile, $"FATAL OnLaunched: {ex}\n");
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog, $"FATAL OnLaunched: {ex}\n");
             throw;
         }
     }
 }
-

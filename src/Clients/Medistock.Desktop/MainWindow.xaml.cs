@@ -7,6 +7,7 @@ using Medistock.Desktop.Views.Inventory;
 using Medistock.Desktop.Views.POS;
 using Medistock.Desktop.Views.Purchases;
 using Medistock.Desktop.Views.Sales;
+using Medistock.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -17,10 +18,9 @@ namespace Medistock.Desktop;
 public sealed partial class MainWindow : Window
 {
     private string _selectedThemeChoice = "Dark";
-    private static readonly string SettingsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Medistock");
-    private static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "user_settings.json");
+    // Use MedistockPaths so settings survive reinstalls and are isolated per Windows user
+    private static readonly string SettingsFilePath = MedistockPaths.SettingsFile;
+
 
     public MainWindow()
     {
@@ -132,11 +132,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            if (!Directory.Exists(SettingsDirectory))
-            {
-                Directory.CreateDirectory(SettingsDirectory);
-            }
-
+            // Directory is guaranteed by MedistockPaths.EnsureAllDirectoriesExist() at startup
             string currentFontSize = "Standard (13px)";
             if (File.Exists(SettingsFilePath))
             {

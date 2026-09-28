@@ -16,29 +16,22 @@ public class SqliteConnectionFactory : ISqliteConnectionFactory
     {
         if (string.IsNullOrWhiteSpace(dbPath))
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var medistockDir = Path.Combine(appData, "Medistock", "Data");
-            if (!Directory.Exists(medistockDir))
-            {
-                Directory.CreateDirectory(medistockDir);
-            }
-            dbPath = Path.Combine(medistockDir, "medistock_local.db");
+            dbPath = MedistockPaths.Database;
         }
-        else
+
+        // Ensure directory exists (MedistockPaths.EnsureAllDirectoriesExist covers this at startup,
+        // but guard here for test scenarios that construct this directly)
+        var dir = Path.GetDirectoryName(dbPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
         {
-            var dir = Path.GetDirectoryName(dbPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
+            Directory.CreateDirectory(dir);
         }
 
         var builder = new SqliteConnectionStringBuilder
         {
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
-            Cache = SqliteCacheMode.Shared,
-            Pooling = true
+            Cache = SqliteCacheMode.Default
         };
 
         _connectionString = builder.ToString();
@@ -62,27 +55,23 @@ public class SqliteConnectionFactory : ISqliteConnectionFactory
 
     private static void ApplyPragmas(SqliteConnection connection)
     {
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            PRAGMA journal_mode = WAL;
-            PRAGMA synchronous = NORMAL;
-            PRAGMA foreign_keys = ON;
-            PRAGMA temp_store = MEMORY;
-            PRAGMA busy_timeout = 5000;
-        ";
-        cmd.ExecuteNonQuery();
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;";
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
     }
 
     private static async Task ApplyPragmasAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            PRAGMA journal_mode = WAL;
-            PRAGMA synchronous = NORMAL;
-            PRAGMA foreign_keys = ON;
-            PRAGMA temp_store = MEMORY;
-            PRAGMA busy_timeout = 5000;
-        ";
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch { }
     }
 }
