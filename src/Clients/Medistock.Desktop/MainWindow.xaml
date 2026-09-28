@@ -213,5 +213,79 @@
                 </StackPanel>
             </Border>
         </Grid>
+
+        <!-- ========================================================= -->
+        <!-- ACTIVATION & LICENSE GATE MODAL OVERLAY                   -->
+        <!-- ========================================================= -->
+        <Grid x:Name="ActivationOverlay"
+              Grid.RowSpan="2"
+              Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+              Visibility="Collapsed"
+              Canvas.ZIndex="200">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="420" Spacing="0">
+                <!-- Logo & Title -->
+                <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,28">
+                    <Image Source="ms-appx:///Assets/MedistockLogo.png" Width="56" Height="56" HorizontalAlignment="Center" />
+                    <TextBlock Text="Medistock" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{ThemeResource TextPrimary}" />
+                    <TextBlock Text="Pharmacy ERP &amp; POS" FontSize="13" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Activation Card -->
+                <Border Background="{ThemeResource SurfaceBackground}"
+                        CornerRadius="12"
+                        Padding="32,28"
+                        BorderThickness="1"
+                        BorderBrush="{ThemeResource BorderDefault}">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Sign in to activate your software" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+
+                        <!-- Email -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Email Address" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBox x:Name="ActivationEmailBox"
+                                     PlaceholderText="owner@pharmacy.com"
+                                     KeyDown="ActivationInput_KeyDown" />
+                        </StackPanel>
+
+                        <!-- Password -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Account Password" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                            <PasswordBox x:Name="ActivationPasswordBox"
+                                         PlaceholderText="••••••••"
+                                         KeyDown="ActivationInput_KeyDown" />
+                        </StackPanel>
+
+                        <!-- Activate Button -->
+                        <Button x:Name="ActivateSubmitButton"
+                                Content="Activate Software"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Height="38"
+                                FontWeight="Bold"
+                                Click="ActivateSubmitButton_Click"
+                                Margin="0,8,0,0" />
+
+                        <!-- Status Message -->
+                        <TextBlock x:Name="ActivationStatusText"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"
+                                   Visibility="Collapsed" />
+
+                        <!-- Progress Bar -->
+                        <ProgressBar x:Name="ActivationProgressBar"
+                                     IsIndeterminate="True"
+                                     Visibility="Collapsed" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Footer -->
+                <TextBlock Text="Valid Medistock license required. Contact: support@medistock.in"
+                           FontSize="11"
+                           Foreground="{ThemeResource TextSecondary}"
+                           HorizontalAlignment="Center"
+                           Margin="0,20,0,0" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

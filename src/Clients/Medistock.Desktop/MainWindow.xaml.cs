@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Medistock.Desktop.Views.Accounting;
 using Medistock.Desktop.Views.Compliance;
 using Medistock.Desktop.Views.Inventory;
@@ -8,9 +9,12 @@ using Medistock.Desktop.Views.POS;
 using Medistock.Desktop.Views.Purchases;
 using Medistock.Desktop.Views.Sales;
 using Medistock.Infrastructure.Data;
+using Medistock.Infrastructure.Identity.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 
 namespace Medistock.Desktop;
@@ -20,6 +24,7 @@ public sealed partial class MainWindow : Window
     private string _selectedThemeChoice = "Dark";
     // Use MedistockPaths so settings survive reinstalls and are isolated per Windows user
     private static readonly string SettingsFilePath = MedistockPaths.SettingsFile;
+    private IActivationService? _activationService;
 
 
     public MainWindow()
@@ -64,8 +69,8 @@ public sealed partial class MainWindow : Window
             }
         };
 
-        // Select POS as default active module
-        NavView.SelectedItem = NavView.MenuItems[0];
+        _activationService = App.Services.GetService<IActivationService>();
+        _ = CheckActivationAsync();
     }
 
     private void InitializePreferences()
@@ -259,6 +264,114 @@ public sealed partial class MainWindow : Window
                     ContentFrame.Content = settingsPage;
                     break;
             }
+        }
+    }
+
+    private async Task CheckActivationAsync()
+    {
+        if (_activationService == null)
+        {
+            // Dev mode or service unavailable: bypass gate
+            UnlockApp();
+            return;
+        }
+
+        try
+        {
+            var status = await _activationService.CheckActivationStatusAsync();
+            if (status == ActivationStatus.Activated || status == ActivationStatus.GracePeriod)
+            {
+                UnlockApp();
+            }
+            else
+            {
+                // Show Activation Modal
+                ActivationOverlay.Visibility = Visibility.Visible;
+                NavView.IsEnabled = false;
+            }
+        }
+        catch
+        {
+            UnlockApp();
+        }
+    }
+
+    private void UnlockApp()
+    {
+        ActivationOverlay.Visibility = Visibility.Collapsed;
+        NavView.IsEnabled = true;
+
+        if (NavView.SelectedItem == null)
+        {
+            NavView.SelectedItem = NavView.MenuItems[0];
+        }
+    }
+
+    private void ActivationInput_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Enter)
+        {
+            _ = DoActivateAsync();
+        }
+    }
+
+    private void ActivateSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = DoActivateAsync();
+    }
+
+    private async Task DoActivateAsync()
+    {
+        var email = ActivationEmailBox.Text?.Trim();
+        var password = ActivationPasswordBox.Password;
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            ActivationStatusText.Text = "Please enter both email and password.";
+            ActivationStatusText.Foreground = new SolidColorBrush(Colors.IndianRed);
+            ActivationStatusText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        if (_activationService == null)
+        {
+            UnlockApp();
+            return;
+        }
+
+        ActivateSubmitButton.IsEnabled = false;
+        ActivationProgressBar.Visibility = Visibility.Visible;
+        ActivationStatusText.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var result = await _activationService.ActivateAsync(email, password);
+            if (result.Success)
+            {
+                ActivationStatusText.Text = "✓ Activation successful! Opening Medistock...";
+                ActivationStatusText.Foreground = new SolidColorBrush(Colors.LightGreen);
+                ActivationStatusText.Visibility = Visibility.Visible;
+
+                await Task.Delay(600);
+                UnlockApp();
+            }
+            else
+            {
+                ActivationStatusText.Text = result.ErrorMessage ?? "Activation failed. Please check credentials or network.";
+                ActivationStatusText.Foreground = new SolidColorBrush(Colors.IndianRed);
+                ActivationStatusText.Visibility = Visibility.Visible;
+            }
+        }
+        catch (Exception ex)
+        {
+            ActivationStatusText.Text = "Connection error: " + ex.Message;
+            ActivationStatusText.Foreground = new SolidColorBrush(Colors.IndianRed);
+            ActivationStatusText.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            ActivateSubmitButton.IsEnabled = true;
+            ActivationProgressBar.Visibility = Visibility.Collapsed;
         }
     }
 }
