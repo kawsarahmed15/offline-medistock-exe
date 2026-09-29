@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Medistock.Application.Common.Interfaces;
 using Medistock.Contracts.Backup;
 using Medistock.Contracts.Updates;
 using Medistock.Infrastructure.Data;
@@ -23,6 +24,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ICloudBackupService? _cloudBackupService;
     private readonly IUpdateService? _updateService;
     private readonly IActivationService? _activationService;
+    private readonly IMedicineCatalogSeeder? _medicineCatalogSeeder;
 
     [ObservableProperty]
     private string _theme = "Dark";
@@ -78,6 +80,31 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    // --- Master Medicine Catalog Seeder Properties ---
+    [ObservableProperty]
+    private int _productCount;
+
+    [ObservableProperty]
+    private bool _hasProducts;
+
+    [ObservableProperty]
+    private string _medicineJsonPath = "";
+
+    [ObservableProperty]
+    private bool _isJsonFileDetected;
+
+    [ObservableProperty]
+    private bool _isSeeding;
+
+    [ObservableProperty]
+    private double _seedProgressPercent;
+
+    [ObservableProperty]
+    private string _seedProgressStatus = "";
+
+    [ObservableProperty]
+    private string _seedStatusMessage = "";
+
     public ObservableCollection<BackupFileInfo> LocalBackups { get; } = new();
     public ObservableCollection<CloudBackupInfo> CloudBackups { get; } = new();
 
@@ -88,18 +115,44 @@ public partial class SettingsViewModel : ObservableObject
         ILocalBackupService? localBackupService = null,
         ICloudBackupService? cloudBackupService = null,
         IUpdateService? updateService = null,
-        IActivationService? activationService = null)
+        IActivationService? activationService = null,
+        IMedicineCatalogSeeder? medicineCatalogSeeder = null)
     {
         _localBackupService = localBackupService;
         _cloudBackupService = cloudBackupService;
         _updateService = updateService;
         _activationService = activationService;
+        _medicineCatalogSeeder = medicineCatalogSeeder;
 
+        InitMedicinePath();
         LoadSettings();
         RefreshBackupsList();
         RefreshLicenseInfo();
+        _ = RefreshProductCountAsync();
         _ = RefreshCloudBackupsListAsync();
         _ = PerformAutomatedBackupMaintenanceAsync();
+    }
+
+    private void InitMedicinePath()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var defaultPath = Path.Combine(userProfile, "Downloads", "indian_medicine_data.json");
+
+        if (File.Exists(defaultPath))
+        {
+            MedicineJsonPath = defaultPath;
+            IsJsonFileDetected = true;
+        }
+        else if (File.Exists(@"c:\Users\ahmed\Downloads\indian_medicine_data.json"))
+        {
+            MedicineJsonPath = @"c:\Users\ahmed\Downloads\indian_medicine_data.json";
+            IsJsonFileDetected = true;
+        }
+        else
+        {
+            MedicineJsonPath = defaultPath;
+            IsJsonFileDetected = false;
+        }
     }
 
     public static int GetNearExpiryDays()
@@ -516,6 +569,128 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public async Task RefreshProductCountAsync()
+    {
+        if (_medicineCatalogSeeder == null) return;
+        try
+        {
+            ProductCount = await _medicineCatalogSeeder.GetProductCountAsync();
+            HasProducts = ProductCount > 0;
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    public async Task SeedMasterMedicinesAsync()
+    {
+        if (_medicineCatalogSeeder == null)
+        {
+            SeedStatusMessage = "Medicine catalog seeder service is not available.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(MedicineJsonPath) || !File.Exists(MedicineJsonPath))
+        {
+            SeedStatusMessage = "Please specify a valid indian_medicine_data.json file path.";
+            return;
+        }
+
+        try
+        {
+            IsSeeding = true;
+            IsBusy = true;
+            SeedProgressPercent = 0;
+            SeedProgressStatus = "Preparing to import master medicines catalog...";
+            SeedStatusMessage = "";
+
+            var progress = new Progress<MedicineSeedProgress>(p =>
+            {
+                SeedProgressPercent = p.Percentage;
+                SeedProgressStatus = p.Message;
+            });
+
+            var count = await _medicineCatalogSeeder.SeedFromJsonFileAsync(MedicineJsonPath, progress);
+            await RefreshProductCountAsync();
+            SeedStatusMessage = $"✓ Successfully seeded {count:N0} medicines into your catalog!";
+        }
+        catch (Exception ex)
+        {
+            SeedStatusMessage = $"Seeding failed: {ex.Message}";
+        }
+        finally
+        {
+            IsSeeding = false;
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task SeedSampleMedicinesAsync()
+    {
+        if (_medicineCatalogSeeder == null)
+        {
+            SeedStatusMessage = "Medicine catalog seeder service is not available.";
+            return;
+        }
+
+        try
+        {
+            IsSeeding = true;
+            IsBusy = true;
+            SeedProgressPercent = 0;
+            SeedProgressStatus = "Seeding starter sample pack (220 items with batches & stock)...";
+            SeedStatusMessage = "";
+
+            var progress = new Progress<MedicineSeedProgress>(p =>
+            {
+                SeedProgressPercent = p.Percentage;
+                SeedProgressStatus = p.Message;
+            });
+
+            var count = await _medicineCatalogSeeder.SeedSampleStarterPackAsync(progress);
+            await RefreshProductCountAsync();
+            SeedStatusMessage = $"✓ Successfully seeded starter pack of {count} products with active batches and stock!";
+        }
+        catch (Exception ex)
+        {
+            SeedStatusMessage = $"Sample seeding failed: {ex.Message}";
+        }
+        finally
+        {
+            IsSeeding = false;
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task ClearMedicinesCatalogAsync()
+    {
+        if (_medicineCatalogSeeder == null) return;
+
+        try
+        {
+            IsBusy = true;
+            SeedStatusMessage = "Clearing all products and batches from catalog...";
+            var deleted = await _medicineCatalogSeeder.ClearAllProductsAsync();
+            await RefreshProductCountAsync();
+            SeedStatusMessage = $"✓ Cleared {deleted:N0} products from database catalog.";
+        }
+        catch (Exception ex)
+        {
+            SeedStatusMessage = $"Clear catalog failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public void SetMedicineJsonPath(string path)
+    {
+        MedicineJsonPath = path;
+        IsJsonFileDetected = File.Exists(path);
+    }
+
     partial void OnThemeChanged(string value)
     {
         ThemeChangedCallback?.Invoke(value);
@@ -526,4 +701,5 @@ public partial class SettingsViewModel : ObservableObject
         FontSizeChangedCallback?.Invoke(value);
     }
 }
+
 

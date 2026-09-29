@@ -154,6 +154,7 @@ public class B2bCommerceTests : IDisposable
         // Arrange: Seed product in products table
         var seeder = new DataSeeder(_connectionFactory);
         await seeder.SeedIfEmptyAsync();
+        await seeder.SeedSampleProductsAsync();
 
         var catalog = await _b2bService.SearchCatalogAsync();
         var dolo = catalog.First(c => c.BrandName.Contains("Dolo"));

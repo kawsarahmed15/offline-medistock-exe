@@ -261,6 +261,90 @@
                 </StackPanel>
             </Border>
 
+            <!-- 5.5. Master Medicine Database & Default Catalog Seeder -->
+            <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
+                <StackPanel Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="💊 Master Medicine Catalog &amp; Default Seeder" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Seed or manage the 250,000+ Indian medicines directory (Allopathy, generics, compositions, dosage forms &amp; GST). Medicines are not automatically seeded on fresh installation."
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextSecondary}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Product Count Badge -->
+                        <Border Grid.Column="1" Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12,6" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="📦 Catalog Size:" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                <TextBlock Text="{x:Bind ViewModel.ProductCount, Mode=OneWay}" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                <TextBlock Text="medicines" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- File Path & Detection Box -->
+                    <Border Background="{ThemeResource SurfaceBackgroundSecondary}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="📁 Master Data JSON Source" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+                            
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0"
+                                         Text="{x:Bind ViewModel.MedicineJsonPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         PlaceholderText="c:\Users\...\Downloads\indian_medicine_data.json"
+                                         FontSize="12"
+                                         Height="34" />
+                                <Button Grid.Column="1"
+                                        Content="📁 Browse JSON..."
+                                        Click="BrowseMedicineJson_Click"
+                                        Height="34"
+                                        ToolTipService.ToolTip="Select indian_medicine_data.json file" />
+                            </Grid>
+
+                            <!-- Actions Row -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                                <Button Content="⚡ Seed Master Indian Medicines (253,973 Items)"
+                                        Command="{x:Bind ViewModel.SeedMasterMedicinesCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Height="36"
+                                        FontWeight="Bold"
+                                        ToolTipService.ToolTip="Import all 250,000+ Indian medicines into local SQLite database" />
+
+                                <Button Content="🧪 Seed Sample Pack (220 Items with Stock)"
+                                        Command="{x:Bind ViewModel.SeedSampleMedicinesCommand}"
+                                        Height="36"
+                                        ToolTipService.ToolTip="Seed 220 common demo medicines with batches and stock" />
+
+                                <Button Content="🗑 Clear Catalog"
+                                        Click="ClearProducts_Click"
+                                        Height="36"
+                                        ToolTipService.ToolTip="Remove all products and batches from catalog" />
+                            </StackPanel>
+
+                            <!-- Progress Bar (Visible during seeding) -->
+                            <StackPanel Spacing="6" Margin="0,6,0,0" Visibility="{x:Bind ViewModel.IsSeeding, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ProgressBar Value="{x:Bind ViewModel.SeedProgressPercent, Mode=OneWay}"
+                                             Maximum="100"
+                                             Height="8"
+                                             Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Text="{x:Bind ViewModel.SeedProgressStatus, Mode=OneWay}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{ThemeResource AccentPrimary}" />
+                            </StackPanel>
+
+                            <!-- Status / Result Message -->
+                            <TextBlock Text="{x:Bind ViewModel.SeedStatusMessage, Mode=OneWay}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AccentPrimary}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.SeedStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
             <!-- 6. Software Updates & Licensing -->
             <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
                 <StackPanel Spacing="14">

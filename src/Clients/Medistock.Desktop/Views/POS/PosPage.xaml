@@ -1332,6 +1332,148 @@
             </Border>
         </Grid>
 
+        <!-- 11.5. Bill Amount Details & Breakdown Modal Dialog (Opens on Enter from Discount input) -->
+        <Grid Grid.Row="0" Grid.RowSpan="6"
+              Background="#99000000"
+              Canvas.ZIndex="2650"
+              Visibility="{x:Bind ViewModel.IsAmountDetailsModalOpen, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource AccentPrimary}"
+                    BorderThickness="2"
+                    CornerRadius="10"
+                    Width="540"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="24"
+                    Shadow="{StaticResource SharedShadow}">
+                <StackPanel Spacing="16">
+                    <!-- Title & Header Strip -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Border Background="{ThemeResource AccentSubtle}" CornerRadius="6" Padding="8">
+                                <TextBlock Text="🧾" FontSize="20" />
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="Bill Amount &amp; Tax Summary" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Text="Review breakdown before selecting payment mode" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" Click="AmountDetailsBack_Click" Background="Transparent" BorderThickness="0" FontSize="14" />
+                    </Grid>
+
+                    <!-- Customer & Invoice Info Strip -->
+                    <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="6" Padding="12,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,*">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="{x:Bind ViewModel.ActiveTab.CustomerName, Mode=OneWay, FallbackValue='Walk-in Customer'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                                <TextBlock Text="{x:Bind ViewModel.ActiveTab.CustomerMobile, Mode=OneWay, FallbackValue='No Mobile'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="2">
+                                <TextBlock Text="{x:Bind ViewModel.ActiveTab.DisplayInvoiceNo, Mode=OneWay, FallbackValue='INV-TEMP'}" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" />
+                                <TextBlock Text="{x:Bind ViewModel.ActiveTab.InvoiceDateString, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Financial Details Card -->
+                    <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="8" Padding="16,12" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <!-- Total Items & Qty -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Total Items / Quantity:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{x:Bind ViewModel.ActiveTab.TotalItemsCount, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" />
+                                    <TextBlock Text="Items" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Text="•" FontSize="12" Foreground="{ThemeResource TextSecondary}" Margin="4,0" />
+                                    <TextBlock Text="{x:Bind ViewModel.ActiveTab.TotalQuantity, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" />
+                                    <TextBlock Text="Units" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Rectangle Height="1" Fill="{ThemeResource BorderDefault}" />
+
+                            <!-- Subtotal (Gross) -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Subtotal (Gross Value):" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.Subtotal, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="SemiBold" FontSize="13" />
+                            </Grid>
+
+                            <!-- Product / Item Level Discounts -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Item-level Discounts:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.ItemDiscounts, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='-₹{0:N2}'}" FontSize="12" Foreground="{ThemeResource StatusWarning}" />
+                            </Grid>
+
+                            <!-- Special Bill Discount -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Bill Discount:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{x:Bind ViewModel.ActiveTab.BillDiscountPercent, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='({0:0.##}%)'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Bind ViewModel.ActiveTab.BillDiscountAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='-₹{0:N2}'}" FontSize="12" Foreground="{ThemeResource StatusWarning}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Total Discount -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Total Discount:" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.TotalDiscountDisplay, Mode=OneWay}" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource StatusWarning}" />
+                            </Grid>
+
+                            <Rectangle Height="1" Fill="{ThemeResource BorderDefault}" />
+
+                            <!-- Taxable Value -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Taxable Amount:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.TaxableAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" />
+                            </Grid>
+
+                            <!-- GST Details -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Total GST (CGST + SGST):" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.TotalGst, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="12" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Net Payable Hero Banner -->
+                    <Border Background="{ThemeResource AccentSubtle}" CornerRadius="8" Padding="16,12" BorderBrush="{ThemeResource AccentPrimary}" BorderThickness="1.5">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="NET PAYABLE AMOUNT" FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Text="Inclusive of all taxes &amp; discounts" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.ActiveTab.GrandTotal, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}"
+                                       FontSize="24" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid ColumnDefinitions="*,*">
+                        <Button Grid.Column="0"
+                                x:Name="AmountDetailsBackBtn"
+                                Content="✕ Back to Search [Esc]"
+                                Click="AmountDetailsBack_Click"
+                                KeyDown="AmountDetailsBtn_KeyDown"
+                                PreviewKeyDown="AmountDetailsBtn_PreviewKeyDown"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,6,0"
+                                Height="42" />
+                        <Button Grid.Column="1"
+                                x:Name="AmountDetailsProceedBtn"
+                                Content="Proceed to Payment [Enter] ➔"
+                                Click="AmountDetailsProceed_Click"
+                                KeyDown="AmountDetailsBtn_KeyDown"
+                                PreviewKeyDown="AmountDetailsBtn_PreviewKeyDown"
+                                Style="{StaticResource AccentButtonStyle}"
+                                FontWeight="Bold"
+                                HorizontalAlignment="Stretch"
+                                Margin="6,0,0,0"
+                                Height="42" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <!-- 12. Sale Type Selection Prompt Modal Dialog (Cash, Credit, UPI, Card) -->
         <Grid Grid.Row="0" Grid.RowSpan="6"
               Background="#99000000"

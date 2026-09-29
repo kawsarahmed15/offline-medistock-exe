@@ -10,6 +10,7 @@ namespace Medistock.Infrastructure.Data.Persistence;
 public interface IDataSeeder
 {
     Task SeedIfEmptyAsync(CancellationToken cancellationToken = default);
+    Task SeedSampleProductsAsync(CancellationToken cancellationToken = default);
 }
 
 public class DataSeeder : IDataSeeder
@@ -79,8 +80,14 @@ public class DataSeeder : IDataSeeder
             }
         }
 
-        if (count >= 200) return;
+        // Default customers & suppliers are seeded above.
+        // Product master catalog is NOT auto-seeded on installation, allowing users
+        // to start fresh or seed from Settings.
+    }
 
+    public async Task SeedSampleProductsAsync(CancellationToken cancellationToken = default)
+    {
+        using var conn = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var products = GetSeedProducts();
 
         using var tx = conn.BeginTransaction();

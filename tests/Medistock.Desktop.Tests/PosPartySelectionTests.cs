@@ -196,4 +196,45 @@ public class PosPartySelectionTests
         Assert.NotNull(_fakeCustomer.LastCreatedCommand);
         Assert.Equal("Green Park Care Clinic", _fakeCustomer.LastCreatedCommand.Name);
     }
+
+    [Fact]
+    public void OpenAmountDetails_WhenCartHasItems_OpensModalAndCalculatesSummary()
+    {
+        var vm = CreateVm();
+        var tab = vm.ActiveTab!;
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p1",
+            ProductName = "Paracetamol 500mg",
+            Quantity = 10,
+            UnitPrice = 20m, // Gross = 200
+            DiscountPercent = 10m, // Line Disc = 20, Net = 180
+            GstRatePercent = 12m
+        });
+        tab.BillDiscountPercent = 5m;
+        tab.RecalculateTotals();
+
+        vm.OpenAmountDetails();
+
+        Assert.True(vm.IsAmountDetailsModalOpen);
+        Assert.True(tab.GrandTotal > 0);
+        Assert.True(tab.TotalGst > 0);
+        Assert.True(tab.TaxableAmount > 0);
+        Assert.Contains("Bill Summary", vm.StatusMessage);
+
+        vm.CloseAmountDetails();
+        Assert.False(vm.IsAmountDetailsModalOpen);
+    }
+
+    [Fact]
+    public void OpenAmountDetails_WhenCartEmpty_DoesNotOpenModal()
+    {
+        var vm = CreateVm();
+        vm.ActiveTab!.CartItems.Clear();
+
+        vm.OpenAmountDetails();
+
+        Assert.False(vm.IsAmountDetailsModalOpen);
+        Assert.Contains("Cart is empty", vm.StatusMessage);
+    }
 }

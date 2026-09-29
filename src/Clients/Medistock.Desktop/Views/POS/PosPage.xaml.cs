@@ -52,6 +52,16 @@ public sealed partial class PosPage : Page
             {
                 HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
             }
+            else if (ev.PropertyName == nameof(PosViewModel.IsAmountDetailsModalOpen))
+            {
+                if (ViewModel.IsAmountDetailsModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        AmountDetailsProceedBtn?.Focus(FocusState.Programmatic);
+                    });
+                }
+            }
             else if (ev.PropertyName == nameof(PosViewModel.IsPrintPreviewOpen) && ViewModel.IsPrintPreviewOpen)
             {
                 _ = LoadPosPreviewHtmlAsync();
@@ -415,7 +425,8 @@ public sealed partial class PosPage : Page
             if (e.Key == VirtualKey.Escape)
             {
                 ViewModel.ClosePartyPicker();
-                FocusHeaderStart();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
                 e.Handled = true;
                 return;
             }
@@ -542,6 +553,57 @@ public sealed partial class PosPage : Page
             }
 
             // Normal typing into active input control allowed
+            return;
+        }
+
+        // Modal Keyboard Trap: When Amount Details Modal is open
+        if (ViewModel.IsAmountDetailsModalOpen)
+        {
+            var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+
+            if (e.Key == VirtualKey.Right || e.Key == VirtualKey.Left || e.Key == VirtualKey.Down || e.Key == VirtualKey.Up || e.Key == VirtualKey.Tab)
+            {
+                if (ReferenceEquals(focused, AmountDetailsProceedBtn))
+                {
+                    AmountDetailsBackBtn?.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    AmountDetailsProceedBtn?.Focus(FocusState.Programmatic);
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Enter)
+            {
+                if (ReferenceEquals(focused, AmountDetailsBackBtn))
+                {
+                    ViewModel.CloseAmountDetails();
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                }
+                else
+                {
+                    ViewModel.CloseAmountDetails();
+                    ViewModel.OpenSaleTypePrompt();
+                    HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CloseAmountDetails();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+                e.Handled = true;
+                return;
+            }
+
+            // Suppress background hotkeys and typing while Amount Details modal is displayed
+            e.Handled = true;
             return;
         }
 
@@ -1029,7 +1091,7 @@ public sealed partial class PosPage : Page
             var focused = FocusManager.GetFocusedElement(this.XamlRoot);
             if (!ReferenceEquals(focused, SearchBox) && !(focused is TextBox) && !IsInsideNumberBox(focused) && !IsInsideComboBox(focused))
             {
-                if (!ViewModel.IsCreateProductModalOpen && !ViewModel.IsSaveConfirmationOpen && !ViewModel.IsCloseTabConfirmationOpen && !ViewModel.IsShortcutHelpOpen && !ViewModel.IsBatchPickerOpen && !ViewModel.IsPrintPromptOpen && !ViewModel.IsSaleTypePromptOpen && !ViewModel.IsPrintPreviewOpen)
+                if (!ViewModel.IsCreateProductModalOpen && !ViewModel.IsSaveConfirmationOpen && !ViewModel.IsAmountDetailsModalOpen && !ViewModel.IsCloseTabConfirmationOpen && !ViewModel.IsShortcutHelpOpen && !ViewModel.IsBatchPickerOpen && !ViewModel.IsPrintPromptOpen && !ViewModel.IsSaleTypePromptOpen && !ViewModel.IsPartyPickerOpen && !ViewModel.IsCreatePartyModalOpen && !ViewModel.IsPrintPreviewOpen)
                 {
                     SearchBox.Focus(FocusState.Programmatic);
                     if (!string.IsNullOrEmpty(SearchBox.Text))
@@ -1068,7 +1130,7 @@ public sealed partial class PosPage : Page
             }
 
             // If a modal is open, don't hijack
-            if (ViewModel.IsCreateProductModalOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsSaleTypePromptOpen || ViewModel.IsPrintPreviewOpen)
+            if (ViewModel.IsCreateProductModalOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsSaleTypePromptOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsPrintPreviewOpen)
             {
                 return;
             }
@@ -1102,7 +1164,7 @@ public sealed partial class PosPage : Page
 
     private void PageBackground_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (ViewModel.IsSaleTypePromptOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsPrintPreviewOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsCreateProductModalOpen)
+        if (ViewModel.IsSaleTypePromptOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsPrintPreviewOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsCreateProductModalOpen)
         {
             return;
         }
@@ -2005,8 +2067,18 @@ public sealed partial class PosPage : Page
         if (e.Key == VirtualKey.Enter)
         {
             SyncActiveDiscountBox();
-            ViewModel.OpenSaleTypePrompt();
-            HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
+            if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Any())
+            {
+                ViewModel.OpenAmountDetails();
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    AmountDetailsProceedBtn?.Focus(FocusState.Programmatic);
+                });
+            }
+            else
+            {
+                ViewModel.StatusMessage = "Cart is empty. Scan barcode or type medicine name to begin.";
+            }
             e.Handled = true;
         }
         else if (e.Key == VirtualKey.Escape || e.Key == VirtualKey.Up)
@@ -2033,6 +2105,63 @@ public sealed partial class PosPage : Page
         {
             SearchBox.Focus(FocusState.Programmatic);
             SearchBox.SelectAll();
+            e.Handled = true;
+        }
+    }
+
+    private void AmountDetailsProceed_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseAmountDetails();
+        ViewModel.OpenSaleTypePrompt();
+        HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
+    }
+
+    private void AmountDetailsBack_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseAmountDetails();
+        SearchBox.Focus(FocusState.Programmatic);
+        SearchBox.SelectAll();
+    }
+
+    private void AmountDetailsBtn_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, AmountDetailsBackBtn))
+            {
+                ViewModel.CloseAmountDetails();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            }
+            else
+            {
+                ViewModel.CloseAmountDetails();
+                ViewModel.OpenSaleTypePrompt();
+                HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseAmountDetails();
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
+            e.Handled = true;
+        }
+    }
+
+    private void AmountDetailsBtn_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Right || e.Key == VirtualKey.Left || e.Key == VirtualKey.Down || e.Key == VirtualKey.Up)
+        {
+            if (ReferenceEquals(sender, AmountDetailsProceedBtn))
+            {
+                AmountDetailsBackBtn?.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                AmountDetailsProceedBtn?.Focus(FocusState.Programmatic);
+            }
             e.Handled = true;
         }
     }

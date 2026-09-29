@@ -41,10 +41,28 @@ public class ProductSearchAndSeedingTests : IDisposable
     }
 
     [Fact]
-    public async Task DataSeeder_SeedsMoreThan200MedicinesWithBatchesAndStock()
+    public async Task DataSeeder_DefaultInstall_DoesNotAutoSeedProducts()
     {
         await _migrator.MigrateAsync();
         await _seeder.SeedIfEmptyAsync();
+
+        using var conn = await _connectionFactory.CreateConnectionAsync();
+        var productCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM products;");
+        var customerCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM customers;");
+        var supplierCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM suppliers;");
+
+        // Verify product catalog is kept clean on install
+        Assert.Equal(0, productCount);
+        Assert.True(customerCount > 0);
+        Assert.True(supplierCount > 0);
+    }
+
+    [Fact]
+    public async Task DataSeeder_SeedSampleProducts_SeedsMoreThan200MedicinesWithBatchesAndStock()
+    {
+        await _migrator.MigrateAsync();
+        await _seeder.SeedIfEmptyAsync();
+        await _seeder.SeedSampleProductsAsync();
 
         using var conn = await _connectionFactory.CreateConnectionAsync();
         var productCount = await conn.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM products;");
@@ -67,6 +85,7 @@ public class ProductSearchAndSeedingTests : IDisposable
     {
         await _migrator.MigrateAsync();
         await _seeder.SeedIfEmptyAsync();
+        await _seeder.SeedSampleProductsAsync();
 
         var results = await _searchRepo.SearchProductsAsync(singleCharQuery, "wh-1", 20);
 
@@ -115,5 +134,68 @@ public class ProductSearchAndSeedingTests : IDisposable
         Assert.Single(batches);
         Assert.Equal("AZ500-24", batches[0].BatchNumber);
         Assert.Equal(120.0m, batches[0].Mrp);
+    }
+
+    [Fact]
+    public async Task MedicineCatalogSeeder_SeedFromJson_And_Clear_WorksCorrectly()
+    {
+        await _migrator.MigrateAsync();
+        var catalogSeeder = new MedicineCatalogSeeder(_connectionFactory);
+
+        var tempJsonPath = Path.Combine(Path.GetTempPath(), $"test_meds_{Guid.NewGuid():N}.json");
+        var sampleJson = """
+        [
+          {
+            "id": "1",
+            "name": "Augmentin 625 Duo Tablet",
+            "price(₹)": "223.42",
+            "Is_discontinued": "FALSE",
+            "manufacturer_name": "Glaxo SmithKline Pharmaceuticals Ltd",
+            "type": "allopathy",
+            "pack_size_label": "strip of 10 tablets",
+            "short_composition1": "Amoxycillin  (500mg) ",
+            "short_composition2": "  Clavulanic Acid (125mg)"
+          },
+          {
+            "id": "2",
+            "name": "Azithral 500 Tablet",
+            "price(₹)": "132.36",
+            "Is_discontinued": "FALSE",
+            "manufacturer_name": "Alembic Pharmaceuticals Ltd",
+            "type": "allopathy",
+            "pack_size_label": "strip of 5 tablets",
+            "short_composition1": "Azithromycin (500mg)",
+            "short_composition2": ""
+          }
+        ]
+        """;
+
+        await File.WriteAllTextAsync(tempJsonPath, sampleJson);
+
+        try
+        {
+            var initialCount = await catalogSeeder.GetProductCountAsync();
+            Assert.Equal(0, initialCount);
+
+            var seeded = await catalogSeeder.SeedFromJsonFileAsync(tempJsonPath);
+            Assert.Equal(2, seeded);
+
+            var afterCount = await catalogSeeder.GetProductCountAsync();
+            Assert.Equal(2, afterCount);
+
+            var searchRes = await _searchRepo.SearchProductsAsync("Augmentin", "wh-1");
+            Assert.Single(searchRes);
+            Assert.Equal("Augmentin 625 Duo Tablet", searchRes[0].Name);
+
+            var cleared = await catalogSeeder.ClearAllProductsAsync();
+            Assert.Equal(2, cleared);
+
+            var finalCount = await catalogSeeder.GetProductCountAsync();
+            Assert.Equal(0, finalCount);
+        }
+        finally
+        {
+            if (File.Exists(tempJsonPath)) File.Delete(tempJsonPath);
+        }
     }
 }

@@ -546,13 +546,22 @@ public partial class InvoiceTabViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalGst))]
     private decimal _cgst = 0;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalGst))]
     private decimal _sgst = 0;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalGst))]
     private decimal _igst = 0;
+
+    [ObservableProperty]
+    private decimal _taxableAmount = 0;
+
+    public decimal TotalGst => Cgst + Sgst + Igst;
+    public decimal ItemDiscounts => CartItems.Sum(i => i.DiscountAmount);
 
     [ObservableProperty]
     private decimal _roundOff = 0;
@@ -789,6 +798,8 @@ public partial class InvoiceTabViewModel : ObservableObject
         Cgst = totalCgst;
         Sgst = totalSgst;
         Igst = totalIgst;
+        TaxableAmount = Math.Max(0m, GrandTotal - (totalCgst + totalSgst + totalIgst));
+        OnPropertyChanged(nameof(ItemDiscounts));
 
         if (AmountReceived < GrandTotal && PaymentMode == PaymentMode.Cash)
         {
@@ -1024,6 +1035,10 @@ public partial class PosViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSaveConfirmationOpen = false;
+
+    // Amount Details Modal Dialog (Intermediary review modal before payment selection)
+    [ObservableProperty]
+    private bool _isAmountDetailsModalOpen = false;
 
     // Sale Type Selection Prompt (Cash, Credit, UPI, Card)
     [ObservableProperty]
@@ -2027,6 +2042,27 @@ public partial class PosViewModel : ObservableObject
     public void CloseSaveConfirmation()
     {
         IsSaveConfirmationOpen = false;
+        StatusMessage = "Ready for billing.";
+    }
+
+    [RelayCommand]
+    public void OpenAmountDetails()
+    {
+        if (ActiveTab == null || !ActiveTab.CartItems.Any())
+        {
+            StatusMessage = "Cart is empty. Scan barcode or type medicine name to begin.";
+            return;
+        }
+
+        ActiveTab.RecalculateTotals();
+        IsAmountDetailsModalOpen = true;
+        StatusMessage = $"Bill Summary: Total ₹{ActiveTab.GrandTotal:N2}. Press [Enter] for Payment Mode, [Esc] to return.";
+    }
+
+    [RelayCommand]
+    public void CloseAmountDetails()
+    {
+        IsAmountDetailsModalOpen = false;
         StatusMessage = "Ready for billing.";
     }
 

@@ -35,6 +35,7 @@ public class PurchaseTests : IDisposable
 
         _seeder = new DataSeeder(_connectionFactory);
         _seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
+        _seeder.SeedSampleProductsAsync().GetAwaiter().GetResult();
 
         _supplierRepository = new SqliteSupplierRepository(_connectionFactory);
         _outboxRepository = new SqliteOutboxRepository(_connectionFactory);

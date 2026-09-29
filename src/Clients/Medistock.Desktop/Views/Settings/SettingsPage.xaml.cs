@@ -122,4 +122,56 @@ public sealed partial class SettingsPage : Page
             ViewModel.BackupStatusMessage = $"Cloud restore error: {ex.Message}";
         }
     }
+
+    private async void BrowseMedicineJson_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        try
+        {
+            var openPicker = new FileOpenPicker();
+            openPicker.SuggestedStartLocation = PickerLocationId.Downloads;
+            openPicker.FileTypeFilter.Add(".json");
+
+            if (App.MainWindowInstance != null)
+            {
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindowInstance);
+                WinRT.Interop.InitializeWithWindow.Initialize(openPicker, hwnd);
+            }
+
+            var file = await openPicker.PickSingleFileAsync();
+            if (file != null && !string.IsNullOrWhiteSpace(file.Path))
+            {
+                ViewModel.SetMedicineJsonPath(file.Path);
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.SeedStatusMessage = $"Could not pick file: {ex.Message}";
+        }
+    }
+
+    private async void ClearProducts_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "⚠️ Confirm Catalog Reset",
+                Content = $"This will permanently delete all {ViewModel.ProductCount:N0} products, barcodes, batches, and stock balances from your local catalog.\n\nAre you sure you want to proceed?",
+                PrimaryButtonText = "Yes, Clear Catalog",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                await ViewModel.ClearMedicinesCatalogAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.SeedStatusMessage = $"Clear operation error: {ex.Message}";
+        }
+    }
 }

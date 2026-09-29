@@ -32,6 +32,7 @@ public class InventoryTests : IDisposable
 
         _seeder = new DataSeeder(_connectionFactory);
         _seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();
+        _seeder.SeedSampleProductsAsync().GetAwaiter().GetResult();
 
         _inventoryRepository = new SqliteInventoryRepository(_connectionFactory);
         _inventoryService = new InventoryService(_inventoryRepository);
