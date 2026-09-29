@@ -7,10 +7,11 @@ using Microsoft.Extensions.Logging;
 namespace Medistock.Infrastructure.Sync.Updates;
 
 /// <summary>
-/// Background service that checks for updates every 4 hours.
-/// - First check fires 2 minutes after app startup (lets the app fully initialize first)
-/// - Subsequent checks every 4 hours with ±30 minute jitter to prevent thundering herd
-///   from thousands of simultaneous clients all hitting the server at the same time
+/// Background service that checks for updates every 2 hours.
+/// - First check fires 10 seconds after app startup (lets the app fully initialize first)
+/// - Subsequent checks every 2 hours with ±30 minute jitter
+/// - Auto-downloads and SILENTLY auto-installs when an update is ready — no user click required
+/// - If download fails due to network, .part file is kept and resumed on next check
 /// - Never crashes the host — all exceptions are swallowed
 /// </summary>
 public class UpdateCheckerWorker : BackgroundService
@@ -18,10 +19,10 @@ public class UpdateCheckerWorker : BackgroundService
     private readonly IUpdateService _updateService;
     private readonly ILogger<UpdateCheckerWorker>? _logger;
 
-    private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(4);
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(2);
 
-    // Random jitter: ±30 minutes so 1000 clients don't all check at the same time
+    // Random jitter: ±30 minutes so many clients don't all check at the same time
     private readonly TimeSpan _jitter = TimeSpan.FromMinutes(Random.Shared.Next(-30, 30));
 
     public UpdateCheckerWorker(IUpdateService updateService, ILogger<UpdateCheckerWorker>? logger = null)
@@ -32,7 +33,7 @@ public class UpdateCheckerWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger?.LogInformation("Update checker started. First check in {Minutes} minutes.", InitialDelay.TotalMinutes);
+        _logger?.LogInformation("Update checker started. First check in {Seconds}s.", InitialDelay.TotalSeconds);
 
         // Wait for app to fully initialize before first check
         try { await Task.Delay(InitialDelay, stoppingToken); }
@@ -47,14 +48,31 @@ public class UpdateCheckerWorker : BackgroundService
 
                 if (update?.UpdateAvailable == true && update.DownloadUrl != null)
                 {
-                    // Start background download (don't block the checker loop)
-                    _ = Task.Run(async () =>
-                    {
-                        _logger?.LogInformation("Downloading update {Version}...", update.Version);
-                        var path = await _updateService.DownloadUpdateAsync(update, ct: stoppingToken);
-                        if (path != null)
-                            _logger?.LogInformation("Update {Version} ready at {Path}", update.Version, path);
-                    }, stoppingToken);
+                    _logger?.LogInformation("Update v{Version} is available. Auto-download is currently disabled.", update.Version);
+
+                    // TODO: Re-enable auto-download & auto-install when ready.
+                    // Background download + silent install is commented out below.
+                    // Users can manually download from Settings > Check for Updates.
+
+                    //_ = Task.Run(async () =>
+                    //{
+                    //    try
+                    //    {
+                    //        _logger?.LogInformation("Downloading update v{Version} in background...", update.Version);
+                    //        var path = await _updateService.DownloadUpdateAsync(update, ct: stoppingToken);
+                    //        if (path != null)
+                    //        {
+                    //            _logger?.LogInformation("Update v{Version} downloaded. Auto-installing silently in 3s...", update.Version);
+                    //            await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                    //            await _updateService.ApplyUpdateAsync(path, restartApp: true, ct: stoppingToken);
+                    //        }
+                    //    }
+                    //    catch (OperationCanceledException) { /* app shutting down — fine */ }
+                    //    catch (Exception ex)
+                    //    {
+                    //        _logger?.LogWarning(ex, "Background auto-install failed. Update staged for next launch.");
+                    //    }
+                    //}, stoppingToken);
                 }
             }
             catch (Exception ex)

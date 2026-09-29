@@ -137,11 +137,44 @@ public partial class App : Microsoft.UI.Xaml.Application
 
             System.IO.File.AppendAllText(MedistockPaths.StartupLog,
                 $"MainWindow activated at {DateTime.UtcNow:O}\n");
+
+            // Automatically start background services (UpdateChecker, OutboxSync, NetworkMonitor)
+            StartBackgroundServices();
         }
         catch (Exception ex)
         {
             System.IO.File.AppendAllText(MedistockPaths.StartupLog, $"FATAL OnLaunched: {ex}\n");
             throw;
+        }
+    }
+
+    private static readonly CancellationTokenSource _appCts = new();
+
+    private static void StartBackgroundServices()
+    {
+        try
+        {
+            var hostedServices = Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>();
+            foreach (var service in hostedServices)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await service.StartAsync(_appCts.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                            $"[BackgroundService Start Warning ({service.GetType().Name})]: {ex.Message}\n");
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                $"[StartBackgroundServices Warning]: {ex.Message}\n");
         }
     }
 }

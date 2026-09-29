@@ -36,3 +36,15 @@ public record PublishUpdateRequest
     public string? ReleaseNotes { get; init; }
     public string? MinVersionRequired { get; init; }
 }
+
+/// <summary>Real-time progress reporting for update downloads.</summary>
+public record UpdateDownloadProgress(
+    string Version,
+    double Percentage,
+    long BytesDownloaded,
+    long TotalBytes,
+    double SpeedBytesPerSec,
+    string StatusMessage,
+    bool IsCompleted = false,
+    bool IsFailed = false
+);
