@@ -177,6 +177,45 @@ public class CloudBackupService : ICloudBackupService
         return destinationPath;
     }
 
+    public async Task<Medistock.Infrastructure.Data.Backup.RestoreResult> RestoreCloudBackupAsync(string backupId, CancellationToken ct = default)
+    {
+        MedistockPaths.EnsureAllDirectoriesExist();
+        var tempDecrypted = Path.Combine(MedistockPaths.TempDirectory, $"cloud_restore_{Guid.NewGuid():N}.db");
+
+        try
+        {
+            await DownloadAndDecryptBackupAsync(backupId, tempDecrypted, ct);
+
+            if (!File.Exists(tempDecrypted) || new FileInfo(tempDecrypted).Length == 0)
+            {
+                return new Medistock.Infrastructure.Data.Backup.RestoreResult(false, "Decrypted backup database is empty or corrupt.");
+            }
+
+            // Clear connection pools so file locks are released
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            // Replace current local database
+            File.Copy(tempDecrypted, MedistockPaths.Database, overwrite: true);
+
+            _logger?.LogInformation("Database restored successfully from cloud backup {Id}", backupId);
+            return new Medistock.Infrastructure.Data.Backup.RestoreResult(true, null);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to restore database from cloud backup {Id}", backupId);
+            return new Medistock.Infrastructure.Data.Backup.RestoreResult(false, ex.Message);
+        }
+        finally
+        {
+            if (File.Exists(tempDecrypted))
+            {
+                try { File.Delete(tempDecrypted); } catch { }
+            }
+        }
+    }
+
     private static byte[] GetLocalEncryptionKey()
     {
         // Derive consistent 256-bit key from local machine identifier + salt

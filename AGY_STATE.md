@@ -302,6 +302,24 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 
 ---
 
+### ✅ Step 18 — User-Configurable Local Backup Directory in Settings
+- **1. Centralized Dynamic Path Architecture (`MedistockPaths.cs`):**
+  - Added `DefaultBackupsDirectory` pointing to `%USERPROFILE%\Documents\Medistock\Backups\`.
+  - Refactored `BackupsDirectory` to dynamically read user's custom `BackupLocation` from `user_settings.json` and fallback to `DefaultBackupsDirectory` if unconfigured or empty.
+- **2. Backup Engine & Listing Extension (`ILocalBackupService.cs` & `LocalBackupService.cs`):**
+  - Updated `ListLocalBackups(string? folder = null)` to support querying backup files from custom destination folders.
+- **3. Settings Page UI & Interactivity (`SettingsPage.xaml` & `SettingsViewModel.cs`):**
+  - Added `BackupLocation` configuration text box in **Settings → Backup & Disaster Recovery**.
+  - Added **Browse...** button utilizing native WinUI 3 `FolderPicker` with `WindowNative` HWND interop.
+  - Added **Reset Default** button to restore `%USERPROFILE%\Documents\Medistock\Backups\`.
+  - Added **Open Folder** button to launch Windows File Explorer at the current backup directory.
+  - Persisted `BackupLocation` in `user_settings.json` across app sessions.
+- **Verification & Test Status:**
+  - `Medistock.sln` built with **0 errors**.
+  - Application launched and verified.
+
+---
+
 ## 6. Project Milestone Status
 | Milestone | Status | Key Deliverables |
 |---|---|---|
@@ -310,6 +328,7 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 | **Phase 3: Financial & Tax Core** | ✅ Complete | Double-entry ledger engine, Credit notes / Returns triage, GST (GSTR-1/2/3B, HSN) |
 | **Phase 4: Multi-Branch & B2B Hub** | ✅ Complete | Inter-branch transfers, Cloud sync engine, B2B Wholesaler commerce, Document generators |
 | **Phase 5: Bill Customization & Hardware** | ✅ Complete | 100% Bill Customizer Studio, Win32 RAW Spooler, WebView2 Print Preview & PDF Downloader |
+| **Phase 6: Backup & Data Management** | ✅ Complete | Configurable local backup directory, native FolderPicker, instant restore, AES-256 cloud backup |
 
 ---
 

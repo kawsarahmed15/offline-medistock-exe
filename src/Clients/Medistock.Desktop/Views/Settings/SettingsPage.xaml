@@ -162,20 +162,80 @@
 
             <!-- 5. Backup & Disaster Recovery -->
             <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
-                <StackPanel Spacing="14">
+                <StackPanel Spacing="16">
                     <TextBlock Text="📦 Backup &amp; Disaster Recovery" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
-                    <TextBlock Text="Local backup exports are saved to your Documents folder. Cloud backups are AES-256 encrypted before upload." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                    <TextBlock Text="Safeguard your pharmacy data with local zip archives and end-to-end encrypted cloud snapshots." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
 
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Content="💾 Create Local Backup (ZIP)"
-                                Command="{x:Bind ViewModel.CreateLocalBackupCommand}"
-                                Style="{StaticResource AccentButtonStyle}"
-                                Height="36" />
-                        <Button Content="☁ Upload Cloud Backup"
-                                Command="{x:Bind ViewModel.UploadCloudBackupCommand}"
-                                Height="36" />
-                    </StackPanel>
+                    <!-- A. Local Backup & Restore Sub-section -->
+                    <Border Background="{ThemeResource CardBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="💾 Local Backups (.ZIP)" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+                            
+                            <!-- Destination Path -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Destination Folder" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                                    <TextBox Grid.Column="0"
+                                             Text="{x:Bind ViewModel.BackupLocation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="C:\Users\...\Documents\Medistock\Backups"
+                                             FontSize="12"
+                                             Height="32" />
+                                    <Button Grid.Column="1"
+                                            Content="📁 Browse..."
+                                            Click="BrowseBackupLocation_Click"
+                                            Height="32"
+                                            ToolTipService.ToolTip="Select a custom local or external drive folder" />
+                                    <Button Grid.Column="2"
+                                            Content="↺ Reset"
+                                            Command="{x:Bind ViewModel.ResetBackupLocationCommand}"
+                                            Height="32"
+                                            ToolTipService.ToolTip="Reset path back to Documents\Medistock\Backups" />
+                                    <Button Grid.Column="3"
+                                            Content="↗ Open"
+                                            Command="{x:Bind ViewModel.OpenBackupFolderCommand}"
+                                            Height="32"
+                                            ToolTipService.ToolTip="Open folder in Windows Explorer" />
+                                </Grid>
+                            </StackPanel>
 
+                            <!-- Local Actions -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                                <Button Content="💾 Create Local Backup (ZIP)"
+                                        Command="{x:Bind ViewModel.CreateLocalBackupCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Height="34" />
+                                <Button Content="📥 Import / Restore from File (.ZIP)..."
+                                        Click="BrowseAndRestoreLocalBackup_Click"
+                                        Height="34"
+                                        ToolTipService.ToolTip="Choose an existing .zip backup file to restore database" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- B. Cloud Backup & Restore (AES-256) Sub-section -->
+                    <Border Background="{ThemeResource CardBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="☁ Cloud Backups (AES-256 Encrypted)" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="Snapshots are encrypted locally with AES-256 before uploading to the server." FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+
+                            <!-- Cloud Actions -->
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Content="☁ Upload to Cloud"
+                                        Command="{x:Bind ViewModel.UploadCloudBackupCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Height="34" />
+                                <Button Content="📥 Restore Latest Cloud Backup"
+                                        Click="RestoreCloudBackup_Click"
+                                        Height="34"
+                                        ToolTipService.ToolTip="Download and restore latest cloud backup from server" />
+                                <Button Content="🔄 Refresh Cloud List"
+                                        Command="{x:Bind ViewModel.RefreshCloudBackupsCommand}"
+                                        Height="34" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Status Notification Banner -->
                     <TextBlock Text="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay}"
                                FontSize="12"
                                Foreground="{ThemeResource AccentPrimary}"

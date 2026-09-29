@@ -8,5 +8,5 @@ public interface ILocalBackupService
 {
     Task<string> CreateBackupAsync(string? destinationFolder = null, CancellationToken ct = default);
     Task<RestoreResult> RestoreFromBackupAsync(string zipPath, CancellationToken ct = default);
-    IReadOnlyList<BackupFileInfo> ListLocalBackups();
+    IReadOnlyList<BackupFileInfo> ListLocalBackups(string? folder = null);
 }

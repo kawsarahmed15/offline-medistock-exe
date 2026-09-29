@@ -55,6 +55,9 @@ public partial class SettingsViewModel : ObservableObject
     private decimal _defaultGstRate = 5.0m;
 
     [ObservableProperty]
+    private string _backupLocation = MedistockPaths.BackupsDirectory;
+
+    [ObservableProperty]
     private string _statusMessage = "Settings loaded.";
 
     [ObservableProperty]
@@ -89,6 +92,7 @@ public partial class SettingsViewModel : ObservableObject
         LoadSettings();
         RefreshBackupsList();
         RefreshLicenseInfo();
+        _ = RefreshCloudBackupsListAsync();
     }
 
     public static int GetNearExpiryDays()
@@ -156,6 +160,14 @@ public partial class SettingsViewModel : ObservableObject
                 if (root.TryGetProperty("EnableBarcodeAudio", out var ea)) EnableBarcodeAudio = ea.GetBoolean();
                 if (root.TryGetProperty("NearExpiryDays", out var ned)) NearExpiryDays = ned.GetInt32();
                 if (root.TryGetProperty("DefaultGstRate", out var dgr)) DefaultGstRate = dgr.GetDecimal();
+                if (root.TryGetProperty("BackupLocation", out var blp) && !string.IsNullOrWhiteSpace(blp.GetString()))
+                {
+                    BackupLocation = blp.GetString()!;
+                }
+                else
+                {
+                    BackupLocation = MedistockPaths.DefaultBackupsDirectory;
+                }
             }
         }
         catch { }
@@ -166,6 +178,10 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
+            var targetBackupLocation = string.IsNullOrWhiteSpace(BackupLocation)
+                ? MedistockPaths.DefaultBackupsDirectory
+                : BackupLocation.Trim();
+
             var settingsObj = new
             {
                 Theme = Theme,
@@ -178,6 +194,7 @@ public partial class SettingsViewModel : ObservableObject
                 EnableBarcodeAudio = EnableBarcodeAudio,
                 NearExpiryDays = NearExpiryDays,
                 DefaultGstRate = DefaultGstRate,
+                BackupLocation = targetBackupLocation,
                 LastUpdated = DateTime.UtcNow
             };
 
@@ -208,7 +225,8 @@ public partial class SettingsViewModel : ObservableObject
         {
             IsBusy = true;
             BackupStatusMessage = "Creating local backup archive...";
-            var path = await _localBackupService.CreateBackupAsync();
+            var targetDir = string.IsNullOrWhiteSpace(BackupLocation) ? MedistockPaths.BackupsDirectory : BackupLocation.Trim();
+            var path = await _localBackupService.CreateBackupAsync(targetDir);
             BackupStatusMessage = $"✓ Backup saved: {Path.GetFileName(path)}";
             RefreshBackupsList();
         }
@@ -219,6 +237,33 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public void ResetBackupLocation()
+    {
+        BackupLocation = MedistockPaths.DefaultBackupsDirectory;
+        RefreshBackupsList();
+        StatusMessage = "Backup location reset to default. Click Save Settings to persist.";
+    }
+
+    [RelayCommand]
+    public void OpenBackupFolder()
+    {
+        try
+        {
+            var target = string.IsNullOrWhiteSpace(BackupLocation) ? MedistockPaths.BackupsDirectory : BackupLocation.Trim();
+            Directory.CreateDirectory(target);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = target,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Could not open folder: {ex.Message}";
         }
     }
 
@@ -249,6 +294,110 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             BackupStatusMessage = $"Cloud upload error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task RestoreLocalBackupAsync(string? zipPath)
+    {
+        if (_localBackupService == null)
+        {
+            BackupStatusMessage = "Backup service is not available.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+        {
+            BackupStatusMessage = "Selected backup file does not exist.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            BackupStatusMessage = $"Restoring database from {Path.GetFileName(zipPath)}...";
+            var result = await _localBackupService.RestoreFromBackupAsync(zipPath);
+            if (result.Success)
+            {
+                BackupStatusMessage = $"✓ Database successfully restored from {Path.GetFileName(zipPath)}! (Please restart Medistock if you notice any cached data)";
+                RefreshBackupsList();
+            }
+            else
+            {
+                BackupStatusMessage = $"Restore failed: {result.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Restore error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task RestoreCloudBackupAsync(string? backupId)
+    {
+        if (_cloudBackupService == null)
+        {
+            BackupStatusMessage = "Cloud backup service is not available.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            if (string.IsNullOrWhiteSpace(backupId))
+            {
+                var list = await _cloudBackupService.ListCloudBackupsAsync();
+                if (list.Count == 0)
+                {
+                    BackupStatusMessage = "No cloud backups found on the server.";
+                    return;
+                }
+                backupId = list[0].BackupId;
+            }
+
+            BackupStatusMessage = $"Downloading & decrypting cloud backup {backupId}...";
+            var result = await _cloudBackupService.RestoreCloudBackupAsync(backupId);
+            if (result.Success)
+            {
+                BackupStatusMessage = $"✓ Database successfully restored from cloud backup {backupId}! (Please restart Medistock if you notice any cached data)";
+            }
+            else
+            {
+                BackupStatusMessage = $"Cloud restore failed: {result.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Cloud restore error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task RefreshCloudBackupsAsync()
+    {
+        try
+        {
+            IsBusy = true;
+            BackupStatusMessage = "Querying server for available cloud backups...";
+            await RefreshCloudBackupsListAsync();
+            BackupStatusMessage = $"✓ Found {CloudBackups.Count} cloud backup(s) on the server.";
+        }
+        catch (Exception ex)
+        {
+            BackupStatusMessage = $"Failed to refresh cloud backups: {ex.Message}";
         }
         finally
         {
@@ -294,7 +443,8 @@ public partial class SettingsViewModel : ObservableObject
         LocalBackups.Clear();
         if (_localBackupService != null)
         {
-            foreach (var b in _localBackupService.ListLocalBackups())
+            var targetFolder = string.IsNullOrWhiteSpace(BackupLocation) ? MedistockPaths.BackupsDirectory : BackupLocation.Trim();
+            foreach (var b in _localBackupService.ListLocalBackups(targetFolder))
             {
                 LocalBackups.Add(b);
             }

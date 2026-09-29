@@ -20,6 +20,7 @@ namespace Medistock.Desktop;
 public partial class App : Microsoft.UI.Xaml.Application
 {
     private Window? _window;
+    public static MainWindow? MainWindowInstance { get; private set; }
     public static IServiceProvider Services { get; private set; } = null!;
 
     public App()
@@ -109,7 +110,9 @@ public partial class App : Microsoft.UI.Xaml.Application
                     $"Database init warning: {ex.Message}\n");
             }
 
-            _window = new MainWindow();
+            var mainWindow = new MainWindow();
+            MainWindowInstance = mainWindow;
+            _window = mainWindow;
             _window.Activate();
 
             System.IO.File.AppendAllText(MedistockPaths.StartupLog,

@@ -39,11 +39,37 @@ public static class MedistockPaths
     public static string UpdateStagingDirectory { get; } =
         Path.Combine(AppDataRoot, "Updates");
 
-    // Local backup exports — stored in user's Documents (user-visible)
-    public static string BackupsDirectory { get; } =
+    // Default local backup exports — stored in user's Documents (user-visible)
+    public static string DefaultBackupsDirectory { get; } =
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "Medistock", "Backups");
+
+    // Local backup exports — dynamically resolved from user settings if specified, otherwise falls back to DefaultBackupsDirectory
+    public static string BackupsDirectory
+    {
+        get
+        {
+            try
+            {
+                if (File.Exists(SettingsFile))
+                {
+                    var json = File.ReadAllText(SettingsFile);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("BackupLocation", out var bp))
+                    {
+                        var custom = bp.GetString();
+                        if (!string.IsNullOrWhiteSpace(custom))
+                        {
+                            return custom;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return DefaultBackupsDirectory;
+        }
+    }
 
     // Temp: in-progress operations (backup creation, restore staging)
     public static string TempDirectory { get; } =
@@ -59,7 +85,11 @@ public static class MedistockPaths
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile)!);
         Directory.CreateDirectory(LogsDirectory);
         Directory.CreateDirectory(UpdateStagingDirectory);
-        Directory.CreateDirectory(BackupsDirectory);
+        try
+        {
+            Directory.CreateDirectory(BackupsDirectory);
+        }
+        catch { }
         Directory.CreateDirectory(TempDirectory);
     }
 }

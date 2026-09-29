@@ -142,12 +142,13 @@ public class LocalBackupService : ILocalBackupService
         }
     }
 
-    public IReadOnlyList<BackupFileInfo> ListLocalBackups()
+    public IReadOnlyList<BackupFileInfo> ListLocalBackups(string? folder = null)
     {
-        if (!Directory.Exists(MedistockPaths.BackupsDirectory))
+        var targetDir = !string.IsNullOrWhiteSpace(folder) ? folder : MedistockPaths.BackupsDirectory;
+        if (!Directory.Exists(targetDir))
             return Array.Empty<BackupFileInfo>();
 
-        return Directory.GetFiles(MedistockPaths.BackupsDirectory, "Medistock_Backup_*.zip")
+        return Directory.GetFiles(targetDir, "Medistock_Backup_*.zip")
             .Select(f => new FileInfo(f))
             .OrderByDescending(f => f.CreationTime)
             .Select(f => new BackupFileInfo(f.Name, f.FullName, f.CreationTime, f.Length))
