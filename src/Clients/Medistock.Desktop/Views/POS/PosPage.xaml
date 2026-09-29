@@ -135,34 +135,86 @@
                     <TextBlock Text="{x:Bind ViewModel.ActiveTab.TabTitle, Mode=OneWay}" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                 </StackPanel>
 
-                <!-- Date / Time -->
+                <!-- Date / Time (Read-only Today Date) -->
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="Date [Enter]" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" />
+                    <TextBlock Text="Date [Today]" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" />
                     <TextBox x:Name="InvoiceDateBox"
-                             Text="{x:Bind ViewModel.ActiveTab.InvoiceDateString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="dd-MM-yyyy"
+                             Text="{x:Bind ViewModel.ActiveTab.InvoiceDateString, Mode=OneWay}"
+                             IsReadOnly="True"
+                             IsTabStop="False"
+                             Background="{ThemeResource SurfaceSubtle}"
+                             Foreground="{ThemeResource TextSecondary}"
                              FontSize="13"
                              Height="34"
-                             Padding="8,4"
-                             GotFocus="CartCell_GotFocus"
-                             LostFocus="CartCell_LostFocus"
-                             KeyDown="InvoiceDateBox_KeyDown" />
+                             Padding="8,4" />
                 </StackPanel>
 
-                <!-- Customer Details -->
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="Customer Name [Enter]" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" />
-                    <TextBox x:Name="CustomerBox"
-                             Text="{x:Bind ViewModel.ActiveTab.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="WALK-IN CUSTOMER"
-                             CharacterCasing="Upper"
-                             FontSize="13"
-                             Height="34"
-                             Padding="8,4"
-                             GotFocus="CartCell_GotFocus"
-                             LostFocus="CartCell_LostFocus"
-                             KeyDown="CustomerBox_KeyDown" />
-                </StackPanel>
+                <!-- Customer Details with Quick Pick Autocomplete -->
+                <Grid Grid.Column="2">
+                    <StackPanel>
+                        <TextBlock Text="Customer Name [Enter / Search]" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBox x:Name="CustomerBox"
+                                 Text="{x:Bind ViewModel.ActiveTab.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="WALK-IN CUSTOMER (Type to search)"
+                                 CharacterCasing="Upper"
+                                 FontSize="13"
+                                 Height="34"
+                                 Padding="8,4"
+                                 GotFocus="CartCell_GotFocus"
+                                 LostFocus="CartCell_LostFocus"
+                                 TextChanged="CustomerBox_TextChanged"
+                                 KeyDown="CustomerBox_KeyDown" />
+                    </StackPanel>
+
+                    <!-- Floating Customer Autocomplete / Quick Pick Popup -->
+                    <Popup x:Name="CustomerQuickPickPopup"
+                           IsOpen="{x:Bind ViewModel.IsCustomerQuickPickOpen, Mode=OneWay}"
+                           VerticalOffset="52"
+                           HorizontalOffset="0"
+                           IsLightDismissEnabled="False">
+                        <Border Width="380"
+                                MaxHeight="260"
+                                Background="{ThemeResource SurfaceBackground}"
+                                BorderBrush="{ThemeResource BorderStrong}"
+                                BorderThickness="1.5"
+                                CornerRadius="6"
+                                Shadow="{StaticResource SharedShadow}">
+                            <Grid RowDefinitions="Auto,*">
+                                <!-- Header -->
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="{ThemeResource SurfaceBackgroundSecondary}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <TextBlock Text="Quick Pick Customer (↑/↓ to choose, Enter to select)" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Grid.Column="1" Text="[Esc: Dismiss]" FontSize="10" Foreground="{ThemeResource TextMuted}" />
+                                </Grid>
+
+                                <!-- Customer List -->
+                                <ListView Grid.Row="1"
+                                          x:Name="CustomerSuggestionsList"
+                                          ItemsSource="{x:Bind ViewModel.CustomerSuggestions, Mode=OneWay}"
+                                          SelectedIndex="{x:Bind ViewModel.SelectedCustomerSuggestionIndex, Mode=TwoWay}"
+                                          ItemClick="CustomerSuggestionsList_ItemClick"
+                                          IsItemClickEnabled="True"
+                                          SelectionMode="Single"
+                                          Padding="0,4">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="cust:CustomerDto">
+                                            <Grid ColumnDefinitions="*,Auto" Padding="6,4">
+                                                <StackPanel Grid.Column="0" Spacing="2">
+                                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextPrimary}" />
+                                                    <TextBlock Text="{x:Bind Phone, TargetNullValue='No Mobile'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind City, TargetNullValue=''}" FontSize="11" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                                    <TextBlock Text="{x:Bind CurrentBalance, Converter={StaticResource StringFormatConverter}, ConverterParameter='Bal: ₹{0:N0}'}"
+                                                               FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
 
                 <!-- Customer Mobile -->
                 <StackPanel Grid.Column="3">

@@ -230,13 +230,80 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private void CustomerBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            var text = tb.Text;
+            if (string.IsNullOrWhiteSpace(text) || text == "WALK-IN CUSTOMER")
+            {
+                ViewModel.IsCustomerQuickPickOpen = false;
+                ViewModel.CustomerSuggestions.Clear();
+                return;
+            }
+            _ = ViewModel.SearchCustomerQuickPickAsync(text);
+        }
+    }
+
     private void CustomerBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (ViewModel.IsCustomerQuickPickOpen)
+        {
+            if (e.Key == VirtualKey.Down)
+            {
+                ViewModel.MoveCustomerSuggestionDown();
+                if (ViewModel.SelectedCustomerSuggestion != null)
+                {
+                    CustomerSuggestionsList.ScrollIntoView(ViewModel.SelectedCustomerSuggestion);
+                }
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Up)
+            {
+                ViewModel.MoveCustomerSuggestionUp();
+                if (ViewModel.SelectedCustomerSuggestion != null)
+                {
+                    CustomerSuggestionsList.ScrollIntoView(ViewModel.SelectedCustomerSuggestion);
+                }
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.IsCustomerQuickPickOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Enter)
+            {
+                if (ViewModel.SelectedCustomerSuggestion != null)
+                {
+                    ViewModel.SelectCustomerQuickPick(ViewModel.SelectedCustomerSuggestion);
+                    CustomerMobileBox.Focus(FocusState.Programmatic);
+                    CustomerMobileBox.SelectAll();
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
         if (e.Key == VirtualKey.Enter)
         {
+            ViewModel.IsCustomerQuickPickOpen = false;
             CustomerMobileBox.Focus(FocusState.Programmatic);
             CustomerMobileBox.SelectAll();
             e.Handled = true;
+        }
+    }
+
+    private void CustomerSuggestionsList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Medistock.Application.Customers.DTOs.CustomerDto customer)
+        {
+            ViewModel.SelectCustomerQuickPick(customer);
+            CustomerMobileBox.Focus(FocusState.Programmatic);
+            CustomerMobileBox.SelectAll();
         }
     }
 
@@ -1048,6 +1115,7 @@ public sealed partial class PosPage : Page
         }
 
         // Clicking anywhere on whitespace / background automatically focuses SearchBox
+        ViewModel.IsCustomerQuickPickOpen = false;
         SearchBox.Focus(FocusState.Programmatic);
         SearchBox.SelectAll();
     }

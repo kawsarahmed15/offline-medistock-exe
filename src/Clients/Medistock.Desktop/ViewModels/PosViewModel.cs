@@ -1172,6 +1172,18 @@ public partial class PosViewModel : ObservableObject
     [ObservableProperty]
     private CustomerDto? _selectedParty;
 
+    // --- Customer Auto-Complete / Quick Pick Properties ---
+    [ObservableProperty]
+    private bool _isCustomerQuickPickOpen = false;
+
+    public ObservableCollection<CustomerDto> CustomerSuggestions { get; } = new();
+
+    [ObservableProperty]
+    private int _selectedCustomerSuggestionIndex = -1;
+
+    [ObservableProperty]
+    private CustomerDto? _selectedCustomerSuggestion;
+
     // --- Fast Party Creation Form Properties ---
     [ObservableProperty]
     private bool _isCreatePartyModalOpen = false;
@@ -2123,6 +2135,77 @@ public partial class PosViewModel : ObservableObject
             ActiveTab.CustomerMobile = target.Phone ?? string.Empty;
             ClosePartyPicker();
             StatusMessage = $"Party selected: {target.Name} (Bal: ₹{target.CurrentBalance:N2}). Ready for billing.";
+        }
+    }
+
+    public async Task SearchCustomerQuickPickAsync(string query)
+    {
+        if (_customerService == null) return;
+        var trimmed = query?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 1)
+        {
+            CustomerSuggestions.Clear();
+            IsCustomerQuickPickOpen = false;
+            SelectedCustomerSuggestionIndex = -1;
+            SelectedCustomerSuggestion = null;
+            return;
+        }
+
+        var list = await _customerService.SearchCustomersAsync(OrgId, trimmed);
+        CustomerSuggestions.Clear();
+        foreach (var c in list)
+        {
+            CustomerSuggestions.Add(c);
+        }
+
+        if (CustomerSuggestions.Count > 0)
+        {
+            SelectedCustomerSuggestionIndex = 0;
+            SelectedCustomerSuggestion = CustomerSuggestions[0];
+            IsCustomerQuickPickOpen = true;
+        }
+        else
+        {
+            SelectedCustomerSuggestionIndex = -1;
+            SelectedCustomerSuggestion = null;
+            IsCustomerQuickPickOpen = false;
+        }
+    }
+
+    public void MoveCustomerSuggestionDown()
+    {
+        if (CustomerSuggestions.Count == 0) return;
+        if (SelectedCustomerSuggestionIndex < CustomerSuggestions.Count - 1)
+        {
+            SelectedCustomerSuggestionIndex++;
+            SelectedCustomerSuggestion = CustomerSuggestions[SelectedCustomerSuggestionIndex];
+        }
+    }
+
+    public void MoveCustomerSuggestionUp()
+    {
+        if (CustomerSuggestions.Count == 0) return;
+        if (SelectedCustomerSuggestionIndex > 0)
+        {
+            SelectedCustomerSuggestionIndex--;
+            SelectedCustomerSuggestion = CustomerSuggestions[SelectedCustomerSuggestionIndex];
+        }
+    }
+
+    [RelayCommand]
+    public void SelectCustomerQuickPick(CustomerDto? customer)
+    {
+        var target = customer ?? SelectedCustomerSuggestion;
+        if (target != null && ActiveTab != null)
+        {
+            ActiveTab.CustomerId = target.Id;
+            ActiveTab.CustomerName = target.Name;
+            ActiveTab.CustomerMobile = target.Phone ?? string.Empty;
+            IsCustomerQuickPickOpen = false;
+            CustomerSuggestions.Clear();
+            SelectedCustomerSuggestionIndex = -1;
+            SelectedCustomerSuggestion = null;
+            StatusMessage = $"Customer selected: {target.Name}";
         }
     }
 
