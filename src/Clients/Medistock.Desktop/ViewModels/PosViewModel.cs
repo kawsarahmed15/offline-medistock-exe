@@ -1457,8 +1457,8 @@ public partial class PosViewModel : ObservableObject
         ActiveTabIndex = InvoiceTabs.Count - 1;
         SaveDraftState();
         SelectedSaleTypeIndex = 0;
-        IsSaleTypePromptOpen = true;
-        StatusMessage = $"Opened {newTab.TabTitle}. Select Sale Type [1: Cash, 2: Credit, 3: UPI, 4: Card].";
+        IsSaleTypePromptOpen = false;
+        StatusMessage = $"Opened {newTab.TabTitle}. Ready for billing.";
     }
 
     [RelayCommand]
@@ -2533,8 +2533,8 @@ public partial class PosViewModel : ObservableObject
         CloseBatchPicker();
         SaveDraftState();
         SelectedSaleTypeIndex = 0;
-        IsSaleTypePromptOpen = true;
-        StatusMessage = $"Fresh sale ready ({ActiveTab.TabTitle}). Select Sale Type [1: Cash, 2: Credit, 3: UPI, 4: Card].";
+        IsSaleTypePromptOpen = false;
+        StatusMessage = $"Fresh sale ready ({ActiveTab.TabTitle}). Ready for billing.";
     }
 
     [RelayCommand]

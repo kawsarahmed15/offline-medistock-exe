@@ -167,19 +167,12 @@ public sealed partial class PosPage : Page
             _shortcutService.RegisterAction("pos.new_sale", () => { ViewModel.ClearBill(); HighlightSaleType(0); });
             _shortcutService.RegisterAction("pos.payment", () => { SyncActiveDiscountBox(); ViewModel.OpenSaveConfirmation(); DispatcherQueue.TryEnqueue(() => ConfirmSaveButton.Focus(FocusState.Programmatic)); });
             _shortcutService.RegisterAction("pos.print", () => { _ = HandlePrintShortcutAsync(); });
-            _shortcutService.RegisterAction("pos.clear_cart", () => { ViewModel.ClearBill(); HighlightSaleType(0); });
+            _shortcutService.RegisterAction("pos.clear_cart", () => { ViewModel.ClearBill(); });
             _shortcutService.RegisterAction("app.help_shortcuts", () => ViewModel.ToggleShortcutHelp());
         }
 
-        if (ViewModel.ActiveTab != null && !ViewModel.ActiveTab.CartItems.Any())
-        {
-            ViewModel.IsSaleTypePromptOpen = true;
-            HighlightSaleType(0);
-        }
-        else
-        {
-            FocusHeaderStart();
-        }
+        ViewModel.IsSaleTypePromptOpen = false;
+        FocusHeaderStart();
 
         TypographyService.ScaleElementTree(this, TypographyService.CurrentScale);
     }
@@ -197,8 +190,8 @@ public sealed partial class PosPage : Page
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            InvoiceDateBox.Focus(FocusState.Programmatic);
-            InvoiceDateBox.SelectAll();
+            CustomerBox.Focus(FocusState.Programmatic);
+            CustomerBox.SelectAll();
         });
     }
 
@@ -619,42 +612,55 @@ public sealed partial class PosPage : Page
             if (e.Key == VirtualKey.Number1 || e.Key == VirtualKey.NumberPad1 || e.Key == VirtualKey.C)
             {
                 ViewModel.SelectSaleType(0);
-                FocusHeaderStart();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Number2 || e.Key == VirtualKey.NumberPad2 || e.Key == VirtualKey.R)
             {
                 ViewModel.SelectSaleType(3);
-                FocusHeaderStart();
+                FocusPartyPicker();
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Number3 || e.Key == VirtualKey.NumberPad3 || e.Key == VirtualKey.U)
             {
                 ViewModel.SelectSaleType(1);
-                FocusHeaderStart();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Number4 || e.Key == VirtualKey.NumberPad4 || e.Key == VirtualKey.D)
             {
                 ViewModel.SelectSaleType(2);
-                FocusHeaderStart();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Enter)
             {
-                ViewModel.SelectSaleType(ViewModel.SelectedSaleTypeIndex);
-                FocusHeaderStart();
+                var idx = ViewModel.SelectedSaleTypeIndex;
+                ViewModel.SelectSaleType(idx);
+                if (idx == 3)
+                {
+                    FocusPartyPicker();
+                }
+                else
+                {
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                }
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Escape)
             {
                 ViewModel.IsSaleTypePromptOpen = false;
-                FocusHeaderStart();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
                 e.Handled = true;
                 return;
             }
@@ -1999,10 +2005,8 @@ public sealed partial class PosPage : Page
         if (e.Key == VirtualKey.Enter)
         {
             SyncActiveDiscountBox();
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                BottomBar_PayAndPrintButton.Focus(FocusState.Programmatic);
-            });
+            ViewModel.OpenSaleTypePrompt();
+            HighlightSaleType(ViewModel.SelectedSaleTypeIndex);
             e.Handled = true;
         }
         else if (e.Key == VirtualKey.Escape || e.Key == VirtualKey.Up)
@@ -2349,8 +2353,17 @@ public sealed partial class PosPage : Page
     {
         if (e.Key == VirtualKey.Enter)
         {
-            ViewModel.SelectSaleType(ViewModel.SelectedSaleTypeIndex);
-            FocusHeaderStart();
+            var idx = ViewModel.SelectedSaleTypeIndex;
+            ViewModel.SelectSaleType(idx);
+            if (idx == 3)
+            {
+                FocusPartyPicker();
+            }
+            else
+            {
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            }
             e.Handled = true;
         }
     }
@@ -2415,25 +2428,28 @@ public sealed partial class PosPage : Page
     private void SaleTypeCash_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectSaleType(0);
-        FocusHeaderStart();
+        SearchBox.Focus(FocusState.Programmatic);
+        SearchBox.SelectAll();
     }
 
     private void SaleTypeCredit_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectSaleType(3);
-        FocusHeaderStart();
+        FocusPartyPicker();
     }
 
     private void SaleTypeUpi_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectSaleType(1);
-        FocusHeaderStart();
+        SearchBox.Focus(FocusState.Programmatic);
+        SearchBox.SelectAll();
     }
 
     private void SaleTypeCard_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectSaleType(2);
-        FocusHeaderStart();
+        SearchBox.Focus(FocusState.Programmatic);
+        SearchBox.SelectAll();
     }
 
     private async Task ConfirmPrintPreviewAsync()
@@ -3095,7 +3111,8 @@ public sealed partial class PosPage : Page
         else if (e.Key == VirtualKey.Escape)
         {
             ViewModel.ClosePartyPicker();
-            FocusHeaderStart();
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
             e.Handled = true;
         }
     }
@@ -3128,7 +3145,8 @@ public sealed partial class PosPage : Page
         else if (e.Key == VirtualKey.Escape)
         {
             ViewModel.ClosePartyPicker();
-            FocusHeaderStart();
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
             e.Handled = true;
         }
     }
@@ -3216,6 +3234,8 @@ public sealed partial class PosPage : Page
             if (ReferenceEquals(sender, CancelCreatePartyButton))
             {
                 ViewModel.CloseCreatePartyModal();
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
             }
             else
             {
@@ -3226,6 +3246,8 @@ public sealed partial class PosPage : Page
         else if (e.Key == VirtualKey.Escape)
         {
             ViewModel.CloseCreatePartyModal();
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
             e.Handled = true;
         }
     }
