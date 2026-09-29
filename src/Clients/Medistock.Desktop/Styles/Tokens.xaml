@@ -5,6 +5,7 @@
 
     <controls:StringFormatConverter x:Key="StringFormatConverter" />
     <controls:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <controls:BoolToVisibilityConverter x:Key="StringToVisibilityConverter" />
     <controls:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
     <controls:InverseBoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" />
     <controls:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter" />
