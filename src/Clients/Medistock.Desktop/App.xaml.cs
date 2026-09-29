@@ -38,6 +38,26 @@ public partial class App : Microsoft.UI.Xaml.Application
             catch { }
         };
 
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            try
+            {
+                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                    $"[APPDOMAIN UNHANDLED EXCEPTION] {e.ExceptionObject}\n");
+            }
+            catch { }
+        };
+
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            try
+            {
+                System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                    $"[UNOBSERVED TASK EXCEPTION] {e.Exception}\n");
+            }
+            catch { }
+        };
+
         InitializeComponent();
 
         var services = new ServiceCollection();

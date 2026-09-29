@@ -15,6 +15,12 @@ public static class Program
         {
             File.WriteAllText(logFile, $"Starting Medistock.Desktop at {DateTime.UtcNow:O}\n");
 
+            try
+            {
+                Microsoft.Windows.ApplicationModel.DynamicDependency.Bootstrap.TryInitialize(0x00010006, out _);
+            }
+            catch { }
+
             WinRT.ComWrappersSupport.InitializeComWrappers();
             global::Microsoft.UI.Xaml.Application.Start((p) =>
             {
