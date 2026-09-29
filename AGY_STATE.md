@@ -337,6 +337,54 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
   - 56 desktop tests passing with 0 errors.
   - Application built and launched for user verification.
 
+### ✅ Step 20 — Standalone Release Executable Packaging & Verification
+- **1. Standalone Executable Packaging (`dist/Medistock-Release-win-x64/Medistock.Desktop.exe`):**
+  - Compiled self-contained `win-x64` standalone distribution with `dotnet publish -c Release -r win-x64 --self-contained true`.
+  - ReadyToRun ahead-of-time (AOT) machine code compilation verified.
+  - Windows App SDK, SQLite WAL, and PRI resource packaging verified (`resources.pri`, `Medistock.Desktop.pri`).
+- **2. DTO Serialization & Materialization Hardening:**
+  - Added parameterless constructor and property initializers to `CustomerDto` for seamless Dapper SQLite materialization.
+  - 56 / 56 automated desktop unit tests passing with 0 failures.
+- **3. Runtime Launch Verification:**
+  - Standalone release executable [`dist/Medistock-Release-win-x64/Medistock.Desktop.exe`](file:///E:/medistock/dist/Medistock-Release-win-x64/Medistock.Desktop.exe) launched and running with active UI and SQLite WAL database initialized.
+
+### ✅ Step 21 — Purchase Entry Expiry Formatting & Smart HSN Code Population
+- **1. Expiry Section Default Empty & Auto-Slash Formatting (`PurchaseEntryViewModel.cs` & `PurchaseEntryPage.xaml`):**
+  - Configured purchase item row expiry to default empty (`ExpiryText = string.Empty`, `ExpiryDate = default`) for newly added rows and selected items.
+  - Added real-time auto-slash formatting (`MM/yy`): entering 2 digits for month (e.g. `01`) automatically appends `/` -> `01/` with cursor positioned immediately after `/` for fast year entry (`27` -> `01/27`).
+  - Added smooth backspace handling so backspacing on `MM/` smoothly deletes the slash and the month digit without re-triggering formatting loops.
+  - Configured expiry date parser to assign the **last day of the month** by default (e.g. `01/27` -> `2027-01-31`, `06/27` -> `2027-06-30`, `02/28` -> `2028-02-29` leap year).
+  - Added validation in `PostPurchaseInvoiceAsync` requiring a valid expiry date before posting.
+- **2. Smart HSN Code Population:**
+  - When a **brand new product** is entered to add to inventory, HSN code is NOT added by default (`HsnCode = string.Empty`), leaving it clean for user input.
+  - When purchasing an **existing product already in stock**, the HSN code is populated by default from the existing product record (`HsnCode = item.HsnCode` or `30049099`).
+  - Updated SQLite purchase repository `products` upsert with conflict-safe HSN handling to preserve existing HSN codes.
+- **3. Verification & Test Status:**
+  - Added and updated tests in `PurchaseViewModelAndExportTests.cs`:
+    - `PurchaseItemRowViewModel_Defaults_HaveEmptyExpiryAndHsn`
+    - `ExpiryText_MMYY_ParsesCorrectExpiryDate_WithLastDayOfMonth`
+    - `SearchMedicinesAsync_PopulatesResultsAndOpensDropdown_AndSetsHsnForInStockProduct`
+    - `CreateOrApplyCustomProduct_CreatesNewProductRow_WithoutHsnByDefault`
+    - `SearchRowProductAsync_WhenNoMatchFound_AutoCreatesCustomProduct_WithoutHsn`
+  - All 152 unit & integration tests passing with 100% success (57 Desktop tests, 80 Infrastructure tests, 15 Domain tests).
+  - Standalone release executable [`dist/Medistock-Release-win-x64/Medistock.Desktop.exe`](file:///E:/medistock/dist/Medistock-Release-win-x64/Medistock.Desktop.exe) rebuilt, published, and launched for live verification.
+
+### 2026-09-29: Batch Number Uppercase, Sale History Renaming & Pay/Print Bill History Sync
+- **Product Purchase Section — Batch Number Uppercase:**
+  - Added `CharacterCasing="Upper"` and `UpdateSourceTrigger=PropertyChanged` to the `BatchNumber` TextBox in [`PurchaseEntryPage.xaml`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/Purchases/PurchaseEntryPage.xaml).
+  - Added `OnBatchNumberChanged` in [`PurchaseEntryViewModel.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/ViewModels/PurchaseEntryViewModel.cs) enforcing `ToUpperInvariant()` on any input or programmatic assignment.
+  - Added automated unit test in [`PurchaseViewModelAndExportTests.cs`](file:///E:/medistock/tests/Medistock.Desktop.Tests/PurchaseViewModelAndExportTests.cs).
+- **Renamed "Sales History" to "Sale History":**
+  - Updated navigation item in [`MainWindow.xaml`](file:///E:/medistock/src/Clients/Medistock.Desktop/MainWindow.xaml) to `Sale History & Returns [F7]`.
+  - Updated page header in [`SalesHistoryPage.xaml`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/Sales/SalesHistoryPage.xaml) to `SALE HISTORY & RETURNS`.
+  - Added F7 global shortcut in [`MainWindow.xaml.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/MainWindow.xaml.cs) to navigate directly to Sale History.
+- **Pay & Print Bill Visibility in Sale History & Returns:**
+  - Guaranteed atomic persistence in [`SqliteSaleRepository.cs`](file:///E:/medistock/src/Infrastructure/Medistock.Infrastructure.Data/Repositories/SqliteSaleRepository.cs): Ensures batch and stock balance records exist for newly billed items so transactions commit cleanly.
+  - Fixed POS commit error handling in [`PosViewModel.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/ViewModels/PosViewModel.cs) so real errors are surfaced instead of silently masking failed sales.
+  - Wired `HandlePosPreviewPdfDownloadAsync` and settlement flow in [`PosPage.xaml.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/POS/PosPage.xaml.cs) so downloading a generated PDF bill immediately finalizes and saves the invoice.
+  - Hooked `Loaded` event in [`SalesHistoryPage.xaml.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/Sales/SalesHistoryPage.xaml.cs) and auto-selection in [`SalesHistoryViewModel.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/ViewModels/SalesHistoryViewModel.cs) so every visit to Sale History reloads and highlights the newest invoice.
+  - All 153 unit and integration tests passing; release published and launched.
+
 ---
 
 ## 6. Project Milestone Status
@@ -348,17 +396,19 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 | **Phase 4: Multi-Branch & B2B Hub** | ✅ Complete | Inter-branch transfers, Cloud sync engine, B2B Wholesaler commerce, Document generators |
 | **Phase 5: Bill Customization & Hardware** | ✅ Complete | 100% Bill Customizer Studio, Win32 RAW Spooler, WebView2 Print Preview & PDF Downloader |
 | **Phase 6: Backup & Data Management** | ✅ Complete | Configurable local backup directory, native FolderPicker, instant restore, AES-256 cloud backup |
-| **Phase 7: Purchase Inward Enhancements** | ✅ Complete | Arrow key autocomplete navigation, live multi-row recalculations, MRP=Sale sync, default GST |
+| **Phase 7: Purchase Inward & Distribution** | ✅ Complete | Autocomplete keyboard navigation, live recalculations, MM/yy auto-slash expiry, smart HSN defaults |
 
 ---
 
 ## 7. Master Reference Documents
-- [PRD.md](file:///D:/Projects/Medistock-offlinefirst/PRD.md) — Product Requirements Document (features, acceptance criteria, NFRs)
-- [ARCHITECTURE.md](file:///D:/Projects/Medistock-offlinefirst/ARCHITECTURE.md) — Master system blueprint (v1.1, 23 sections)
-- [UI_DESIGN_SYSTEM.md](file:///D:/Projects/Medistock-offlinefirst/UI_DESIGN_SYSTEM.md) — Design tokens, components, themes, performance rules
-- [KEYBOARD_SHORTCUTS.md](file:///D:/Projects/Medistock-offlinefirst/KEYBOARD_SHORTCUTS.md) — Full keyboard/input architecture, both keymap profiles, scope system
-- [AGENT.md](file:///D:/Projects/Medistock-offlinefirst/AGENT.md) — Agent operational rules & coding protocols
-- [AGY_STATE.md](file:///D:/Projects/Medistock-offlinefirst/AGY_STATE.md) — Active session state and progress log
+- [PRD.md](file:///E:/medistock/PRD.md) — Product Requirements Document (features, acceptance criteria, NFRs)
+- [ARCHITECTURE.md](file:///E:/medistock/ARCHITECTURE.md) — Master system blueprint (v1.1, 23 sections)
+- [UI_DESIGN_SYSTEM.md](file:///E:/medistock/UI_DESIGN_SYSTEM.md) — Design tokens, components, themes, performance rules
+- [KEYBOARD_SHORTCUTS.md](file:///E:/medistock/KEYBOARD_SHORTCUTS.md) — Full keyboard/input architecture, both keymap profiles, scope system
+- [AGENT.md](file:///E:/medistock/AGENT.md) — Agent operational rules & coding protocols
+- [AGY_STATE.md](file:///E:/medistock/AGY_STATE.md) — Active session state and progress log
+
+
 
 
 

@@ -42,6 +42,7 @@ public interface IPurchaseRepository
     Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(
         string orgId,
         string branchId,
+        string period = "All",
         CancellationToken cancellationToken = default);
 
     Task<bool> IsDuplicateInvoiceAsync(

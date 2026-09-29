@@ -18,6 +18,11 @@ public sealed partial class SalesHistoryPage : Page
     {
         ViewModel = viewModel;
         this.InitializeComponent();
+
+        this.Loaded += async (s, e) =>
+        {
+            await ViewModel.LoadSalesAsync();
+        };
     }
 
     private async void PrintInvoice_Click(object sender, RoutedEventArgs e)

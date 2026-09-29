@@ -88,7 +88,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Sales History &amp; Returns [F7]" Tag="sales_history">
+                <NavigationViewItem Content="Sale History &amp; Returns [F7]" Tag="sales_history">
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Rotate" />
                     </NavigationViewItem.Icon>

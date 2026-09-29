@@ -71,6 +71,28 @@ public sealed partial class MainWindow : Window
 
         _activationService = App.Services.GetService<IActivationService>();
         _ = CheckActivationAsync();
+
+        RootGrid.KeyDown += (s, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.F7)
+            {
+                NavigateToSaleHistory();
+                e.Handled = true;
+            }
+        };
+    }
+
+    public void NavigateToSaleHistory()
+    {
+        foreach (var menuItem in NavView.MenuItems)
+        {
+            if (menuItem is NavigationViewItem nvi && (string)nvi.Tag == "sales_history")
+            {
+                NavView.SelectedItem = nvi;
+                break;
+            }
+        }
+        ContentFrame.Content = App.Services.GetRequiredService<SalesHistoryPage>();
     }
 
     private void InitializePreferences()

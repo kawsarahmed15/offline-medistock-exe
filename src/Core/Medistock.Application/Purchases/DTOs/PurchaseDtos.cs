@@ -142,7 +142,8 @@ public record PurchaseKpiSummaryDto(
     decimal TotalPurchaseAmount,
     int TotalInvoicesCount,
     int TotalSuppliersCount,
-    decimal TotalOutstandingPayable
+    decimal TotalOutstandingPayable,
+    decimal TotalStockValue = 0m
 );
 
 public record PurchaseCancelResult(

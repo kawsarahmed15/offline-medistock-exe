@@ -255,6 +255,7 @@ public class PurchaseTests : IDisposable
         Assert.True(kpis.TotalPurchaseAmount > 0);
         Assert.True(kpis.TotalInvoicesCount >= 1);
         Assert.True(kpis.TotalSuppliersCount >= 1);
+        Assert.True(kpis.TotalStockValue > 0);
     }
 
     [Fact]
@@ -342,6 +343,37 @@ public class PurchaseTests : IDisposable
         var result = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(10m, result.TotalStockAdded);
+    }
+
+    [Fact]
+    public async Task GetPurchaseKpiSummaryAsync_CalculatesStockValue_WithNetBuyingCost_IncludingGst()
+    {
+        // Example: Product with buying price 10 and 5% GST -> Net unit buying cost = 10.50
+        // Inward 10 units -> Stock Value must be 10 * 10.50 = 105.00 (not 100.00)
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "GST Pharma Wholesaler", Gstin: "07AAAAA0000A1Z5",
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 30, OpeningBalance: 0));
+
+        var cmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "GST Pharma Wholesaler",
+            SupplierGstin: "07AAAAA0000A1Z5", SupplierInvoiceNo: "NETCOST-001",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: "Test Net Cost Calculation",
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_test_gst5", "Test Product 5% GST", "30049099", "NETBATCH01",
+                    DateTime.UtcNow.AddMonths(24), null, 10m, 0m, 10.00m, 15.00m, 15.00m, 0m, 5.0m)
+            });
+
+        var postResult = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.True(postResult.Success, postResult.ErrorMessage);
+
+        var kpis = await _purchaseService.GetPurchaseKpiSummaryAsync("org-1", "br-1", "All");
+
+        // Verify that stock value is calculated with 10.50 net buying cost:
+        // Prior seeded batches might exist, but the newly added batch must add 10 * (10.00 * 1.05) = 105.00
+        Assert.True(kpis.TotalStockValue >= 105.00m);
     }
 }
 

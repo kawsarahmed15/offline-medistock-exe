@@ -2779,24 +2779,12 @@ public partial class PosViewModel : ObservableObject
             }
             else
             {
-                LastCompletedInvoiceNo = $"INV-{DateTime.Now:yyMMddHHmmss}";
-                LastCompletedAmount = grandTotal;
-                LastCompletedCustomer = customerName;
-
-                StatusMessage = $"Sale Saved (Local): {LastCompletedInvoiceNo} — ₹{LastCompletedAmount:N2}";
-                ClearBill();
-                if (showPrintPrompt) IsPrintPromptOpen = true;
+                StatusMessage = $"⚠️ Cannot save sale: {result.ErrorMessage}";
             }
         }
-        catch
+        catch (Exception ex)
         {
-            LastCompletedInvoiceNo = $"INV-{DateTime.Now:yyMMddHHmmss}";
-            LastCompletedAmount = grandTotal;
-            LastCompletedCustomer = customerName;
-
-            StatusMessage = $"Sale Saved (Offline): {LastCompletedInvoiceNo} — ₹{LastCompletedAmount:N2}";
-            ClearBill();
-            if (showPrintPrompt) IsPrintPromptOpen = true;
+            StatusMessage = $"⚠️ Error completing sale: {ex.Message}";
         }
     }
 }

@@ -28,7 +28,7 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private string _genericName = string.Empty;
 
     [ObservableProperty]
-    private string _hsnCode = "30049099";
+    private string _hsnCode = string.Empty;
 
     [ObservableProperty]
     private string _unit = "STRIP";
@@ -40,7 +40,7 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private string _batchNumber = string.Empty;
 
     [ObservableProperty]
-    private DateTimeOffset _expiryDate = DateTimeOffset.UtcNow.AddMonths(24);
+    private DateTimeOffset _expiryDate = default;
 
     private decimal _previousMrp = 0;
 
@@ -71,6 +71,18 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isInterstate = false;
 #pragma warning restore MVVMTK0045
+
+    partial void OnBatchNumberChanged(string value)
+    {
+        if (value != null)
+        {
+            var upper = value.ToUpperInvariant();
+            if (upper != value)
+            {
+                BatchNumber = upper;
+            }
+        }
+    }
 
     partial void OnQuantityChanged(decimal value)
     {
@@ -114,9 +126,14 @@ public partial class PurchaseItemRowViewModel : ObservableObject
 
     partial void OnExpiryTextChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            ExpiryDate = default;
+            return;
+        }
+
         var clean = value.Trim();
-        if (clean.Length >= 4 && clean.Contains('/'))
+        if (clean.Contains('/'))
         {
             var parts = clean.Split('/');
             if (parts.Length == 2 &&
@@ -131,6 +148,20 @@ public partial class PurchaseItemRowViewModel : ObservableObject
                         var daysInMonth = DateTime.DaysInMonth(year, month);
                         ExpiryDate = new DateTimeOffset(new DateTime(year, month, daysInMonth, 23, 59, 59, DateTimeKind.Utc));
                     }
+                }
+            }
+        }
+        else if (clean.Length == 4 &&
+                 int.TryParse(clean.Substring(0, 2), out int month) &&
+                 int.TryParse(clean.Substring(2, 2), out int year))
+        {
+            if (month >= 1 && month <= 12)
+            {
+                if (year < 100) year += 2000;
+                if (year >= 2000 && year <= 2099)
+                {
+                    var daysInMonth = DateTime.DaysInMonth(year, month);
+                    ExpiryDate = new DateTimeOffset(new DateTime(year, month, daysInMonth, 23, 59, 59, DateTimeKind.Utc));
                 }
             }
         }
@@ -283,9 +314,18 @@ public partial class PurchaseEntryViewModel : ObservableObject
     [ObservableProperty]
     private decimal _totalOutstandingPayables;
 
+    [ObservableProperty]
+    private decimal _totalStockValue;
+
+    [ObservableProperty]
+    private string _selectedPurchasePeriod = "All"; // "Today", "1 Month", "All"
+
     // Inward Header Fields
     [ObservableProperty]
     private SupplierDto? _selectedSupplier;
+
+    [ObservableProperty]
+    private string _supplierSearchText = string.Empty;
 
     [ObservableProperty]
     private string _selectedSupplierId = string.Empty;
@@ -444,6 +484,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
 
     public string TotalPurchasesFormatted => $"₹{TotalPurchasesAmount:N2}";
     public string TotalOutstandingPayablesFormatted => $"₹{TotalOutstandingPayables:N2}";
+    public string TotalStockValueFormatted => $"₹{TotalStockValue:N2}";
 
     public ObservableCollection<SupplierDto> Suppliers { get; } = new();
     public ObservableCollection<SupplierDto> FilteredSuppliers { get; } = new();
@@ -519,18 +560,60 @@ public partial class PurchaseEntryViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task ViewPurchasesLedgerAsync()
+    {
+        SelectedTab = "History";
+        await LoadRecentPurchasesAsync();
+        StatusMessage = $"📋 Inward Invoices Ledger: {FilteredRecentPurchases.Count} recorded purchase invoices loaded.";
+    }
+
+    [RelayCommand]
+    public async Task ViewWholesalersDirectoryAsync()
+    {
+        SelectedTab = "Suppliers";
+        await LoadSuppliersAsync();
+        StatusMessage = $"🏢 Wholesaler Directory: {Suppliers.Count} active supply chain vendors enrolled.";
+    }
+
+    [RelayCommand]
+    public async Task RefreshStockValueAsync()
+    {
+        await LoadKpisAsync();
+        StatusMessage = $"📊 Total Stock Valuation updated: {TotalStockValueFormatted} (calculated as Buying Price × Available Qty).";
+    }
+
+    [RelayCommand]
+    public async Task RefreshAllPurchaseDataAsync()
+    {
+        await LoadKpisAsync();
+        await LoadSuppliersAsync();
+        await LoadRecentPurchasesAsync();
+        StatusMessage = "🔄 Purchase master data, inward ledger, and stock valuation refreshed successfully.";
+    }
+
+    [RelayCommand]
+    public async Task SetPurchasePeriodAsync(string period)
+    {
+        SelectedPurchasePeriod = period;
+        await LoadKpisAsync();
+        StatusMessage = $"📊 Purchases filtered by: {period} (Total: {TotalPurchasesFormatted}, Invoices: {TotalInvoicesCount})";
+    }
+
+    [RelayCommand]
     public async Task LoadKpisAsync()
     {
         try
         {
-            var kpis = await _purchaseService.GetPurchaseKpiSummaryAsync(_orgId, _branchId);
+            var kpis = await _purchaseService.GetPurchaseKpiSummaryAsync(_orgId, _branchId, SelectedPurchasePeriod);
             TotalPurchasesAmount = kpis.TotalPurchaseAmount;
             TotalInvoicesCount = kpis.TotalInvoicesCount;
             TotalSuppliersCount = kpis.TotalSuppliersCount;
             TotalOutstandingPayables = kpis.TotalOutstandingPayable;
+            TotalStockValue = kpis.TotalStockValue;
 
             OnPropertyChanged(nameof(TotalPurchasesFormatted));
             OnPropertyChanged(nameof(TotalOutstandingPayablesFormatted));
+            OnPropertyChanged(nameof(TotalStockValueFormatted));
         }
         catch { }
     }
@@ -563,6 +646,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
         SelectedSupplier = supplier;
         SelectedSupplierId = supplier.Id;
         SelectedSupplierName = supplier.Name;
+        SupplierSearchText = supplier.Name;
         SupplierGstin = supplier.Gstin ?? "";
         SupplierDlNumber = supplier.DlNumber ?? "";
         SupplierCreditDays = supplier.CreditDays;
@@ -595,8 +679,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
             DiscountPct = 0,
             GstRatePercent = defaultGst,
             IsInterstate = IsInterstate,
-            ExpiryDate = DateTimeOffset.UtcNow.AddMonths(24),
-            ExpiryText = DateTimeOffset.UtcNow.AddMonths(24).ToString("MM/yy")
+            HsnCode = string.Empty,
+            ExpiryDate = default,
+            ExpiryText = string.Empty
         };
         row.PropertyChanged += (s, e) => RecalculateTotals();
         LineItems.Add(row);
@@ -669,7 +754,8 @@ public partial class PurchaseEntryViewModel : ObservableObject
         row.ProductId = item.Id;
         row.ProductName = item.Name;
         row.GenericName = item.GenericName;
-        row.HsnCode = string.IsNullOrWhiteSpace(item.HsnCode) ? "3004" : item.HsnCode;
+        // If product is already in stock, enter the HSN code by default
+        row.HsnCode = !string.IsNullOrWhiteSpace(item.HsnCode) ? item.HsnCode : "30049099";
         row.GstRatePercent = item.GstRatePercent > 0 ? item.GstRatePercent : SettingsViewModel.GetDefaultGstRate();
         row.Mrp = item.Mrp;
         row.SaleRate = item.Mrp; // MRP is the sale price
@@ -685,12 +771,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
         }
         row.UnitPrice = defaultCost;
         row.DiscountPct = 0;
-        if (!string.IsNullOrWhiteSpace(item.BatchNumber)) row.BatchNumber = item.BatchNumber;
-        if (item.NearestExpiryDate.HasValue)
-        {
-            row.ExpiryDate = item.NearestExpiryDate.Value;
-            row.ExpiryText = item.NearestExpiryDate.Value.ToString("MM/yy");
-        }
+        // Expiry section is by default empty for new purchase batches until entered by user
+        row.ExpiryDate = default;
+        row.ExpiryText = string.Empty;
 
         row.Recalculate();
         RecalculateTotals();
@@ -718,14 +801,13 @@ public partial class PurchaseEntryViewModel : ObservableObject
         {
             row.ProductId = $"prod_{Guid.NewGuid():N}";
             row.ProductName = trimmed;
-            if (string.IsNullOrWhiteSpace(row.HsnCode)) row.HsnCode = "30049099";
+            // Whenever a new product name is entered to add in inventory, don't add HSN by default
+            row.HsnCode = string.Empty;
             if (row.GstRatePercent <= 0) row.GstRatePercent = SettingsViewModel.GetDefaultGstRate();
             if (row.Quantity <= 0) row.Quantity = 1;
-            if (row.ExpiryDate == default || row.ExpiryDate <= DateTimeOffset.UtcNow)
-            {
-                row.ExpiryDate = DateTimeOffset.UtcNow.AddMonths(24);
-                row.ExpiryText = row.ExpiryDate.ToString("MM/yy");
-            }
+            // Expiry remains empty by default until entered by user
+            row.ExpiryDate = default;
+            row.ExpiryText = string.Empty;
             if (row.SaleRate <= 0 && row.Mrp > 0)
             {
                 row.SaleRate = row.Mrp;
@@ -762,8 +844,20 @@ public partial class PurchaseEntryViewModel : ObservableObject
                 return;
             }
 
-            var prod = ProductSearchItemViewModel.FromDto(results[0]);
-            SelectProductSearch(prod, row);
+            var exact = results.FirstOrDefault(r => string.Equals(r.Name.Trim(), query.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (exact != null)
+            {
+                SelectProductSearch(ProductSearchItemViewModel.FromDto(exact), row);
+                return;
+            }
+
+            if (results[0].Name.StartsWith(query.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                SelectProductSearch(ProductSearchItemViewModel.FromDto(results[0]), row);
+                return;
+            }
+
+            CreateOrApplyCustomProduct(query, row);
         }
         catch
         {
@@ -782,11 +876,14 @@ public partial class PurchaseEntryViewModel : ObservableObject
                 row.ProductId = prod.Id;
                 row.ProductName = prod.Name;
                 row.GenericName = prod.GenericName;
-                row.HsnCode = prod.HsnCode;
+                // If product is already in stock, enter the HSN code by default
+                row.HsnCode = !string.IsNullOrWhiteSpace(prod.HsnCode) ? prod.HsnCode : "30049099";
                 row.GstRatePercent = prod.GstRatePercent > 0 ? prod.GstRatePercent : 12.0m;
                 if (prod.Mrp > 0) row.Mrp = prod.Mrp;
                 if (prod.SaleRate > 0) row.SaleRate = prod.SaleRate;
                 if (row.UnitPrice == 0 && prod.Mrp > 0) row.UnitPrice = Math.Round(prod.Mrp * 0.70m, 2);
+                row.ExpiryDate = default;
+                row.ExpiryText = string.Empty;
                 row.Recalculate();
                 RecalculateTotals();
             }
@@ -838,12 +935,17 @@ public partial class PurchaseEntryViewModel : ObservableObject
             return;
         }
 
-        // Validate batch numbers and quantities
+        // Validate batch numbers, expiry dates, and quantities
         foreach (var item in LineItems)
         {
             if (string.IsNullOrWhiteSpace(item.BatchNumber))
             {
                 StatusMessage = $"⚠️ Batch number is mandatory for '{item.ProductName}'.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(item.ExpiryText) || item.ExpiryDate == default)
+            {
+                StatusMessage = $"⚠️ Expiry date (MM/YY) is mandatory for '{item.ProductName}'.";
                 return;
             }
             if (item.Quantity <= 0)
@@ -905,7 +1007,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
             var result = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(command);
             if (result.Success)
             {
-                StatusMessage = $"✅ Invoice {SupplierInvoiceNo} posted successfully! Inwarded {result.TotalStockAdded} units across {result.BatchesCreatedOrUpdated} batches.";
+                StatusMessage = $"✅ Purchase Bill {SupplierInvoiceNo} saved & posted to Invoices Recorded section! Inwarded {result.TotalStockAdded} units across {result.BatchesCreatedOrUpdated} batches.";
                 LineItems.Clear();
                 AddBlankRow();
                 SupplierInvoiceNo = string.Empty;

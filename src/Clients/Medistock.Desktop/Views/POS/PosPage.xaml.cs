@@ -995,7 +995,7 @@ public sealed partial class PosPage : Page
             return;
         }
 
-        if ((isCtrl && e.Key == VirtualKey.P) || e.Key == VirtualKey.F7)
+        if (isCtrl && e.Key == VirtualKey.P)
         {
             if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Any())
             {
@@ -2763,6 +2763,10 @@ public sealed partial class PosPage : Page
                     catch { }
                 }
             }
+
+            // Immediately save and finalize sale to SQLite so it appears in Sale History
+            await ViewModel.ConfirmPrintPreviewAndSaveAsync();
+            FocusHeaderStart();
         }
         catch (Exception ex)
         {
@@ -2805,7 +2809,7 @@ public sealed partial class PosPage : Page
         if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Any())
         {
             ViewModel.OpenSaveConfirmation();
-            DispatcherQueue.TryEnqueue(() => ConfirmSaveButton.Focus(FocusState.Programmatic));
+            DispatcherQueue.TryEnqueue(() => SaveAndPrintButton.Focus(FocusState.Programmatic));
         }
         else
         {

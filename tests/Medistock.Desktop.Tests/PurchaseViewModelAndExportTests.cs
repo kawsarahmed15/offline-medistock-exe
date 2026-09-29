@@ -84,13 +84,21 @@ public class MockPurchaseService : IPurchaseService
         ));
     }
 
-    public Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, CancellationToken cancellationToken = default)
+    public Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, string period = "All", CancellationToken cancellationToken = default)
     {
+        decimal totalPur = period switch
+        {
+            "Today" => 5000m,
+            "1 Month" => 15000m,
+            _ => 22400m
+        };
+
         return Task.FromResult(new PurchaseKpiSummaryDto(
-            TotalPurchaseAmount: 22400m,
+            TotalPurchaseAmount: totalPur,
             TotalInvoicesCount: 1,
             TotalSuppliersCount: 2,
-            TotalOutstandingPayable: 37000m
+            TotalOutstandingPayable: 37000m,
+            TotalStockValue: 154500m
         ));
     }
 
@@ -246,6 +254,26 @@ public class PurchaseViewModelAndExportTests
     }
 
     [Fact]
+    public async Task PurchaseEntryViewModel_SetPurchasePeriod_Updates_Period_And_KPIs()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        await vm.SetPurchasePeriodCommand.ExecuteAsync("Today");
+        Assert.Equal("Today", vm.SelectedPurchasePeriod);
+        Assert.Equal(5000m, vm.TotalPurchasesAmount);
+
+        await vm.SetPurchasePeriodCommand.ExecuteAsync("1 Month");
+        Assert.Equal("1 Month", vm.SelectedPurchasePeriod);
+        Assert.Equal(15000m, vm.TotalPurchasesAmount);
+
+        await vm.SetPurchasePeriodCommand.ExecuteAsync("All");
+        Assert.Equal("All", vm.SelectedPurchasePeriod);
+        Assert.Equal(22400m, vm.TotalPurchasesAmount);
+    }
+
+    [Fact]
     public async Task PurchaseExportService_Generates_Valid_Excel_Word_And_Pdf_Files()
     {
         var service = new PurchaseExportService();
@@ -337,12 +365,35 @@ public class PurchaseViewModelAndExportTests
     }
 
     [Fact]
-    public void ExpiryText_MMYY_ParsesCorrectExpiryDate()
+    public void PurchaseItemRowViewModel_Defaults_HaveEmptyExpiryAndHsn()
     {
         var row = new PurchaseItemRowViewModel();
+        Assert.Equal(string.Empty, row.ExpiryText);
+        Assert.Equal(default, row.ExpiryDate);
+        Assert.Equal(string.Empty, row.HsnCode);
+    }
+
+    [Fact]
+    public void ExpiryText_MMYY_ParsesCorrectExpiryDate_WithLastDayOfMonth()
+    {
+        var row = new PurchaseItemRowViewModel();
+        // User enters "01/27" -> January 2027, last day is 31
+        row.ExpiryText = "01/27";
+        Assert.Equal(2027, row.ExpiryDate.Year);
+        Assert.Equal(1, row.ExpiryDate.Month);
+        Assert.Equal(31, row.ExpiryDate.Day);
+
+        // "06/27" -> June 2027, last day is 30
         row.ExpiryText = "06/27";
         Assert.Equal(2027, row.ExpiryDate.Year);
         Assert.Equal(6, row.ExpiryDate.Month);
+        Assert.Equal(30, row.ExpiryDate.Day);
+
+        // "02/28" -> February 2028 (leap year), last day is 29
+        row.ExpiryText = "02/28";
+        Assert.Equal(2028, row.ExpiryDate.Year);
+        Assert.Equal(2, row.ExpiryDate.Month);
+        Assert.Equal(29, row.ExpiryDate.Day);
     }
 
     [Fact]
@@ -352,6 +403,7 @@ public class PurchaseViewModelAndExportTests
         row.ExpiryText = "12/2028";
         Assert.Equal(2028, row.ExpiryDate.Year);
         Assert.Equal(12, row.ExpiryDate.Month);
+        Assert.Equal(31, row.ExpiryDate.Day);
     }
 
     [Fact]
@@ -414,10 +466,13 @@ public class PurchaseViewModelAndExportTests
         var row = vm.LineItems[0];
         Assert.Equal(0m, row.DiscountPct);
         Assert.Equal(SettingsViewModel.GetDefaultGstRate(), row.GstRatePercent);
+        Assert.Equal(string.Empty, row.HsnCode);
+        Assert.Equal(string.Empty, row.ExpiryText);
+        Assert.Equal(default, row.ExpiryDate);
     }
 
     [Fact]
-    public async Task SearchMedicinesAsync_PopulatesResultsAndOpensDropdown()
+    public async Task SearchMedicinesAsync_PopulatesResultsAndOpensDropdown_AndSetsHsnForInStockProduct()
     {
         var purchaseService = new MockPurchaseService();
         var searchRepo = new MockProductSearchRepository();
@@ -434,13 +489,17 @@ public class PurchaseViewModelAndExportTests
 
         Assert.False(vm.IsProductSearchOpen);
         Assert.Equal("Dolo 650mg Tablet", row.ProductName);
+        // Existing in-stock product has HSN code populated by default
         Assert.Equal("30049099", row.HsnCode);
         Assert.Equal(30.50m, row.Mrp);
         Assert.Equal(30.50m, row.SaleRate);
+        // Expiry starts empty for new purchase
+        Assert.Equal(string.Empty, row.ExpiryText);
+        Assert.Equal(default, row.ExpiryDate);
     }
 
     [Fact]
-    public void CreateOrApplyCustomProduct_CreatesNewProductRow_WithPharmaDefaults()
+    public void CreateOrApplyCustomProduct_CreatesNewProductRow_WithoutHsnByDefault()
     {
         var purchaseService = new MockPurchaseService();
         var searchRepo = new MockProductSearchRepository();
@@ -452,14 +511,17 @@ public class PurchaseViewModelAndExportTests
         Assert.False(vm.IsProductSearchOpen);
         Assert.Equal("Azithromycin 500mg", row.ProductName);
         Assert.StartsWith("prod_", row.ProductId);
-        Assert.Equal("30049099", row.HsnCode);
+        // New product entered to add in inventory does NOT have HSN code added by default
+        Assert.Equal(string.Empty, row.HsnCode);
         Assert.Equal(SettingsViewModel.GetDefaultGstRate(), row.GstRatePercent);
         Assert.True(row.Quantity >= 1);
-        Assert.True(row.ExpiryDate > DateTimeOffset.UtcNow);
+        // Expiry section is by default empty
+        Assert.Equal(string.Empty, row.ExpiryText);
+        Assert.Equal(default, row.ExpiryDate);
     }
 
     [Fact]
-    public async Task SearchRowProductAsync_WhenNoMatchFound_AutoCreatesCustomProduct()
+    public async Task SearchRowProductAsync_WhenNoMatchFound_AutoCreatesCustomProduct_WithoutHsn()
     {
         var purchaseService = new MockPurchaseService();
         var searchRepo = new MockProductSearchRepository();
@@ -470,7 +532,10 @@ public class PurchaseViewModelAndExportTests
 
         Assert.Equal("Unknown Medicine XYZ 100", row.ProductName);
         Assert.StartsWith("prod_", row.ProductId);
-        Assert.Equal("30049099", row.HsnCode);
+        // New product does NOT have HSN code added by default
+        Assert.Equal(string.Empty, row.HsnCode);
+        Assert.Equal(string.Empty, row.ExpiryText);
+        Assert.Equal(default, row.ExpiryDate);
     }
 
     [Fact]
@@ -506,6 +571,86 @@ public class PurchaseViewModelAndExportTests
         // Verify that parent ViewModel Grand Total and Taxable Subtotal automatically updated in real-time!
         Assert.Equal(900m, vm.TaxableSubtotal);
         Assert.Equal(1008m, vm.GrandTotal);
+    }
+
+    [Fact]
+    public void PurchaseItemRow_BatchNumber_IsAutomaticallyCapitalized()
+    {
+        var row = new PurchaseItemRowViewModel();
+        row.BatchNumber = "abc123xyz";
+        Assert.Equal("ABC123XYZ", row.BatchNumber);
+
+        row.BatchNumber = "batch-test-99";
+        Assert.Equal("BATCH-TEST-99", row.BatchNumber);
+    }
+
+    [Fact]
+    public async Task PurchaseKpis_TotalStockValue_IsLoadedAndFormatted()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        await vm.LoadKpisAsync();
+
+        Assert.Equal(154500m, vm.TotalStockValue);
+        Assert.Equal("₹154,500.00", vm.TotalStockValueFormatted);
+        Assert.Equal(22400m, vm.TotalPurchasesAmount);
+        Assert.Equal(1, vm.TotalInvoicesCount);
+        Assert.Equal(2, vm.TotalSuppliersCount);
+    }
+
+    [Fact]
+    public async Task StatsCardsCommands_ViewPurchasesAndWholesalersAndRefreshStockValue()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        // Clicking Total Purchases or Invoices Recorded switches to History (Inward Invoices Ledger)
+        await vm.ViewPurchasesLedgerCommand.ExecuteAsync(null);
+        Assert.Equal("History", vm.SelectedTab);
+        Assert.Contains("Inward Invoices Ledger", vm.StatusMessage);
+
+        // Clicking Active Wholesalers switches to Suppliers tab (Wholesaler Directory)
+        await vm.ViewWholesalersDirectoryCommand.ExecuteAsync(null);
+        Assert.Equal("Suppliers", vm.SelectedTab);
+        Assert.Contains("Wholesaler Directory", vm.StatusMessage);
+
+        // Clicking Total Stock Value refreshes valuation
+        await vm.RefreshStockValueCommand.ExecuteAsync(null);
+        Assert.Equal(154500m, vm.TotalStockValue);
+        Assert.Contains("Total Stock Valuation updated", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void SupplierSelection_SyncsSupplierSearchText()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        var testSupplier = new SupplierDto(
+            Id: "sup-99",
+            Name: "LifeCare Pharmaceuticals Ltd",
+            Gstin: "27AABCL1234F1Z8",
+            DlNumber: "DL-20B-9988",
+            Phone: "9876543210",
+            Email: "sales@lifecare.com",
+            Address: "Mumbai, MH",
+            CreditDays: 45,
+            CurrentOutstandingBalance: 12000m,
+            IsActive: true
+        );
+
+        vm.OnSupplierSelected(testSupplier);
+
+        Assert.Equal("LifeCare Pharmaceuticals Ltd", vm.SelectedSupplierName);
+        Assert.Equal("LifeCare Pharmaceuticals Ltd", vm.SupplierSearchText);
+        Assert.Equal("27AABCL1234F1Z8", vm.SupplierGstin);
+        Assert.Equal("DL-20B-9988", vm.SupplierDlNumber);
+        Assert.Equal(45, vm.SupplierCreditDays);
+        Assert.Equal(12000m, vm.SupplierOutstandingBalance);
     }
 }
 

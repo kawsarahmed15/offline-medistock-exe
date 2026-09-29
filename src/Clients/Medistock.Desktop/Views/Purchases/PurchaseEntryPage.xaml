@@ -15,8 +15,23 @@
         <ResourceDictionary>
             <SolidColorBrush x:Key="BrandGreen" Color="#059669" />
             <SolidColorBrush x:Key="BrandGreenLight" Color="#15059669" />
+            <SolidColorBrush x:Key="BrandBlue" Color="#2563EB" />
+            <SolidColorBrush x:Key="BrandBlueLight" Color="#152563EB" />
             <SolidColorBrush x:Key="AlertRed" Color="#DC2626" />
             <SolidColorBrush x:Key="AlertRedLight" Color="#15DC2626" />
+
+            <!-- Suppress WinUI 3 TextBox internal clear/delete ('X') buttons in table row cells -->
+            <Style x:Key="TextBoxDeleteButtonStyle" TargetType="Button">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Setter Property="Width" Value="0" />
+                <Setter Property="Height" Value="0" />
+                <Setter Property="Opacity" Value="0" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+            </Style>
+            <x:Double x:Key="TextBoxDeleteButtonWidth">0</x:Double>
+            <x:Double x:Key="TextBoxDeleteButtonHeight">0</x:Double>
+            <Thickness x:Key="TextBoxDeleteButtonMargin">0</Thickness>
+            <Thickness x:Key="TextBoxDeleteButtonThemePadding">0</Thickness>
         </ResourceDictionary>
     </Page.Resources>
 
@@ -42,6 +57,15 @@
 
                 <!-- Export & Quick Actions -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Command="{Binding RefreshAllPurchaseDataCommand}"
+                            ToolTipService.ToolTip="Refresh master data, inward ledger vouchers, and stock valuation [F5]"
+                            Padding="12,6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="🔄" FontSize="13" />
+                            <TextBlock Text="Refresh" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+
                     <Button Command="{Binding OpenAddSupplierModalCommand}"
                             ToolTipService.ToolTip="Register a new medicine wholesaler/distributor"
                             Padding="12,6">
@@ -80,63 +104,104 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 4 KPI Metric Summary Cards -->
+            <!-- 4 Interactive KPI Metric Summary Cards -->
             <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
-                <!-- Card 1: Total Purchases Amount -->
+                <!-- Card 1: Total Purchases Amount with Period Filter -->
                 <Border Grid.Column="0"
                         Background="{ThemeResource SurfaceDefault}"
                         BorderBrush="{ThemeResource BorderDefault}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="TOTAL PURCHASES (GROSS)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                        <TextBlock Text="{Binding TotalPurchasesFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrandGreen}" />
-                        <TextBlock Text="Gross inward goods valuation" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
-                    </StackPanel>
+                        Padding="12,8">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="TOTAL PURCHASES" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                            <!-- Period Filters: Today | 1 Month | All -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                                <Button Content="Today"
+                                        Command="{Binding SetPurchasePeriodCommand}" CommandParameter="Today"
+                                        FontSize="8.5" Padding="5,2" MinHeight="18" MinWidth="0" CornerRadius="3"
+                                        Background="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabBackgroundConverter}, ConverterParameter='Today'}"
+                                        Foreground="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabForegroundConverter}, ConverterParameter='Today'}" />
+                                <Button Content="1 Month"
+                                        Command="{Binding SetPurchasePeriodCommand}" CommandParameter="1 Month"
+                                        FontSize="8.5" Padding="5,2" MinHeight="18" MinWidth="0" CornerRadius="3"
+                                        Background="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabBackgroundConverter}, ConverterParameter='1 Month'}"
+                                        Foreground="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabForegroundConverter}, ConverterParameter='1 Month'}" />
+                                <Button Content="All"
+                                        Command="{Binding SetPurchasePeriodCommand}" CommandParameter="All"
+                                        FontSize="8.5" Padding="5,2" MinHeight="18" MinWidth="0" CornerRadius="3"
+                                        Background="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabBackgroundConverter}, ConverterParameter='All'}"
+                                        Foreground="{Binding SelectedPurchasePeriod, Converter={StaticResource SelectedTabForegroundConverter}, ConverterParameter='All'}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Grid.Row="1" Text="{Binding TotalPurchasesFormatted}" FontSize="19" FontWeight="Bold" Foreground="{StaticResource BrandGreen}" Margin="0,3,0,1" />
+                        <HyperlinkButton Grid.Row="2" Command="{Binding ViewPurchasesLedgerCommand}" Padding="0" Margin="0" HorizontalAlignment="Left" ToolTipService.ToolTip="View Invoices in Ledger">
+                            <StackPanel Orientation="Horizontal" Spacing="3">
+                                <TextBlock Text="Period:" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Text="{Binding SelectedPurchasePeriod}" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Text="• View Ledger ↗" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                    </Grid>
                 </Border>
 
                 <!-- Card 2: Total Invoices Count -->
-                <Border Grid.Column="1"
+                <Button Grid.Column="1"
+                        Command="{Binding ViewPurchasesLedgerCommand}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
                         Background="{ThemeResource SurfaceDefault}"
                         BorderBrush="{ThemeResource BorderDefault}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="14,10">
+                        Padding="14,10"
+                        ToolTipService.ToolTip="Inward GRN ledger vouchers recorded. Click to open Invoices Recorded Ledger.">
                     <StackPanel Orientation="Vertical" Spacing="2">
                         <TextBlock Text="INVOICES RECORDED" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                         <TextBlock Text="{Binding TotalInvoicesCount}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
-                        <TextBlock Text="Inward GRN ledger vouchers" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="Inward GRN ledger vouchers ↗" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- Card 3: Active Suppliers Count -->
-                <Border Grid.Column="2"
+                <Button Grid.Column="2"
+                        Command="{Binding ViewWholesalersDirectoryCommand}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
                         Background="{ThemeResource SurfaceDefault}"
                         BorderBrush="{ThemeResource BorderDefault}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="14,10">
+                        Padding="14,10"
+                        ToolTipService.ToolTip="Enrolled supply chain vendors. Click to open Wholesalers Directory.">
                     <StackPanel Orientation="Vertical" Spacing="2">
                         <TextBlock Text="ACTIVE WHOLESALERS" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                         <TextBlock Text="{Binding TotalSuppliersCount}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
-                        <TextBlock Text="Enrolled supply chain vendors" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="Enrolled supply chain vendors ↗" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                     </StackPanel>
-                </Border>
+                </Button>
 
-                <!-- Card 4: Outstanding Payables -->
-                <Border Grid.Column="3"
+                <!-- Card 4: Total Stock Value (Calculated by Buying Price × Quantity Present) -->
+                <Button Grid.Column="3"
+                        Command="{Binding RefreshStockValueCommand}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
                         Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#80DC2626"
+                        BorderBrush="{StaticResource BrandBlue}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="14,10">
+                        Padding="14,10"
+                        ToolTipService.ToolTip="Calculated by Product Buying Price × Available Quantity. Click to recalculate.">
                     <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="OUTSTANDING PAYABLES" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource AlertRed}" />
-                        <TextBlock Text="{Binding TotalOutstandingPayablesFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AlertRed}" />
-                        <TextBlock Text="Sundry creditor balance dues" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="TOTAL STOCK VALUE" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrandBlue}" />
+                        <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrandBlue}" />
+                        <TextBlock Text="Valuation: Qty × Buying Price 🔄" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                     </StackPanel>
-                </Border>
+                </Button>
             </Grid>
         </Grid>
 
@@ -152,7 +217,7 @@
                         Padding="14,6"
                         CornerRadius="4" />
 
-                <Button Content="📋 Inward Invoices Ledger"
+                <Button Content="📋 Invoices Recorded Ledger"
                         Command="{Binding SelectTabCommand}"
                         CommandParameter="History"
                         Background="{Binding SelectedTab, Converter={StaticResource SelectedTabBackgroundConverter}, ConverterParameter='History'}"
@@ -199,19 +264,32 @@
                     <Grid RowDefinitions="Auto,Auto">
                         <!-- Row 1: Supplier Selector & Invoice Metadata -->
                         <Grid Grid.Row="0" ColumnDefinitions="3*,1.8*,1.4*,1.4*,Auto" ColumnSpacing="12">
-                            <!-- Supplier Dropdown -->
+                            <!-- Supplier Autocomplete Field -->
                             <StackPanel Grid.Column="0" Spacing="3">
-                                <TextBlock Text="WHOLESALER / SUPPLIER *" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <ComboBox x:Name="SupplierComboBox"
-                                          ItemsSource="{Binding Suppliers}"
-                                          SelectedItem="{Binding SelectedSupplier, Mode=TwoWay}"
-                                          DisplayMemberPath="Name"
-                                          SelectionChanged="SupplierComboBox_SelectionChanged"
-                                          DropDownClosed="SupplierComboBox_DropDownClosed"
-                                          PreviewKeyDown="SupplierComboBox_PreviewKeyDown"
-                                          KeyDown="SupplierComboBox_KeyDown"
-                                          HorizontalAlignment="Stretch"
-                                          PlaceholderText="Select Wholesaler..." />
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="WHOLESALER / SUPPLIER *" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Text="(Press Enter for New)" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrandBlue}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                    <AutoSuggestBox x:Name="SupplierAutoSuggestBox"
+                                                    Grid.Column="0"
+                                                    Text="{Binding SupplierSearchText, Mode=TwoWay}"
+                                                    PlaceholderText="Search or type wholesaler (Press Enter for New)..."
+                                                    TextChanged="SupplierAutoSuggestBox_TextChanged"
+                                                    SuggestionChosen="SupplierAutoSuggestBox_SuggestionChosen"
+                                                    QuerySubmitted="SupplierAutoSuggestBox_QuerySubmitted"
+                                                    PreviewKeyDown="SupplierAutoSuggestBox_PreviewKeyDown"
+                                                    HorizontalAlignment="Stretch" />
+                                    <Button Grid.Column="1"
+                                            Content="➕ Add"
+                                            ToolTipService.ToolTip="Register New Medicine Wholesaler [Click or Press Enter]"
+                                            Command="{Binding OpenAddSupplierModalCommand}"
+                                            Background="{StaticResource BrandBlue}"
+                                            Foreground="White"
+                                            FontWeight="SemiBold"
+                                            Padding="8,4"
+                                            FontSize="11" />
+                                </Grid>
                             </StackPanel>
 
                             <!-- Supplier Invoice Number -->
@@ -320,6 +398,21 @@
                                   ItemsSource="{Binding LineItems}"
                                   SelectionMode="None"
                                   Padding="0">
+                            <ListView.Resources>
+                                <ResourceDictionary>
+                                    <Style x:Key="TextBoxDeleteButtonStyle" TargetType="Button">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Width" Value="0" />
+                                        <Setter Property="Height" Value="0" />
+                                        <Setter Property="Opacity" Value="0" />
+                                        <Setter Property="IsHitTestVisible" Value="False" />
+                                    </Style>
+                                    <x:Double x:Key="TextBoxDeleteButtonWidth">0</x:Double>
+                                    <x:Double x:Key="TextBoxDeleteButtonHeight">0</x:Double>
+                                    <Thickness x:Key="TextBoxDeleteButtonMargin">0</Thickness>
+                                    <Thickness x:Key="TextBoxDeleteButtonThemePadding">0</Thickness>
+                                </ResourceDictionary>
+                            </ListView.Resources>
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="Padding" Value="0" />
@@ -348,7 +441,8 @@
 
                                             <!-- Batch Number Input -->
                                             <TextBox Grid.Column="1"
-                                                     Text="{Binding BatchNumber, Mode=TwoWay}"
+                                                     Text="{Binding BatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     CharacterCasing="Upper"
                                                      PreviewKeyDown="RowCell_PreviewKeyDown"
                                                      KeyDown="RowCell_KeyDown"
                                                      Tag="1"
@@ -359,16 +453,17 @@
 
                                             <!-- Expiry MM/YY TextBox -->
                                             <TextBox Grid.Column="2"
-                                                     Text="{Binding ExpiryText, Mode=TwoWay}"
+                                                     Text="{Binding ExpiryText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      PreviewKeyDown="RowCell_PreviewKeyDown"
                                                      KeyDown="RowCell_KeyDown"
+                                                     TextChanged="ExpiryBox_TextChanged"
                                                      LostFocus="ExpiryBox_LostFocus"
                                                      Tag="2"
                                                      Margin="1"
                                                      FontSize="11"
                                                      FontFamily="Consolas, Fira Code, Segoe UI Mono"
                                                      PlaceholderText="MM/YY"
-                                                     MaxLength="7" />
+                                                     MaxLength="5" />
 
                                             <!-- HSN Code -->
                                             <TextBox Grid.Column="3"
@@ -665,6 +760,7 @@
                              PlaceholderText="🔍 Search by Invoice No., Supplier Name, or GSTIN..."
                              Width="380"
                              HorizontalAlignment="Left" />
+                    <TextBlock Grid.Column="1" Text="💡 Select an invoice row and press Enter (or click) to view details" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
                 </Grid>
 
                 <!-- Invoices Ledger Data Table -->
@@ -690,13 +786,18 @@
                                 <TextBlock Grid.Column="6" Text="GST (₹)" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="7" Text="GRAND TOTAL (₹)" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="8" Text="STATUS" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Center" />
-                                <TextBlock Grid.Column="9" Text="ACTIONS" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Center" Width="90" />
+                                <TextBlock Grid.Column="9" Text="ACTION" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Center" Width="70" />
                             </Grid>
                         </Border>
 
-                        <ListView Grid.Row="1"
+                        <ListView x:Name="RecentPurchasesListView"
+                                  Grid.Row="1"
                                   ItemsSource="{Binding FilteredRecentPurchases}"
-                                  SelectionMode="None"
+                                  SelectionMode="Single"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="RecentPurchasesListView_ItemClick"
+                                  KeyDown="RecentPurchasesListView_KeyDown"
+                                  DoubleTapped="RecentPurchasesListView_DoubleTapped"
                                   Padding="0">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
@@ -725,16 +826,11 @@
                                                 <TextBlock Text="{Binding Status}" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrandGreen}" />
                                             </Border>
 
-                                            <!-- Actions -->
-                                            <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Button Content="👁️ Details"
-                                                        FontSize="10"
-                                                        Padding="6,3"
-                                                        Command="{Binding DataContext.ViewInvoiceDetailsCommand, ElementName=PurchasePageRoot}"
-                                                        CommandParameter="{Binding}" />
+                                            <!-- Actions: Details button removed as requested, only Cancel option -->
+                                            <StackPanel Grid.Column="9" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <Button Content="⊘ Cancel"
                                                         FontSize="10"
-                                                        Padding="6,3"
+                                                        Padding="8,3"
                                                         Foreground="#DC2626"
                                                         Visibility="{Binding Status, Converter={StaticResource PostedStatusVisibilityConverter}}"
                                                         Command="{Binding DataContext.RequestCancelInvoiceCommand, ElementName=PurchasePageRoot}"
@@ -934,8 +1030,10 @@
                         <Button Grid.Column="1" Content="✕" Command="{Binding CloseAddSupplierModalCommand}" Padding="6,2" />
                     </Grid>
 
-                    <TextBox Header="Wholesaler / Firm Name *"
+                    <TextBox x:Name="NewSupplierNameBox"
+                             Header="Wholesaler / Firm Name *"
                              Text="{Binding NewSupplierName, Mode=TwoWay}"
+                             Loaded="NewSupplierNameBox_Loaded"
                              PlaceholderText="e.g. Apex Pharma Wholesalers" />
 
                     <Grid ColumnDefinitions="*,*">

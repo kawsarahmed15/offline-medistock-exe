@@ -38,9 +38,55 @@ public class SqliteSaleRepository : ISaleRepository
 
         try
         {
-            // 1. Deduct stock for each line item atomically
+            // 1. Ensure batches & stock balances exist, and deduct stock atomically
             foreach (var item in sale.Items)
             {
+                // Ensure batch exists in batches table
+                const string ensureBatchSql = @"
+                    INSERT OR IGNORE INTO batches (
+                        id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at
+                    ) VALUES (
+                        @BatchId, @ProductId, @OrgId, @BatchNumber, @ExpiryDate, CAST(@Mrp AS REAL), CAST(@UnitPrice AS REAL) * 0.8, CAST(@UnitPrice AS REAL), @CreatedAt
+                    );
+                ";
+                await connection.ExecuteAsync(new CommandDefinition(
+                    ensureBatchSql,
+                    new
+                    {
+                        item.BatchId,
+                        item.ProductId,
+                        sale.OrgId,
+                        item.BatchNumber,
+                        ExpiryDate = item.ExpiryDate.ToString("o"),
+                        Mrp = (double)item.Mrp,
+                        UnitPrice = (double)item.UnitPrice,
+                        CreatedAt = DateTime.UtcNow.ToString("o")
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
+                // Ensure stock_balances record exists for new batches
+                const string ensureStockSql = @"
+                    INSERT OR IGNORE INTO stock_balances (
+                        id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at
+                    ) VALUES (
+                        @Id, @BatchId, @ProductId, @WarehouseId, CAST(@Quantity AS REAL), 0.0, @LastUpdatedAt
+                    );
+                ";
+                await connection.ExecuteAsync(new CommandDefinition(
+                    ensureStockSql,
+                    new
+                    {
+                        Id = $"sb_{item.BatchId}_{sale.WarehouseId}",
+                        item.BatchId,
+                        item.ProductId,
+                        sale.WarehouseId,
+                        Quantity = (double)item.Quantity,
+                        LastUpdatedAt = DateTime.UtcNow.ToString("o")
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
                 var deducted = await _stockRepository.DeductStockAtomicAsync(
                     item.BatchId,
                     sale.WarehouseId,

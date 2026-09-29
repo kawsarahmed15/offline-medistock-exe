@@ -105,6 +105,11 @@ public partial class SalesHistoryViewModel : ObservableObject
             }
 
             StatusMessage = $"Loaded {Sales.Count} sales transactions.";
+
+            if (Sales.Count > 0 && (SelectedSaleSummary == null || !Sales.Any(s => s.Id == SelectedSaleSummary.Id)))
+            {
+                SelectedSaleSummary = Sales[0];
+            }
         }
         catch (Exception ex)
         {

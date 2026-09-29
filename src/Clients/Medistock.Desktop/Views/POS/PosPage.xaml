@@ -654,7 +654,7 @@
         <Border Grid.Row="5" Background="{ThemeResource SurfaceSubtle}" Padding="12,6">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="Shortcuts: [F3] Search | [F2] Add Item | [F6] Pay | [F7/Ctrl+P] Print | [F1] Help" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="Shortcuts: [F3] Search | [F2] Add Item | [F6] Pay | [Ctrl+P] Print | [F7] Sale History | [F1] Help" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
             </Grid>
         </Border>
 

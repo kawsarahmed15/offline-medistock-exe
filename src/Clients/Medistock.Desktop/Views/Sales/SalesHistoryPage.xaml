@@ -13,7 +13,7 @@
         <!-- 1. Header Toolbar -->
         <Grid Grid.Row="0" Background="{ThemeResource SurfaceBackground}" Padding="16,12" ColumnDefinitions="Auto,*,Auto">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
-                <TextBlock Text="SALES HISTORY &amp; RETURNS" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                <TextBlock Text="SALE HISTORY &amp; RETURNS" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
                 <Border Background="{ThemeResource SurfaceSubtle}" CornerRadius="4" Padding="8,4">
                     <TextBlock Text="● Tax Invoices, Credit Notes &amp; Restocking" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                 </Border>

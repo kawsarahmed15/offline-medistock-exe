@@ -112,7 +112,7 @@ public class SqlitePurchaseRepository : IPurchaseRepository
                 )
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
-                    hsn_code = excluded.hsn_code,
+                    hsn_code = CASE WHEN excluded.hsn_code IS NOT NULL AND excluded.hsn_code != '' THEN excluded.hsn_code ELSE products.hsn_code END,
                     gst_rate_percent = excluded.gst_rate_percent;
             ";
 
@@ -726,22 +726,36 @@ public class SqlitePurchaseRepository : IPurchaseRepository
         return invoice;
     }
 
-    public async Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, CancellationToken cancellationToken = default)
+    public async Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, string period = "All", CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        const string sql = @"
+        string dateFilter = period?.ToLowerInvariant() switch
+        {
+            "today" => "AND (date(supplier_invoice_date) = date('now', 'localtime') OR date(created_at) = date('now', 'localtime'))",
+            "1 month" or "1month" or "month" => "AND (date(supplier_invoice_date) >= date('now', '-30 days') OR date(created_at) >= date('now', '-30 days'))",
+            _ => ""
+        };
+
+        string sql = $@"
             SELECT 
                 CAST(IFNULL(SUM(grand_total), 0.0) AS REAL) AS TotalPurchaseAmount,
                 COUNT(1) AS TotalInvoicesCount
             FROM purchase_invoices
-            WHERE org_id = @orgId AND branch_id = @branchId;
+            WHERE org_id = @orgId AND branch_id = @branchId AND status != 2 {dateFilter};
 
             SELECT 
                 COUNT(1) AS TotalSuppliersCount,
                 CAST(IFNULL(SUM(outstanding_balance), 0.0) AS REAL) AS TotalOutstandingPayable
             FROM suppliers
             WHERE org_id = @orgId AND is_active = 1;
+
+            SELECT 
+                CAST(IFNULL(SUM(sb.quantity * (b.purchase_rate * (1.0 + (COALESCE(p.gst_rate_percent, 0.0) / 100.0)))), 0.0) AS REAL) AS TotalStockValue
+            FROM stock_balances sb
+            JOIN batches b ON b.id = sb.batch_id
+            LEFT JOIN products p ON p.id = b.product_id
+            WHERE b.org_id = @orgId AND sb.quantity > 0;
         ";
 
         using var multi = await connection.QueryMultipleAsync(
@@ -749,17 +763,20 @@ public class SqlitePurchaseRepository : IPurchaseRepository
 
         var purRow = await multi.ReadSingleOrDefaultAsync<dynamic>();
         var supRow = await multi.ReadSingleOrDefaultAsync<dynamic>();
+        var stockRow = await multi.ReadSingleOrDefaultAsync<dynamic>();
 
         decimal totalPur = purRow != null ? Convert.ToDecimal(purRow.TotalPurchaseAmount) : 0m;
         int totalInv = purRow != null ? Convert.ToInt32(purRow.TotalInvoicesCount) : 0;
         int totalSup = supRow != null ? Convert.ToInt32(supRow.TotalSuppliersCount) : 0;
         decimal totalPayable = supRow != null ? Convert.ToDecimal(supRow.TotalOutstandingPayable) : 0m;
+        decimal totalStock = stockRow != null ? Convert.ToDecimal(stockRow.TotalStockValue) : 0m;
 
         return new PurchaseKpiSummaryDto(
             TotalPurchaseAmount: totalPur,
             TotalInvoicesCount: totalInv,
             TotalSuppliersCount: totalSup,
-            TotalOutstandingPayable: totalPayable
+            TotalOutstandingPayable: totalPayable,
+            TotalStockValue: totalStock
         );
     }
 
