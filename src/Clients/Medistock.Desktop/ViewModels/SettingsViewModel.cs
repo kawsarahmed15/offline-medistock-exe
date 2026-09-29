@@ -62,6 +62,17 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private decimal _defaultGstRate = 5.0m;
 
+    public double DefaultGstRateDouble
+    {
+        get => (double)DefaultGstRate;
+        set => DefaultGstRate = (decimal)value;
+    }
+
+    partial void OnDefaultGstRateChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(DefaultGstRateDouble));
+    }
+
     [ObservableProperty]
     private string _backupLocation = MedistockPaths.BackupsDirectory;
 

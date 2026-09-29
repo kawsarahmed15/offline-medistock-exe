@@ -316,7 +316,26 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
   - Persisted `BackupLocation` in `user_settings.json` across app sessions.
 - **Verification & Test Status:**
   - `Medistock.sln` built with **0 errors**.
-  - Application launched and verified.
+  ### ✅ Step 19 — Purchase Inward Entry Autocomplete Keyboard Navigation, Real-time Recalculations & Default Settings
+- **1. Product Autocomplete Keyboard Navigation (`PurchaseEntryPage.xaml` & `.xaml.cs`):**
+  - Resolved WinUI 3 Popup auto-dismiss bug by switching `ProductSearchPopup.IsLightDismissEnabled` to `False` and adding outer pointer-press dismissal on the root Page.
+  - Implemented keyboard interceptors (`PreviewKeyDown` and `KeyDown`) on `ProductNameBox`: Arrow Down/Up navigates suggestions smoothly, `Enter` selects highlighted medicine and tabs to Batch field, and `Escape` closes popup.
+  - Added programmatic auto-scroll to keep active search selection visible.
+- **2. Column Trimming & Sale Price Simplification (`PurchaseEntryPage.xaml` & `PurchaseEntryViewModel.cs`):**
+  - Removed "SALE (₹)" column from Purchase Entry data grid header, row inputs, and search dropdown per pharmacy workflow rules where MRP is the sale price (`SaleRate = Mrp`).
+  - Adjusted row grid definitions and keyboard column navigation indexes (`TotalColumns = 11`).
+- **3. Default Settings & GST Configuration Integration (`SettingsViewModel.cs` & `SettingsPage.xaml`):**
+  - Added `DefaultGstRateDouble` to `SettingsViewModel` with safe two-way binding for WinUI `NumberBox.Value`.
+  - Added Default GST Rate input in **Settings → Billing & POS Preferences**, persisting dynamically across sessions.
+  - Initialized new purchase rows and selected products to default to 0% discount and current configured Default GST Rate (`SettingsViewModel.GetDefaultGstRate()`).
+- **4. Real-time Live Calculations (`PurchaseEntryViewModel.cs` & `PurchaseItemRowViewModel`):**
+  - Added `OnRowChanged` callback to `PurchaseItemRowViewModel` invoked upon recalculation.
+  - `LineItems.CollectionChanged` attaches callbacks to all rows.
+  - Immediate dynamic recalculation of row Net Amount, GST amounts, and grand invoice totals as user types into Quantity, Free Qty, Unit Price, MRP, Disc %, or GST %.
+  - Added unit test `RealtimeCalculation_WhenRowInputsChange_UpdatesRowAndInvoiceTotalsAutomatically` (all 56 desktop tests passing).
+- **Verification & Test Status:**
+  - 56 desktop tests passing with 0 errors.
+  - Application built and launched for user verification.
 
 ---
 
@@ -329,6 +348,7 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 | **Phase 4: Multi-Branch & B2B Hub** | ✅ Complete | Inter-branch transfers, Cloud sync engine, B2B Wholesaler commerce, Document generators |
 | **Phase 5: Bill Customization & Hardware** | ✅ Complete | 100% Bill Customizer Studio, Win32 RAW Spooler, WebView2 Print Preview & PDF Downloader |
 | **Phase 6: Backup & Data Management** | ✅ Complete | Configurable local backup directory, native FolderPicker, instant restore, AES-256 cloud backup |
+| **Phase 7: Purchase Inward Enhancements** | ✅ Complete | Arrow key autocomplete navigation, live multi-row recalculations, MRP=Sale sync, default GST |
 
 ---
 
@@ -339,6 +359,7 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
 - [KEYBOARD_SHORTCUTS.md](file:///D:/Projects/Medistock-offlinefirst/KEYBOARD_SHORTCUTS.md) — Full keyboard/input architecture, both keymap profiles, scope system
 - [AGENT.md](file:///D:/Projects/Medistock-offlinefirst/AGENT.md) — Agent operational rules & coding protocols
 - [AGY_STATE.md](file:///D:/Projects/Medistock-offlinefirst/AGY_STATE.md) — Active session state and progress log
+
 
 
 

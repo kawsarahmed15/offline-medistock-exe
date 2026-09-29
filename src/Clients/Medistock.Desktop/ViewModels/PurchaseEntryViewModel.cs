@@ -72,14 +72,43 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private bool _isInterstate = false;
 #pragma warning restore MVVMTK0045
 
+    partial void OnQuantityChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(QuantityDouble));
+        Recalculate();
+    }
+
+    partial void OnFreeQuantityChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(FreeQuantityDouble));
+        Recalculate();
+    }
+
+    partial void OnUnitPriceChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(UnitPriceDouble));
+        Recalculate();
+    }
+
     partial void OnMrpChanged(decimal value)
     {
-        if (SaleRate == 0 || SaleRate == _previousMrp)
-        {
-            SaleRate = value;
-            OnPropertyChanged(nameof(SaleRateDouble));
-        }
+        SaleRate = value; // MRP is the sale price
         _previousMrp = value;
+        OnPropertyChanged(nameof(MrpDouble));
+        OnPropertyChanged(nameof(SaleRate));
+        OnPropertyChanged(nameof(SaleRateDouble));
+        Recalculate();
+    }
+
+    partial void OnDiscountPctChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(DiscountPctDouble));
+        Recalculate();
+    }
+
+    partial void OnGstRatePercentChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(GstRatePercentDouble));
         Recalculate();
     }
 
@@ -107,58 +136,91 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         }
     }
 
-    public decimal QuantityDouble
+    public double QuantityDouble
     {
-        get => Quantity;
-        set { Quantity = value; OnPropertyChanged(); Recalculate(); }
-    }
-
-    public decimal FreeQuantityDouble
-    {
-        get => FreeQuantity;
-        set { FreeQuantity = value; OnPropertyChanged(); Recalculate(); }
-    }
-
-    public decimal UnitPriceDouble
-    {
-        get => UnitPrice;
-        set { UnitPrice = value; OnPropertyChanged(); Recalculate(); }
-    }
-
-    public decimal MrpDouble
-    {
-        get => Mrp;
+        get => (double)Quantity;
         set
         {
-            Mrp = value;
-            OnPropertyChanged();
-            if (SaleRate == 0 || SaleRate == _previousMrp)
+            if (!double.IsNaN(value) && value >= 0)
             {
-                SaleRate = value;
-                OnPropertyChanged(nameof(SaleRate));
-                OnPropertyChanged(nameof(SaleRateDouble));
+                Quantity = (decimal)value;
             }
-            _previousMrp = value;
-            Recalculate();
         }
     }
 
-    public decimal SaleRateDouble
+    public double FreeQuantityDouble
     {
-        get => SaleRate;
-        set { SaleRate = value; OnPropertyChanged(); Recalculate(); }
+        get => (double)FreeQuantity;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                FreeQuantity = (decimal)value;
+            }
+        }
     }
 
-    public decimal DiscountPctDouble
+    public double UnitPriceDouble
     {
-        get => DiscountPct;
-        set { DiscountPct = value; OnPropertyChanged(); Recalculate(); }
+        get => (double)UnitPrice;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                UnitPrice = (decimal)value;
+            }
+        }
     }
 
-    public decimal GstRatePercentDouble
+    public double MrpDouble
     {
-        get => GstRatePercent;
-        set { GstRatePercent = value; OnPropertyChanged(); Recalculate(); }
+        get => (double)Mrp;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                var dec = (decimal)value;
+                Mrp = dec;
+                SaleRate = dec; // MRP is the sale price
+                _previousMrp = dec;
+            }
+        }
+    }
+
+    public double SaleRateDouble
+    {
+        get => (double)SaleRate;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                SaleRate = (decimal)value;
+            }
+        }
+    }
+
+    public double DiscountPctDouble
+    {
+        get => (double)DiscountPct;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                DiscountPct = (decimal)Math.Clamp(value, 0, 100);
+            }
+        }
+    }
+
+    public double GstRatePercentDouble
+    {
+        get => (double)GstRatePercent;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                GstRatePercent = (decimal)Math.Clamp(value, 0, 100);
+            }
+        }
     }
 
     public decimal GrossAmount => Math.Round(Quantity * UnitPrice, 2);
@@ -175,6 +237,8 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     public string LandedCostFormatted => $"₹{LandedCostPerUnit:N2}";
     public string MarginDisplay => $"{MarginPercent}%";
 
+    public Action? OnRowChanged { get; set; }
+
     public void Recalculate()
     {
         OnPropertyChanged(nameof(GrossAmount));
@@ -189,6 +253,7 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         OnPropertyChanged(nameof(NetAmountFormatted));
         OnPropertyChanged(nameof(LandedCostFormatted));
         OnPropertyChanged(nameof(MarginDisplay));
+        OnRowChanged?.Invoke();
     }
 }
 
@@ -349,12 +414,18 @@ public partial class PurchaseEntryViewModel : ObservableObject
         }
     }
 
+    public ProductSearchItemViewModel? SelectedProductSearchItem =>
+        (SelectedProductSearchIndex >= 0 && SelectedProductSearchIndex < ProductSearchResults.Count)
+            ? ProductSearchResults[SelectedProductSearchIndex]
+            : null;
+
     partial void OnSelectedProductSearchIndexChanged(int value)
     {
         for (int i = 0; i < ProductSearchResults.Count; i++)
         {
             ProductSearchResults[i].IsSelected = (i == value);
         }
+        OnPropertyChanged(nameof(SelectedProductSearchItem));
     }
 
     public void MoveSearchSelectionDown()
@@ -402,6 +473,25 @@ public partial class PurchaseEntryViewModel : ObservableObject
         _purchaseService = purchaseService;
         _productSearchRepository = productSearchRepository;
         _exportService = exportService;
+
+        LineItems.CollectionChanged += (s, e) =>
+        {
+            if (e.NewItems != null)
+            {
+                foreach (PurchaseItemRowViewModel row in e.NewItems)
+                {
+                    row.OnRowChanged = RecalculateTotals;
+                }
+            }
+            if (e.OldItems != null)
+            {
+                foreach (PurchaseItemRowViewModel row in e.OldItems)
+                {
+                    row.OnRowChanged = null;
+                }
+            }
+            RecalculateTotals();
+        };
 
         AddBlankRow();
     }
@@ -582,7 +672,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
         row.HsnCode = string.IsNullOrWhiteSpace(item.HsnCode) ? "3004" : item.HsnCode;
         row.GstRatePercent = item.GstRatePercent > 0 ? item.GstRatePercent : SettingsViewModel.GetDefaultGstRate();
         row.Mrp = item.Mrp;
-        row.SaleRate = item.SaleRate > 0 ? item.SaleRate : item.Mrp;
+        row.SaleRate = item.Mrp; // MRP is the sale price
 
         decimal defaultCost = 0m;
         if (item.Batches != null && item.Batches.Count > 0 && item.Batches[0].PurchaseRate > 0)

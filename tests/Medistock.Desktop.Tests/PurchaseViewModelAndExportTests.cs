@@ -383,9 +383,9 @@ public class PurchaseViewModelAndExportTests
         row.Mrp = 50.00m;
         Assert.Equal(50.00m, row.SaleRate);
 
-        row.MrpDouble = 75.50m;
+        row.MrpDouble = 75.50;
         Assert.Equal(75.50m, row.SaleRate);
-        Assert.Equal(75.50m, row.SaleRateDouble);
+        Assert.Equal(75.50, row.SaleRateDouble);
     }
 
     [Fact]
@@ -436,7 +436,7 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("Dolo 650mg Tablet", row.ProductName);
         Assert.Equal("30049099", row.HsnCode);
         Assert.Equal(30.50m, row.Mrp);
-        Assert.Equal(30.00m, row.SaleRate);
+        Assert.Equal(30.50m, row.SaleRate);
     }
 
     [Fact]
@@ -471,6 +471,41 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("Unknown Medicine XYZ 100", row.ProductName);
         Assert.StartsWith("prod_", row.ProductId);
         Assert.Equal("30049099", row.HsnCode);
+    }
+
+    [Fact]
+    public void RealtimeCalculation_WhenRowInputsChange_UpdatesRowAndInvoiceTotalsAutomatically()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.LineItems.Clear();
+        vm.AddBlankRow();
+        var row = vm.LineItems[0];
+
+        // Default discount is 0% and GST is default GST rate (e.g. 5%)
+        Assert.Equal(0m, row.DiscountPct);
+        Assert.Equal(SettingsViewModel.GetDefaultGstRate(), row.GstRatePercent);
+
+        // Edit quantity and cost via double inputs (simulating UI NumberBox typing)
+        row.QuantityDouble = 10;
+        row.UnitPriceDouble = 100;
+        row.MrpDouble = 150;
+        row.DiscountPctDouble = 10; // 10% discount
+        row.GstRatePercentDouble = 12; // 12% GST
+
+        // Verify row calculations
+        Assert.Equal(1000m, row.GrossAmount); // 10 * 100
+        Assert.Equal(100m, row.DiscountAmount); // 10% of 1000
+        Assert.Equal(900m, row.TaxableAmount); // 1000 - 100
+        Assert.Equal(108m, row.GstAmount); // 12% of 900
+        Assert.Equal(1008m, row.NetAmount); // 900 + 108
+        Assert.Equal(150m, row.SaleRate); // MRP is Sale Price
+
+        // Verify that parent ViewModel Grand Total and Taxable Subtotal automatically updated in real-time!
+        Assert.Equal(900m, vm.TaxableSubtotal);
+        Assert.Equal(1008m, vm.GrandTotal);
     }
 }
 

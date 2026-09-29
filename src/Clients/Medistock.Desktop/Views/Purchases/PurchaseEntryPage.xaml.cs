@@ -16,7 +16,15 @@ namespace Medistock.Desktop.Views.Purchases;
 public sealed partial class PurchaseEntryPage : Page
 {
     public PurchaseEntryViewModel ViewModel { get; }
-    private const int TotalColumns = 12; // 0=Product, 1=Batch, 2=Expiry, 3=Hsn, 4=Unit, 5=Qty, 6=Free, 7=Cost, 8=Mrp, 9=Sale, 10=Disc, 11=Gst
+    private const int TotalColumns = 11; // 0=Product, 1=Batch, 2=Expiry, 3=Hsn, 4=Unit, 5=Qty, 6=Free, 7=Cost, 8=Mrp, 9=Disc, 10=Gst
+
+    private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (ViewModel.IsProductSearchOpen)
+        {
+            ViewModel.IsProductSearchOpen = false;
+        }
+    }
 
     public PurchaseEntryPage(PurchaseEntryViewModel viewModel)
     {
@@ -195,10 +203,9 @@ public sealed partial class PurchaseEntryPage : Page
                 if (e.Key == VirtualKey.Down)
                 {
                     ViewModel.MoveSearchSelectionDown();
-                    if (ProductSearchListView != null && ViewModel.SelectedProductSearchIndex >= 0 && ViewModel.SelectedProductSearchIndex < ProductSearchListView.Items.Count)
+                    if (ViewModel.SelectedProductSearchItem != null && ProductSearchListView != null)
                     {
-                        ProductSearchListView.SelectedIndex = ViewModel.SelectedProductSearchIndex;
-                        ProductSearchListView.ScrollIntoView(ProductSearchListView.Items[ViewModel.SelectedProductSearchIndex]);
+                        ProductSearchListView.ScrollIntoView(ViewModel.SelectedProductSearchItem);
                     }
                     e.Handled = true;
                     return;
@@ -206,10 +213,9 @@ public sealed partial class PurchaseEntryPage : Page
                 if (e.Key == VirtualKey.Up)
                 {
                     ViewModel.MoveSearchSelectionUp();
-                    if (ProductSearchListView != null && ViewModel.SelectedProductSearchIndex >= 0 && ViewModel.SelectedProductSearchIndex < ProductSearchListView.Items.Count)
+                    if (ViewModel.SelectedProductSearchItem != null && ProductSearchListView != null)
                     {
-                        ProductSearchListView.SelectedIndex = ViewModel.SelectedProductSearchIndex;
-                        ProductSearchListView.ScrollIntoView(ProductSearchListView.Items[ViewModel.SelectedProductSearchIndex]);
+                        ProductSearchListView.ScrollIntoView(ViewModel.SelectedProductSearchItem);
                     }
                     e.Handled = true;
                     return;
@@ -250,10 +256,61 @@ public sealed partial class PurchaseEntryPage : Page
 
     private async void ProductNameBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (!e.Handled)
+        if (e.Handled) return;
+
+        if (ViewModel.IsProductSearchOpen && ViewModel.ProductSearchResults.Count > 0)
         {
-            await HandleProductNameInputKeyAsync(sender, e);
+            if (e.Key == VirtualKey.Down)
+            {
+                ViewModel.MoveSearchSelectionDown();
+                if (ViewModel.SelectedProductSearchItem != null && ProductSearchListView != null)
+                {
+                    ProductSearchListView.ScrollIntoView(ViewModel.SelectedProductSearchItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Up)
+            {
+                ViewModel.MoveSearchSelectionUp();
+                if (ViewModel.SelectedProductSearchItem != null && ProductSearchListView != null)
+                {
+                    ProductSearchListView.ScrollIntoView(ViewModel.SelectedProductSearchItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Enter)
+            {
+                var (rowIndex, _) = GetRowAndColIndex(sender);
+                var targetRow = (rowIndex >= 0 && rowIndex < ViewModel.LineItems.Count)
+                    ? ViewModel.LineItems[rowIndex]
+                    : (ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[0] : null));
+
+                var tb = sender as TextBox;
+                if (ViewModel.SelectedProductSearchIndex >= 0 && ViewModel.SelectedProductSearchIndex < ViewModel.ProductSearchResults.Count)
+                {
+                    ViewModel.SelectHighlightedProduct(targetRow);
+                }
+                else if (tb != null && !string.IsNullOrWhiteSpace(tb.Text) && targetRow != null)
+                {
+                    ViewModel.CreateOrApplyCustomProduct(tb.Text, targetRow);
+                }
+
+                ViewModel.IsProductSearchOpen = false;
+                FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.IsProductSearchOpen = false;
+                e.Handled = true;
+                return;
+            }
         }
+
+        await HandleProductNameInputKeyAsync(sender, e);
     }
 
     private async Task HandleProductNameInputKeyAsync(object sender, KeyRoutedEventArgs e)
@@ -295,6 +352,7 @@ public sealed partial class PurchaseEntryPage : Page
             {
                 var rowIndex = ViewModel.LineItems.IndexOf(targetRow);
                 ViewModel.SelectHighlightedProduct(targetRow);
+                ViewModel.IsProductSearchOpen = false;
                 if (rowIndex >= 0)
                 {
                     FocusRowColumn(rowIndex, 1);
@@ -323,6 +381,7 @@ public sealed partial class PurchaseEntryPage : Page
             {
                 ViewModel.SelectProductSearch(dto, targetRow);
             }
+            ViewModel.IsProductSearchOpen = false;
             if (rowIndex >= 0)
             {
                 FocusRowColumn(rowIndex, 1);

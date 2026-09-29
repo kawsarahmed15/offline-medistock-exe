@@ -79,7 +79,7 @@
                 <StackPanel Spacing="14">
                     <TextBlock Text="🏥 Pharmacy &amp; Business Information" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
 
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
                         <!-- Store Name -->
                         <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                             <TextBlock Text="Pharmacy / Store Name" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
@@ -104,8 +104,14 @@
                             <TextBox Text="{x:Bind ViewModel.InvoicePrefix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
                         </StackPanel>
 
+                        <!-- Default GST Rate -->
+                        <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Default GST Rate (%) for Purchases / Products" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
+                            <NumberBox Value="{x:Bind ViewModel.DefaultGstRateDouble, Mode=TwoWay}" Minimum="0" Maximum="40" SpinButtonPlacementMode="Inline" Height="32" FontSize="12" />
+                        </StackPanel>
+
                         <!-- Address -->
-                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4">
+                        <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Spacing="4">
                             <TextBlock Text="Store Address (Printed on Invoices)" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextSecondary}" />
                             <TextBox Text="{x:Bind ViewModel.StoreAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Height="32" />
                         </StackPanel>
