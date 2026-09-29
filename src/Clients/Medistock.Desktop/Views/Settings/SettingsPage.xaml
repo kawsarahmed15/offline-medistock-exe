@@ -167,7 +167,7 @@
                     <TextBlock Text="Safeguard your pharmacy data with local zip archives and end-to-end encrypted cloud snapshots." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
 
                     <!-- A. Local Backup & Restore Sub-section -->
-                    <Border Background="{ThemeResource CardBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
+                    <Border Background="{ThemeResource SurfaceBackgroundSecondary}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
                         <StackPanel Spacing="10">
                             <TextBlock Text="💾 Local Backups (.ZIP)" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
                             
@@ -213,7 +213,7 @@
                     </Border>
 
                     <!-- B. Cloud Backup & Restore (AES-256) Sub-section -->
-                    <Border Background="{ThemeResource CardBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
+                    <Border Background="{ThemeResource SurfaceBackgroundSecondary}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14">
                         <StackPanel Spacing="10">
                             <TextBlock Text="☁ Cloud Backups (AES-256 Encrypted)" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
                             <TextBlock Text="Snapshots are encrypted locally with AES-256 before uploading to the server." FontSize="11" Foreground="{ThemeResource TextSecondary}" />
