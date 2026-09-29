@@ -322,6 +322,18 @@ public class InstallerForm : Form
 
             foreach (var entry in archive.Entries)
             {
+                // Skip WebView2 EBWebView cache — it is a runtime-generated user-data
+                // directory created automatically by WebView2 on first launch.
+                // Bundling it causes "Could not find a part of the path" errors during
+                // installation on machines where the nested directory tree doesn't pre-exist.
+                if (entry.FullName.Contains(".WebView2/", StringComparison.OrdinalIgnoreCase) ||
+                    entry.FullName.Contains(".WebView2\\", StringComparison.OrdinalIgnoreCase) ||
+                    entry.FullName.Contains("EBWebView", StringComparison.OrdinalIgnoreCase))
+                {
+                    count++;
+                    continue;
+                }
+
                 if (string.IsNullOrEmpty(entry.Name) && entry.FullName.EndsWith("/"))
                 {
                     var dir = Path.Combine(targetDir, entry.FullName);

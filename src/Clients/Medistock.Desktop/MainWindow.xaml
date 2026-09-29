@@ -50,79 +50,106 @@
                         PaneDisplayMode="LeftCompact"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="False"
+                        IsPaneToggleButtonVisible="True"
+                        CompactPaneLength="52"
+                        OpenPaneLength="240"
                         SelectionChanged="NavView_SelectionChanged">
             <NavigationView.MenuItems>
-                <NavigationViewItem Content="POS Billing [F3]" Tag="pos">
+                <!-- Sales -->
+                <NavigationViewItem Content="Sales [F3]" Tag="pos"
+                                    ToolTipService.ToolTip="Sales — Create bills, apply discounts and print receipts">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Shop" />
+                        <FontIcon Glyph="&#xE7BF;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Purchases &amp; Inward [F4]" Tag="purchases">
+                <!-- Purchases & Inward -->
+                <NavigationViewItem Content="Purchases [F4]" Tag="purchases"
+                                    ToolTipService.ToolTip="Purchases — Record invoices and inward stock from suppliers">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Street" />
+                        <FontIcon Glyph="&#xE8B8;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Inventory &amp; Stock" Tag="inventory">
+                <!-- 📦 Inventory & Stock -->
+                <NavigationViewItem Content="Inventory &amp; Stock" Tag="inventory"
+                                    ToolTipService.ToolTip="Manage medicines, batches, stock levels and search catalog">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Library" />
+                        <FontIcon Glyph="&#xE8F1;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Expiry Risk Engine" Tag="expiry">
+                <!-- ⏰ Expiry Risk -->
+                <NavigationViewItem Content="Expiry Risk Engine" Tag="expiry"
+                                    ToolTipService.ToolTip="Track near-expiry and expired batches to prevent losses">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Clock" />
+                        <FontIcon Glyph="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Schedule Drug Register" Tag="compliance">
+                <!-- 📋 Schedule Drug Register -->
+                <NavigationViewItem Content="Schedule Drug Register" Tag="compliance"
+                                    ToolTipService.ToolTip="H/H1/X schedule drug sales register — compliance &amp; audit log">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Document" />
+                        <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Financial Accounts" Tag="accounting">
+                <!-- 💰 Financial Accounts -->
+                <NavigationViewItem Content="Financial Accounts" Tag="accounting"
+                                    ToolTipService.ToolTip="Party ledgers, outstanding dues, payments received/made">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="AllApps" />
+                        <FontIcon Glyph="&#xE8C6;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Sales History &amp; Returns [F7]" Tag="sales_history">
+                <!-- 🔄 Sales History & Returns -->
+                <NavigationViewItem Content="Sales History &amp; Returns [F7]" Tag="sales_history"
+                                    ToolTipService.ToolTip="View past bills, process returns and credit notes">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Rotate" />
+                        <FontIcon Glyph="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="GST Reports (GSTR-1/2/3B)" Tag="gst_reports">
+                <!-- 🧾 GST Reports -->
+                <NavigationViewItem Content="GST Reports (GSTR-1/2/3B)" Tag="gst_reports"
+                                    ToolTipService.ToolTip="Generate GSTR-1, GSTR-3B and purchase GST reports for filing">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Calculator" />
+                        <FontIcon Glyph="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Stock Transfers (Multi-Branch)" Tag="stock_transfers">
+                <!-- 🔁 Stock Transfers -->
+                <NavigationViewItem Content="Stock Transfers (Multi-Branch)" Tag="stock_transfers"
+                                    ToolTipService.ToolTip="Transfer stock between branches or warehouse locations">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Send" />
+                        <FontIcon Glyph="&#xE8AB;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="B2B Wholesaler Commerce" Tag="b2b_commerce">
+                <!-- 🤝 B2B Wholesale -->
+                <NavigationViewItem Content="B2B Wholesaler Commerce" Tag="b2b_commerce"
+                                    ToolTipService.ToolTip="Manage wholesale orders, buyer accounts and distributor sales">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="World" />
+                        <FontIcon Glyph="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Content="Bill Customizer Studio" Tag="bill_customizer">
+                <!-- 🖨️ Bill Customizer -->
+                <NavigationViewItem Content="Bill Customizer Studio" Tag="bill_customizer"
+                                    ToolTipService.ToolTip="Design bill templates, headers, columns and invoice layout">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Print" />
+                        <FontIcon Glyph="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Settings &amp; Preferences" Tag="settings">
+                <!-- ⚙️ Settings -->
+                <NavigationViewItem Content="Settings &amp; Preferences" Tag="settings"
+                                    ToolTipService.ToolTip="App settings, store profile, backup, updates and seeder">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Setting" />
+                        <FontIcon Glyph="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>

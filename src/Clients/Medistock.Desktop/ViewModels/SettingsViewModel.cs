@@ -116,6 +116,25 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _seedStatusMessage = "";
 
+    // --- Dynamic Background Update Properties ---
+    [ObservableProperty]
+    private bool _isUpdateDownloading;
+
+    [ObservableProperty]
+    private double _updateDownloadPercent;
+
+    [ObservableProperty]
+    private string _updateDownloadProgressText = "";
+
+    [ObservableProperty]
+    private bool _isUpdateReadyToInstall;
+
+    [ObservableProperty]
+    private string _stagedInstallerPath = "";
+
+    [ObservableProperty]
+    private string _availableUpdateVersion = "";
+
     public ObservableCollection<BackupFileInfo> LocalBackups { get; } = new();
     public ObservableCollection<CloudBackupInfo> CloudBackups { get; } = new();
 
@@ -142,6 +161,50 @@ public partial class SettingsViewModel : ObservableObject
         _ = RefreshProductCountAsync();
         _ = RefreshCloudBackupsListAsync();
         _ = PerformAutomatedBackupMaintenanceAsync();
+        InitUpdateStatus();
+    }
+
+    private void InitUpdateStatus()
+    {
+        if (_updateService == null) return;
+
+        _updateService.DownloadProgressChanged += (s, progress) =>
+        {
+            IsUpdateDownloading = !progress.IsCompleted && !progress.IsFailed;
+            UpdateDownloadPercent = progress.Percentage;
+            UpdateDownloadProgressText = progress.StatusMessage;
+
+            if (progress.IsCompleted)
+            {
+                IsUpdateReadyToInstall = true;
+                UpdateStatusMessage = progress.StatusMessage;
+            }
+            else if (progress.IsFailed)
+            {
+                UpdateStatusMessage = progress.StatusMessage;
+            }
+        };
+
+        _updateService.UpdateDownloaded += (s, path) =>
+        {
+            IsUpdateDownloading = false;
+            IsUpdateReadyToInstall = true;
+            StagedInstallerPath = path;
+            UpdateStatusMessage = $"✓ Update is ready to install! Click 'Install & Restart Now' to update without data loss.";
+        };
+
+        _updateService.UpdateAvailable += (s, update) =>
+        {
+            AvailableUpdateVersion = update.Version ?? "";
+            UpdateStatusMessage = $"Update v{update.Version} is available and downloading in background...";
+        };
+
+        if (_updateService.IsUpdateDownloaded(out var existingInstaller))
+        {
+            IsUpdateReadyToInstall = true;
+            StagedInstallerPath = existingInstaller ?? "";
+            UpdateStatusMessage = $"✓ An update is ready to install ({Path.GetFileName(existingInstaller)}).";
+        }
     }
 
     private void InitMedicinePath()
@@ -521,7 +584,15 @@ public partial class SettingsViewModel : ObservableObject
             var res = await _updateService.CheckForUpdateAsync();
             if (res != null && res.UpdateAvailable)
             {
-                UpdateStatusMessage = $"✓ Update v{res.Version} available! Downloading in background...";
+                AvailableUpdateVersion = res.Version ?? "";
+                UpdateStatusMessage = $"✓ Update v{res.Version} is available!";
+
+                // TODO: Re-enable auto-download when ready.
+                // Auto background download is currently disabled.
+                //_ = Task.Run(async () =>
+                //{
+                //    await _updateService.DownloadUpdateAsync(res);
+                //});
             }
             else
             {
@@ -535,6 +606,44 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task DownloadUpdateAsync()
+    {
+        if (_updateService == null) return;
+        var update = _updateService.LastCheckedUpdate;
+        if (update?.UpdateAvailable == true)
+        {
+            _ = Task.Run(async () =>
+            {
+                await _updateService.DownloadUpdateAsync(update);
+            });
+        }
+    }
+
+    [RelayCommand]
+    public async Task ApplyUpdateAndRestartAsync()
+    {
+        if (_updateService == null)
+        {
+            UpdateStatusMessage = "Update service is not available.";
+            return;
+        }
+
+        try
+        {
+            UpdateStatusMessage = "Applying update and restarting Medistock safely...";
+            var success = await _updateService.ApplyUpdateAsync(StagedInstallerPath, restartApp: true);
+            if (!success)
+            {
+                UpdateStatusMessage = "Failed to launch update installer. Please check administrator permissions.";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusMessage = $"Update apply error: {ex.Message}";
         }
     }
 

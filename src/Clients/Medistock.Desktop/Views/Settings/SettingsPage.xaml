@@ -351,30 +351,91 @@
                 </StackPanel>
             </Border>
 
-            <!-- 6. Software Updates & Licensing -->
+            <!-- TODO: Re-enable Software Updates & Activation section when update system is fully working -->
+            <!--
             <Border Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="8" Padding="20,16">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="🔄 Software Updates &amp; Activation" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
-                    
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="🔄 Software Updates &amp; Activation" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
                             <TextBlock Text="{x:Bind ViewModel.LicenseInfo, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" />
-                            <TextBlock Text="Automatic updates run in the background. You can also check manually." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                            <TextBlock Text="Automatic update checking &amp; background resumable downloads are enabled. Your database and data remain 100% safe across updates."
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextSecondary}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                         <Button Grid.Column="1"
                                 Content="🔍 Check for Updates"
                                 Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
                                 Height="36"
-                                Padding="14,0" />
+                                Padding="14,0"
+                                VerticalAlignment="Top" />
                     </Grid>
+
+                    <Border Background="{ThemeResource SurfaceBackgroundSecondary}"
+                            BorderBrush="{ThemeResource BorderDefault}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14"
+                            Visibility="{x:Bind ViewModel.IsUpdateDownloading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <ProgressRing IsActive="True" Width="18" Height="18" Foreground="{ThemeResource AccentPrimary}" />
+                                    <TextBlock Text="📥 Downloading Update in Background (Resumable)..." FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Bind ViewModel.UpdateDownloadPercent, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:F1}%'}"
+                                           FontSize="13"
+                                           FontWeight="Bold"
+                                           Foreground="{ThemeResource AccentPrimary}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <ProgressBar Value="{x:Bind ViewModel.UpdateDownloadPercent, Mode=OneWay}"
+                                         Maximum="100"
+                                         Height="8"
+                                         CornerRadius="4"
+                                         Foreground="{ThemeResource AccentPrimary}" />
+                            <TextBlock Text="{x:Bind ViewModel.UpdateDownloadProgressText, Mode=OneWay}"
+                                       FontSize="11"
+                                       Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{ThemeResource SurfaceSubtle}"
+                            BorderBrush="{ThemeResource AccentPrimary}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14"
+                            Visibility="{x:Bind ViewModel.IsUpdateReadyToInstall, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="🚀 Update Ready for Installation!" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Text="Installer is verified and ready. Updating takes seconds and completely preserves all your sales, medicines, and database records."
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextPrimary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="⚡ Install &amp; Restart Now"
+                                    Command="{x:Bind ViewModel.ApplyUpdateAndRestartCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Height="38"
+                                    Padding="16,0"
+                                    FontWeight="Bold"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
 
                     <TextBlock Text="{x:Bind ViewModel.UpdateStatusMessage, Mode=OneWay}"
                                FontSize="12"
                                Foreground="{ThemeResource AccentPrimary}"
                                FontWeight="SemiBold"
+                               TextWrapping="Wrap"
                                Visibility="{x:Bind ViewModel.UpdateStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}" />
                 </StackPanel>
             </Border>
+            -->
 
             <!-- Action Save Button -->
             <Button Content="💾 Save All Preferences"
