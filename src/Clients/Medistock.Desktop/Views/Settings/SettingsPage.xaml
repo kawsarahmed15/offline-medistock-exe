@@ -198,6 +198,16 @@
                                 </Grid>
                             </StackPanel>
 
+                            <!-- Local Automated Backup Options -->
+                            <StackPanel Spacing="6" Margin="0,4,0,0">
+                                <CheckBox IsChecked="{x:Bind ViewModel.AutoDailyBackup, Mode=TwoWay}"
+                                          Content="Automatic daily local backup (creates backup on startup if not already created today)"
+                                          FontSize="12" />
+                                <CheckBox IsChecked="{x:Bind ViewModel.AutoDeleteBackupsOlderThan7Days, Mode=TwoWay}"
+                                          Content="Automatically delete local backups older than 7 days"
+                                          FontSize="12" />
+                            </StackPanel>
+
                             <!-- Local Actions -->
                             <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
                                 <Button Content="💾 Create Local Backup (ZIP)"
@@ -236,11 +246,18 @@
                     </Border>
 
                     <!-- Status Notification Banner -->
-                    <TextBlock Text="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay}"
-                               FontSize="12"
-                               Foreground="{ThemeResource AccentPrimary}"
-                               FontWeight="SemiBold"
-                               Visibility="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}" />
+                    <Border Background="{ThemeResource SurfaceSubtle}"
+                            BorderBrush="{ThemeResource AccentPrimary}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="12,10"
+                            Visibility="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}">
+                        <TextBlock Text="{x:Bind ViewModel.BackupStatusMessage, Mode=OneWay}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource AccentPrimary}"
+                                   FontWeight="SemiBold" />
+                    </Border>
                 </StackPanel>
             </Border>
 

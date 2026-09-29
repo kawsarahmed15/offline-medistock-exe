@@ -95,51 +95,54 @@ public class LocalBackupService : ILocalBackupService
 
     public async Task<RestoreResult> RestoreFromBackupAsync(string zipPath, CancellationToken ct = default)
     {
-        if (!File.Exists(zipPath))
-            return new RestoreResult(false, "Backup file not found.");
-
-        var tempExtract = Path.Combine(MedistockPaths.TempDirectory, "restore_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempExtract);
-
-        try
+        return await Task.Run(() =>
         {
-            // Validate ZIP structure
-            using (var zip = ZipFile.OpenRead(zipPath))
+            if (!File.Exists(zipPath))
+                return new RestoreResult(false, "Backup file not found.");
+
+            var tempExtract = Path.Combine(MedistockPaths.TempDirectory, "restore_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempExtract);
+
+            try
             {
-                var dbEntry = zip.GetEntry("medistock.db");
-                if (dbEntry == null)
-                    return new RestoreResult(false, "Invalid backup archive: missing medistock.db");
+                // Validate ZIP structure
+                using (var zip = ZipFile.OpenRead(zipPath))
+                {
+                    var dbEntry = zip.GetEntry("medistock.db");
+                    if (dbEntry == null)
+                        return new RestoreResult(false, "Invalid backup archive: missing medistock.db");
+                }
+
+                ZipFile.ExtractToDirectory(zipPath, tempExtract, overwriteFiles: true);
+                var extractedDb = Path.Combine(tempExtract, "medistock.db");
+
+                if (!File.Exists(extractedDb))
+                    return new RestoreResult(false, "Extracted backup database not found.");
+
+                // Clear connection pools so the file lock is released
+                SqliteConnection.ClearAllPools();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                // Replace current DB file
+                File.Copy(extractedDb, MedistockPaths.Database, overwrite: true);
+
+                _logger?.LogInformation("Database restored successfully from {Path}", zipPath);
+                return new RestoreResult(true, null);
             }
-
-            ZipFile.ExtractToDirectory(zipPath, tempExtract, overwriteFiles: true);
-            var extractedDb = Path.Combine(tempExtract, "medistock.db");
-
-            if (!File.Exists(extractedDb))
-                return new RestoreResult(false, "Extracted backup database not found.");
-
-            // Clear connection pools so the file lock is released
-            SqliteConnection.ClearAllPools();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
-            // Replace current DB file
-            File.Copy(extractedDb, MedistockPaths.Database, overwrite: true);
-
-            _logger?.LogInformation("Database restored successfully from {Path}", zipPath);
-            return new RestoreResult(true, null);
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "Failed to restore database from backup");
-            return new RestoreResult(false, ex.Message);
-        }
-        finally
-        {
-            if (Directory.Exists(tempExtract))
+            catch (Exception ex)
             {
-                try { Directory.Delete(tempExtract, recursive: true); } catch { }
+                _logger?.LogError(ex, "Failed to restore database from backup");
+                return new RestoreResult(false, ex.Message);
             }
-        }
+            finally
+            {
+                if (Directory.Exists(tempExtract))
+                {
+                    try { Directory.Delete(tempExtract, recursive: true); } catch { }
+                }
+            }
+        }, ct);
     }
 
     public IReadOnlyList<BackupFileInfo> ListLocalBackups(string? folder = null)
@@ -153,5 +156,56 @@ public class LocalBackupService : ILocalBackupService
             .OrderByDescending(f => f.CreationTime)
             .Select(f => new BackupFileInfo(f.Name, f.FullName, f.CreationTime, f.Length))
             .ToList();
+    }
+
+    public int PruneOldBackups(string? folder = null, int retentionDays = 7)
+    {
+        var targetDir = !string.IsNullOrWhiteSpace(folder) ? folder : MedistockPaths.BackupsDirectory;
+        if (!Directory.Exists(targetDir)) return 0;
+
+        var cutoff = DateTime.Now.AddDays(-retentionDays);
+        int deletedCount = 0;
+
+        foreach (var file in Directory.GetFiles(targetDir, "Medistock_Backup_*.zip"))
+        {
+            try
+            {
+                var fi = new FileInfo(file);
+                if (fi.CreationTime < cutoff && fi.LastWriteTime < cutoff)
+                {
+                    fi.Delete();
+                    deletedCount++;
+                    _logger?.LogInformation("Pruned old backup archive: {FileName}", fi.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to delete old backup file: {File}", file);
+            }
+        }
+
+        return deletedCount;
+    }
+
+    public async Task<string?> CreateDailyBackupIfDueAsync(string? destinationFolder = null, CancellationToken ct = default)
+    {
+        var targetDir = !string.IsNullOrWhiteSpace(destinationFolder) ? destinationFolder : MedistockPaths.BackupsDirectory;
+        if (Directory.Exists(targetDir))
+        {
+            var today = DateTime.Today;
+            var existingBackups = Directory.GetFiles(targetDir, "Medistock_Backup_*.zip")
+                .Select(f => new FileInfo(f))
+                .Where(f => f.CreationTime.Date == today || f.LastWriteTime.Date == today)
+                .ToList();
+
+            if (existingBackups.Count > 0)
+            {
+                _logger?.LogDebug("Daily backup already exists for today ({Count} backup(s) found)", existingBackups.Count);
+                return null;
+            }
+        }
+
+        _logger?.LogInformation("No local backup created today. Creating automatic daily backup...");
+        return await CreateBackupAsync(targetDir, ct);
     }
 }

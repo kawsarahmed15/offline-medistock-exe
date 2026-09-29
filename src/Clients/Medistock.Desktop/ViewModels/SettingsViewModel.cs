@@ -49,6 +49,12 @@ public partial class SettingsViewModel : ObservableObject
     private bool _enableBarcodeAudio = true;
 
     [ObservableProperty]
+    private bool _autoDailyBackup = true;
+
+    [ObservableProperty]
+    private bool _autoDeleteBackupsOlderThan7Days = true;
+
+    [ObservableProperty]
     private int _nearExpiryDays = 90;
 
     [ObservableProperty]
@@ -93,6 +99,7 @@ public partial class SettingsViewModel : ObservableObject
         RefreshBackupsList();
         RefreshLicenseInfo();
         _ = RefreshCloudBackupsListAsync();
+        _ = PerformAutomatedBackupMaintenanceAsync();
     }
 
     public static int GetNearExpiryDays()
@@ -158,6 +165,8 @@ public partial class SettingsViewModel : ObservableObject
                 if (root.TryGetProperty("StoreAddress", out var sa)) StoreAddress = sa.GetString() ?? StoreAddress;
                 if (root.TryGetProperty("InvoicePrefix", out var ip)) InvoicePrefix = ip.GetString() ?? InvoicePrefix;
                 if (root.TryGetProperty("EnableBarcodeAudio", out var ea)) EnableBarcodeAudio = ea.GetBoolean();
+                if (root.TryGetProperty("AutoDailyBackup", out var adb)) AutoDailyBackup = adb.GetBoolean();
+                if (root.TryGetProperty("AutoDeleteBackupsOlderThan7Days", out var adb7)) AutoDeleteBackupsOlderThan7Days = adb7.GetBoolean();
                 if (root.TryGetProperty("NearExpiryDays", out var ned)) NearExpiryDays = ned.GetInt32();
                 if (root.TryGetProperty("DefaultGstRate", out var dgr)) DefaultGstRate = dgr.GetDecimal();
                 if (root.TryGetProperty("BackupLocation", out var blp) && !string.IsNullOrWhiteSpace(blp.GetString()))
@@ -171,6 +180,31 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
         catch { }
+    }
+
+    public async Task PerformAutomatedBackupMaintenanceAsync()
+    {
+        if (_localBackupService == null) return;
+        try
+        {
+            var targetFolder = string.IsNullOrWhiteSpace(BackupLocation) ? MedistockPaths.BackupsDirectory : BackupLocation.Trim();
+
+            if (AutoDeleteBackupsOlderThan7Days)
+            {
+                _localBackupService.PruneOldBackups(targetFolder, retentionDays: 7);
+            }
+
+            if (AutoDailyBackup)
+            {
+                await _localBackupService.CreateDailyBackupIfDueAsync(targetFolder);
+            }
+
+            RefreshBackupsList();
+        }
+        catch
+        {
+            // Non-blocking background maintenance
+        }
     }
 
     [RelayCommand]
@@ -192,6 +226,8 @@ public partial class SettingsViewModel : ObservableObject
                 StoreAddress = StoreAddress,
                 InvoicePrefix = InvoicePrefix,
                 EnableBarcodeAudio = EnableBarcodeAudio,
+                AutoDailyBackup = AutoDailyBackup,
+                AutoDeleteBackupsOlderThan7Days = AutoDeleteBackupsOlderThan7Days,
                 NearExpiryDays = NearExpiryDays,
                 DefaultGstRate = DefaultGstRate,
                 BackupLocation = targetBackupLocation,
