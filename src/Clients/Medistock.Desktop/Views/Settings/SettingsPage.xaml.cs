@@ -6,6 +6,7 @@ namespace Medistock.Desktop.Views.Settings;
 public sealed partial class SettingsPage : Page
 {
     public SettingsViewModel ViewModel { get; }
+    public System.Action? OpenCustomizerRequested { get; set; }
 
     public SettingsPage(SettingsViewModel viewModel)
     {
@@ -15,6 +16,15 @@ public sealed partial class SettingsPage : Page
 
     private void OpenCustomizer_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        this.Frame.Navigate(typeof(BillCustomizerPage));
+        if (OpenCustomizerRequested != null)
+        {
+            OpenCustomizerRequested.Invoke();
+            return;
+        }
+
+        if (this.Frame != null)
+        {
+            this.Frame.Navigate(typeof(BillCustomizerPage));
+        }
     }
 }

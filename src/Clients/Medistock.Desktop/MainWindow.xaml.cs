@@ -261,6 +261,18 @@ public sealed partial class MainWindow : Window
                         var baseSize = Services.TypographyService.ParseFontSize(newFontSize);
                         ApplyFontSize(baseSize);
                     };
+                    settingsPage.OpenCustomizerRequested = () =>
+                    {
+                        ContentFrame.Content = App.Services.GetRequiredService<Views.Settings.BillCustomizerPage>();
+                        foreach (var menuItem in NavView.MenuItems)
+                        {
+                            if (menuItem is NavigationViewItem nvi && (string)nvi.Tag == "bill_customizer")
+                            {
+                                NavView.SelectedItem = nvi;
+                                break;
+                            }
+                        }
+                    };
                     ContentFrame.Content = settingsPage;
                     break;
             }
