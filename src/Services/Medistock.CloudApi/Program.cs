@@ -251,7 +251,10 @@ app.MapPost("/api/v1/b2b/orders/{orderId}/receive", async (
     return Results.Ok(result);
 });
 
-// 5. Update Distribution Endpoints
+// 5. Update Distribution Endpoints & Storage Hub
+var updatesStorageDir = Path.Combine(AppContext.BaseDirectory, "Storage", "Updates");
+Directory.CreateDirectory(updatesStorageDir);
+
 var publishedUpdates = new System.Collections.Concurrent.ConcurrentDictionary<string, PublishUpdateRequest>();
 
 app.MapPost("/api/v1/updates/check", ([FromBody] UpdateCheckRequest req) =>
@@ -283,6 +286,77 @@ app.MapPost("/api/v1/updates/check", ([FromBody] UpdateCheckRequest req) =>
     });
 });
 
+app.MapGet("/api/v1/updates/download/{fileName}", (string fileName) =>
+{
+    var safeFile = Path.GetFileName(fileName);
+    var filePath = Path.Combine(updatesStorageDir, safeFile);
+    if (!File.Exists(filePath))
+    {
+        return Results.NotFound(new { Error = "Update package file not found." });
+    }
+
+    return Results.File(filePath, "application/octet-stream", safeFile);
+});
+
+app.MapPost("/api/v1/admin/updates/upload", async (HttpRequest request) =>
+{
+    if (!request.HasFormContentType)
+        return Results.BadRequest(new { Error = "Expected multipart form content." });
+
+    var form = await request.ReadFormAsync();
+    var file = form.Files.GetFile("updateFile");
+    var version = form["version"].ToString().Trim();
+    var channel = string.IsNullOrWhiteSpace(form["channel"]) ? "stable" : form["channel"].ToString().Trim();
+    var isMandatory = form["isMandatory"].ToString().Equals("true", StringComparison.OrdinalIgnoreCase);
+    var releaseNotes = form["releaseNotes"].ToString();
+
+    if (file == null || file.Length == 0)
+        return Results.BadRequest(new { Error = "Installer .exe file is required." });
+
+    if (string.IsNullOrWhiteSpace(version))
+        return Results.BadRequest(new { Error = "Version number (e.g. 1.0.1) is required." });
+
+    var fileName = $"Medistock-Setup-v{version.Replace('.', '_')}.exe";
+    var targetPath = Path.Combine(updatesStorageDir, fileName);
+
+    await using (var stream = new FileStream(targetPath, FileMode.Create, FileAccess.Write))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    // Compute SHA-256
+    string sha256;
+    await using (var readStream = File.OpenRead(targetPath))
+    {
+        var hashBytes = await System.Security.Cryptography.SHA256.HashDataAsync(readStream);
+        sha256 = Convert.ToHexString(hashBytes);
+    }
+
+    var scheme = request.Scheme;
+    var host = request.Host.Value;
+    var downloadUrl = $"{scheme}://{host}/api/v1/updates/download/{fileName}";
+
+    var updateInfo = new PublishUpdateRequest
+    {
+        Version = version,
+        Channel = channel,
+        IsMandatory = isMandatory,
+        DownloadUrl = downloadUrl,
+        Sha256Hash = sha256,
+        SizeBytes = file.Length,
+        ReleaseNotes = releaseNotes
+    };
+
+    publishedUpdates[version] = updateInfo;
+
+    return Results.Ok(new
+    {
+        Success = true,
+        Message = $"Update v{version} published successfully! All pharmacy clients will now download and install it.",
+        Update = updateInfo
+    });
+});
+
 app.MapPost("/api/v1/admin/updates/publish", ([FromBody] PublishUpdateRequest req) =>
 {
     if (string.IsNullOrWhiteSpace(req.Version) || string.IsNullOrWhiteSpace(req.DownloadUrl))
@@ -293,6 +367,118 @@ app.MapPost("/api/v1/admin/updates/publish", ([FromBody] PublishUpdateRequest re
     publishedUpdates[req.Version] = req;
     return Results.Ok(new { Success = true, Message = $"Version {req.Version} published successfully." });
 });
+
+// Admin Web Console for Push Updates
+app.MapGet("/admin/updates", () => Results.Content(@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Medistock Cloud - Release Update Hub</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #22c55e; --text: #f8fafc; --muted: #94a3b8; --border: #334155; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 30px 20px; display: flex; justify-content: center; }
+        .container { max-width: 680px; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        h1 { margin: 0 0 8px 0; font-size: 22px; color: #fff; display: flex; align-items: center; gap: 10px; }
+        p.subtitle { color: var(--muted); font-size: 13px; margin: 0 0 24px 0; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #e2e8f0; }
+        input[type=""text""], input[type=""file""], textarea, select { width: 100%; box-sizing: border-box; padding: 10px 12px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; }
+        input[type=""file""] { padding: 8px; border-style: dashed; }
+        textarea { height: 80px; resize: vertical; }
+        .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+        button { background: var(--accent); color: #000; border: none; padding: 12px 20px; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; transition: opacity 0.2s; margin-top: 10px; }
+        button:hover { opacity: 0.9; }
+        #status { margin-top: 20px; padding: 12px; border-radius: 6px; display: none; font-size: 13px; font-weight: 600; line-height: 1.5; }
+        .status-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
+        .status-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>🚀 Medistock Update Release Center</h1>
+        <p class=""subtitle"">Upload a new build (.exe installer) and hit the button to push the update to all pharmacy terminals instantly.</p>
+        
+        <form id=""uploadForm"">
+            <div class=""form-group"">
+                <label>Select Installer Executable (.exe)</label>
+                <input type=""file"" id=""updateFile"" name=""updateFile"" accept="".exe"" required>
+            </div>
+            
+            <div class=""form-group"">
+                <label>New Version Number (e.g. 1.0.1, 1.1.0)</label>
+                <input type=""text"" id=""version"" name=""version"" placeholder=""1.0.1"" required>
+            </div>
+
+            <div class=""form-group"">
+                <label>Release Channel</label>
+                <select id=""channel"" name=""channel"">
+                    <option value=""stable"" selected>Stable (All Pharmacies)</option>
+                    <option value=""beta"">Beta (Preview Testers)</option>
+                </select>
+            </div>
+
+            <div class=""form-group"">
+                <label>Release Notes / Changelog</label>
+                <textarea id=""releaseNotes"" name=""releaseNotes"" placeholder=""• Added automatic 7-day backup pruning&#10;• Enhanced billing & GST speed&#10;• Bug fixes""></textarea>
+            </div>
+
+            <div class=""form-group"">
+                <div class=""checkbox-group"">
+                    <input type=""checkbox"" id=""isMandatory"" name=""isMandatory"">
+                    <label for=""isMandatory"" style=""margin-bottom:0; font-weight: normal;"">Mandatory Update (Pharmacies must apply immediately)</label>
+                </div>
+            </div>
+
+            <button type=""submit"" id=""submitBtn"">🚀 Push Update to All Pharmacies</button>
+        </form>
+
+        <div id=""status""></div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            btn.innerText = '⏳ Uploading & Publishing Update...';
+            status.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('updateFile', document.getElementById('updateFile').files[0]);
+            formData.append('version', document.getElementById('version').value);
+            formData.append('channel', document.getElementById('channel').value);
+            formData.append('releaseNotes', document.getElementById('releaseNotes').value);
+            formData.append('isMandatory', document.getElementById('isMandatory').checked);
+
+            try {
+                const res = await fetch('/api/v1/admin/updates/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.Success) {
+                    status.className = 'status-success';
+                    status.innerHTML = '✓ ' + data.Message + '<br><small>SHA256: ' + data.Update.Sha256Hash + '</small>';
+                    status.style.display = 'block';
+                } else {
+                    status.className = 'status-error';
+                    status.innerText = '✗ Error: ' + (data.Error || 'Failed to publish');
+                    status.style.display = 'block';
+                }
+            } catch (err) {
+                status.className = 'status-error';
+                status.innerText = '✗ Network Error: ' + err.message;
+                status.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🚀 Push Update to All Pharmacies';
+            }
+        });
+    </script>
+</body>
+</html>", "text/html"));
 
 // 6. Cloud Backup Storage Hub
 var cloudBackups = new System.Collections.Concurrent.ConcurrentDictionary<string, (CloudBackupInfo Info, byte[] Data)>();
