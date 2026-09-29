@@ -191,7 +191,7 @@ public partial class SettingsViewModel : ObservableObject
 
             if (AutoDeleteBackupsOlderThan7Days)
             {
-                _localBackupService.PruneOldBackups(targetFolder, retentionDays: 7);
+                _localBackupService.PruneOldBackups(targetFolder, maxBackupsToKeep: 7);
             }
 
             if (AutoDailyBackup)

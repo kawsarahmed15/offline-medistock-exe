@@ -10,5 +10,5 @@ public interface ILocalBackupService
     Task<string?> CreateDailyBackupIfDueAsync(string? destinationFolder = null, CancellationToken ct = default);
     Task<RestoreResult> RestoreFromBackupAsync(string zipPath, CancellationToken ct = default);
     IReadOnlyList<BackupFileInfo> ListLocalBackups(string? folder = null);
-    int PruneOldBackups(string? folder = null, int retentionDays = 7);
+    int PruneOldBackups(string? folder = null, int maxBackupsToKeep = 7);
 }

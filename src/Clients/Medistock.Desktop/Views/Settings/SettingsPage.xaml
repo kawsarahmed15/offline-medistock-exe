@@ -204,7 +204,7 @@
                                           Content="Automatic daily local backup (creates backup on startup if not already created today)"
                                           FontSize="12" />
                                 <CheckBox IsChecked="{x:Bind ViewModel.AutoDeleteBackupsOlderThan7Days, Mode=TwoWay}"
-                                          Content="Automatically delete local backups older than 7 days"
+                                          Content="Keep only the latest 7 backups (automatically delete older backup files beyond last 7)"
                                           FontSize="12" />
                             </StackPanel>
 

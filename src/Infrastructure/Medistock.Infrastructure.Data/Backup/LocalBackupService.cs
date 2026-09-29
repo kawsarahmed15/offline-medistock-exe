@@ -158,29 +158,32 @@ public class LocalBackupService : ILocalBackupService
             .ToList();
     }
 
-    public int PruneOldBackups(string? folder = null, int retentionDays = 7)
+    public int PruneOldBackups(string? folder = null, int maxBackupsToKeep = 7)
     {
         var targetDir = !string.IsNullOrWhiteSpace(folder) ? folder : MedistockPaths.BackupsDirectory;
         if (!Directory.Exists(targetDir)) return 0;
 
-        var cutoff = DateTime.Now.AddDays(-retentionDays);
         int deletedCount = 0;
+        var backupFiles = Directory.GetFiles(targetDir, "Medistock_Backup_*.zip")
+            .Select(f => new FileInfo(f))
+            .OrderByDescending(f => f.LastWriteTime > f.CreationTime ? f.LastWriteTime : f.CreationTime)
+            .ToList();
 
-        foreach (var file in Directory.GetFiles(targetDir, "Medistock_Backup_*.zip"))
+        if (backupFiles.Count > maxBackupsToKeep)
         {
-            try
+            var filesToDelete = backupFiles.Skip(maxBackupsToKeep);
+            foreach (var fi in filesToDelete)
             {
-                var fi = new FileInfo(file);
-                if (fi.CreationTime < cutoff && fi.LastWriteTime < cutoff)
+                try
                 {
                     fi.Delete();
                     deletedCount++;
-                    _logger?.LogInformation("Pruned old backup archive: {FileName}", fi.Name);
+                    _logger?.LogInformation("Pruned old backup beyond last {MaxCount} count: {FileName}", maxBackupsToKeep, fi.Name);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogWarning(ex, "Failed to delete old backup file: {File}", file);
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Failed to delete old backup file: {File}", fi.FullName);
+                }
             }
         }
 
