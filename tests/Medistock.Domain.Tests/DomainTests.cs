@@ -120,4 +120,34 @@ public class DomainTests
         Assert.True(product.IsPrescriptionRequired);
         Assert.False(product.IsNarcotic);
     }
+
+    [Fact]
+    public void Sale_WalkInCustomer_FullCashPayment_PostsSuccessfully()
+    {
+        var sale = Sale.Create(
+            "sale-test",
+            "org-1",
+            "branch-1",
+            "counter-1",
+            "wh-1",
+            "cashier-1",
+            "device-1",
+            "INV-9999",
+            customerId: null,
+            customerName: "WALK-IN CUSTOMER",
+            isInterstate: false);
+
+        var item1 = SaleItem.Create("i1", "sale-test", "p1", "Product 1", "b1", "BN1", DateTime.UtcNow.AddDays(100), 1, 900.0m, 900.0m, 12.0m, false, discountPct: 10m);
+        var item2 = SaleItem.Create("i2", "sale-test", "p2", "Product 2", "b2", "BN2", DateTime.UtcNow.AddDays(100), 1, 900.0m, 900.0m, 12.0m, false, discountPct: 10m);
+
+        sale.AddItem(item1);
+        sale.AddItem(item2);
+
+        Assert.Equal(1620.00m, sale.Total);
+
+        sale.AddPayment(SalePayment.Create("pay-1", "sale-test", PaymentMode.Cash, 1620.00m));
+        sale.PostSale();
+
+        Assert.Equal(SaleStatus.Posted, sale.Status);
+    }
 }

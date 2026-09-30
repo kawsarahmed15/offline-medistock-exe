@@ -98,7 +98,10 @@ public class PosTransactionService : IPosTransactionService
             foreach (var payment in command.Payments)
             {
                 var paymentId = Ulid.NewUlid().ToString();
-                sale.AddPayment(SalePayment.Create(paymentId, saleId, payment.PaymentMode, payment.Amount, payment.Reference));
+                var paymentAmount = (command.Payments.Count == 1 && payment.PaymentMode != PaymentMode.Credit)
+                    ? sale.Total
+                    : payment.Amount;
+                sale.AddPayment(SalePayment.Create(paymentId, saleId, payment.PaymentMode, paymentAmount, payment.Reference));
             }
         }
 

@@ -237,4 +237,221 @@ public class PosPartySelectionTests
         Assert.False(vm.IsAmountDetailsModalOpen);
         Assert.Contains("Cart is empty", vm.StatusMessage);
     }
+
+    [Fact]
+    public async Task SelectSaleType_Cash_WithCartItems_CommitsSaleClearsBillAndOpensPrintPrompt()
+    {
+        var vm = CreateVm();
+        var tab = vm.ActiveTab!;
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p1",
+            ProductName = "Dolo 650",
+            BatchId = "b1",
+            BatchNumber = "B100",
+            ExpiryDate = DateTime.UtcNow.AddMonths(12),
+            UnitPrice = 30,
+            Quantity = 2
+        });
+        tab.RecalculateTotals();
+
+        vm.IsSaleTypePromptOpen = true;
+        vm.SelectSaleType(0); // Cash
+
+        // Wait brief delay for async finalize task
+        await Task.Delay(50);
+
+        Assert.False(vm.IsSaleTypePromptOpen);
+        Assert.True(vm.IsPrintPromptOpen);
+        Assert.Empty(tab.CartItems);
+        Assert.Equal("INV-1001", vm.LastCompletedInvoiceNo);
+        Assert.NotNull(_fakePos.LastCommand);
+        Assert.Equal("WALK-IN CUSTOMER", _fakePos.LastCommand.CustomerName);
+        Assert.Null(_fakePos.LastCommand.CustomerId);
+    }
+
+    [Fact]
+    public async Task SelectParty_OnCredit_WithCartItems_CommitsSaleWithCustomerIdAndOpensPrintPrompt()
+    {
+        var vm = CreateVm();
+        var tab = vm.ActiveTab!;
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p2",
+            ProductName = "Azithral 500",
+            BatchId = "b2",
+            BatchNumber = "AZ100",
+            ExpiryDate = DateTime.UtcNow.AddMonths(18),
+            UnitPrice = 120,
+            Quantity = 1
+        });
+        tab.RecalculateTotals();
+
+        var party = new CustomerDto("cust-99", "org-1", "City Clinic", "9876543210", "Main Rd", "Delhi", "Delhi", "110001", "07AAA", "", 50000, 1000, true, DateTime.UtcNow);
+
+        vm.IsPartyPickerOpen = true;
+        vm.SelectParty(party);
+
+        // Wait brief delay for async finalize task
+        await Task.Delay(50);
+
+        Assert.False(vm.IsPartyPickerOpen);
+        Assert.True(vm.IsPrintPromptOpen);
+        Assert.Empty(tab.CartItems);
+        Assert.Null(tab.CustomerId);
+        Assert.Equal("INV-1001", vm.LastCompletedInvoiceNo);
+        Assert.NotNull(_fakePos.LastCommand);
+        Assert.Equal("cust-99", _fakePos.LastCommand.CustomerId);
+        Assert.Equal("CITY CLINIC", _fakePos.LastCommand.CustomerName);
+    }
+
+    [Fact]
+    public void SkipPrint_ClosesPrompt_AndReadyForNextBill()
+    {
+        var vm = CreateVm();
+        vm.IsPrintPromptOpen = true;
+
+        vm.SkipPrint();
+
+        Assert.False(vm.IsPrintPromptOpen);
+        Assert.Contains("Fresh sale ready", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void Tabs_ActiveTabState_HighlightsActiveTabAndHexColors()
+    {
+        var vm = CreateVm();
+        vm.AddNewTab(); // Tab 2
+
+        Assert.Equal(2, vm.InvoiceTabs.Count);
+        Assert.False(vm.InvoiceTabs[0].IsActive);
+        Assert.Equal("#21262D", vm.InvoiceTabs[0].TabBackgroundHex);
+        Assert.True(vm.InvoiceTabs[1].IsActive);
+        Assert.Equal("#0D6EFD", vm.InvoiceTabs[1].TabBackgroundHex);
+        Assert.Equal("#FFFFFF", vm.InvoiceTabs[1].TabForegroundHex);
+    }
+
+    [Fact]
+    public void Tabs_NextTabAndPreviousTab_CyclesTabs()
+    {
+        var vm = CreateVm();
+        vm.AddNewTab(); // Index 1
+        vm.AddNewTab(); // Index 2
+
+        Assert.Equal(3, vm.InvoiceTabs.Count);
+        Assert.Equal(2, vm.ActiveTabIndex);
+
+        vm.NextTab();
+        Assert.Equal(0, vm.ActiveTabIndex);
+        Assert.True(vm.InvoiceTabs[0].IsActive);
+        Assert.False(vm.InvoiceTabs[2].IsActive);
+
+        vm.PreviousTab();
+        Assert.Equal(2, vm.ActiveTabIndex);
+        Assert.True(vm.InvoiceTabs[2].IsActive);
+    }
+
+    [Fact]
+    public void StockValidation_ClampsQuantityToAvailableStock()
+    {
+        var item = new CartItemViewModel
+        {
+            ProductId = "p1",
+            ProductName = "Razo-D",
+            TabsPerStrip = 15,
+            AvailableQuantity = 75 // 5 strips max
+        };
+
+        // Attempting to set 15 strips (225 units) when only 75 units available
+        item.StripQuantityDouble = 15;
+
+        // Must be clamped to 5 strips (75 units)
+        Assert.Equal(5, item.StripQuantity);
+        Assert.Equal(75, item.Quantity);
+    }
+
+    [Fact]
+    public async Task FinalizeSale_OnFailure_OpensSaleErrorModal()
+    {
+        var vm = CreateVm();
+        var tab = vm.ActiveTab!;
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p1",
+            ProductName = "Razo-D",
+            Quantity = 10,
+            UnitPrice = 50,
+            AvailableQuantity = 5 // requested 10 > available 5
+        });
+
+        await vm.FinalizeSaleInternalAsync(showPrintPrompt: true);
+
+        Assert.True(vm.IsSaleErrorModalOpen);
+        Assert.Contains("Insufficient Stock", vm.SaleErrorTitle);
+        Assert.False(vm.IsPrintPromptOpen);
+        Assert.Single(tab.CartItems); // Not cleared!
+    }
+
+    [Fact]
+    public async Task FinalizeSale_WithDualProductsAnd10PercentDiscount_PassesCorrectBillQtyAndTotal()
+    {
+        var vm = CreateVm();
+        var tab = vm.ActiveTab!;
+        tab.CustomerName = "WALK-IN CUSTOMER";
+
+        // Product 1: 1 strip of 10 tabs @ 900
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p1",
+            ProductName = "Medicine Alpha",
+            BatchId = "b1",
+            BatchNumber = "B100",
+            TabsPerStrip = 10,
+            UnitPrice = 900m,
+            StripQuantity = 1,
+            TabQuantity = 0,
+            DiscountPercent = 0
+        });
+
+        // Product 2: 1 strip of 10 tabs @ 900
+        tab.CartItems.Add(new CartItemViewModel
+        {
+            ProductId = "p2",
+            ProductName = "Medicine Beta",
+            BatchId = "b2",
+            BatchNumber = "B200",
+            TabsPerStrip = 10,
+            UnitPrice = 900m,
+            StripQuantity = 1,
+            TabQuantity = 0,
+            DiscountPercent = 0
+        });
+
+        tab.BillDiscountPercent = 10m;
+        tab.RecalculateTotals();
+
+        Assert.Equal(1800m, tab.Subtotal);
+        Assert.Equal(180m, tab.TotalDiscount);
+        Assert.Equal(1620m, tab.GrandTotal);
+
+        // Select Cash payment (0 = Cash)
+        vm.SelectSaleType(0);
+        await Task.Delay(100);
+
+        Assert.NotNull(_fakePos.LastCommand);
+        Assert.Equal(2, _fakePos.LastCommand!.Items.Count);
+        Assert.Equal(1m, _fakePos.LastCommand.Items[0].Quantity);
+        Assert.Equal(900m, _fakePos.LastCommand.Items[0].UnitPrice);
+        Assert.Equal(10m, _fakePos.LastCommand.Items[0].DiscountPercent);
+        Assert.Equal(1m, _fakePos.LastCommand.Items[1].Quantity);
+        Assert.Equal(900m, _fakePos.LastCommand.Items[1].UnitPrice);
+        Assert.Equal(10m, _fakePos.LastCommand.Items[1].DiscountPercent);
+
+        Assert.Single(_fakePos.LastCommand.Payments);
+        Assert.Equal(1620m, _fakePos.LastCommand.Payments[0].Amount);
+        Assert.Equal(PaymentMode.Cash, _fakePos.LastCommand.Payments[0].PaymentMode);
+
+        Assert.True(vm.IsPrintPromptOpen);
+        Assert.Empty(tab.CartItems);
+    }
 }

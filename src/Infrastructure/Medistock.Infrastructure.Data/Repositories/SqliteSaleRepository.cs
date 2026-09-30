@@ -391,10 +391,33 @@ public class SqliteSaleRepository : ISaleRepository
                 }
             }
 
+            decimal creditTotal = 0m;
+            if (sale.Payments != null)
+            {
+                foreach (var p in sale.Payments)
+                {
+                    if (p.PaymentMode == PaymentMode.Credit)
+                    {
+                        creditTotal += p.Amount;
+                    }
+                }
+            }
+
             if (sale.Total > paidAmount)
             {
                 // Balance on credit
-                await PostLine("acc_debtors", "Sundry Debtors (Customers)", sale.Total - paidAmount, 0m);
+                var outstandingCredit = sale.Total - paidAmount;
+                creditTotal += outstandingCredit;
+                await PostLine("acc_debtors", "Sundry Debtors (Customers)", outstandingCredit, 0m);
+            }
+
+            if (!string.IsNullOrWhiteSpace(sale.CustomerId) && creditTotal > 0)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "UPDATE customers SET current_balance = current_balance + @CreditAmount WHERE id = @CustomerId;",
+                    new { CreditAmount = (double)creditTotal, CustomerId = sale.CustomerId },
+                    transaction,
+                    cancellationToken: cancellationToken));
             }
 
             // Credit side: Sales Revenue

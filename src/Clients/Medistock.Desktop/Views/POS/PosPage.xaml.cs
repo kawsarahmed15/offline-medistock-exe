@@ -70,6 +70,13 @@ public sealed partial class PosPage : Page
                     ConfirmPrintPreviewButton.Focus(FocusState.Programmatic);
                 });
             }
+            else if (ev.PropertyName == nameof(PosViewModel.IsSaleErrorModalOpen) && ViewModel.IsSaleErrorModalOpen)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SaleErrorOkButton?.Focus(FocusState.Programmatic);
+                });
+            }
             else if (ev.PropertyName == nameof(PosViewModel.IsPrintPromptOpen) && ViewModel.IsPrintPromptOpen)
             {
                 DispatcherQueue.TryEnqueue(() =>
@@ -342,16 +349,61 @@ public sealed partial class PosPage : Page
 
     private void PosPage_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+        var isAlt = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+        var isShift = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+
+        // Global Tab Forward / Backward Navigation
+        if (isCtrl && !isShift && (e.Key == VirtualKey.Tab || e.Key == VirtualKey.PageDown))
+        {
+            ViewModel.NextTab();
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        if ((isCtrl && isShift && e.Key == VirtualKey.Tab) || (isCtrl && e.Key == VirtualKey.PageUp))
+        {
+            ViewModel.PreviousTab();
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        if (isAlt && !isCtrl && e.Key == VirtualKey.Right)
+        {
+            ViewModel.NextTab();
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        if (isAlt && !isCtrl && e.Key == VirtualKey.Left)
+        {
+            ViewModel.PreviousTab();
+            SearchBox.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        // Modal Keyboard Trap: When Sale Error / Insufficient Stock Alert is open
+        if (ViewModel.IsSaleErrorModalOpen)
+        {
+            if (e.Key == VirtualKey.Escape || e.Key == VirtualKey.Enter || e.Key == VirtualKey.Space)
+            {
+                ViewModel.CloseSaleErrorModal();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+        }
+
         // If an inner control (e.g. NumberBox, TextBox, DiscountBox) already handled this key event,
         // do not let PosPage_KeyDown re-process it as a modal confirmation or navigation action in the same stroke!
         if (e.Handled)
         {
             return;
         }
-
-        var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
-        var isAlt = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
-        var isShift = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
 
         // Modal Keyboard Trap: When Create Party (Customer Ledger) modal is open,
         // completely isolate keyboard focus to the modal. Only Tab, Arrow navigation, Escape, and Enter are permitted.
@@ -673,9 +725,13 @@ public sealed partial class PosPage : Page
 
             if (e.Key == VirtualKey.Number1 || e.Key == VirtualKey.NumberPad1 || e.Key == VirtualKey.C)
             {
+                var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
                 ViewModel.SelectSaleType(0);
-                SearchBox.Focus(FocusState.Programmatic);
-                SearchBox.SelectAll();
+                if (!hadItems)
+                {
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                }
                 e.Handled = true;
                 return;
             }
@@ -688,29 +744,38 @@ public sealed partial class PosPage : Page
             }
             if (e.Key == VirtualKey.Number3 || e.Key == VirtualKey.NumberPad3 || e.Key == VirtualKey.U)
             {
+                var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
                 ViewModel.SelectSaleType(1);
-                SearchBox.Focus(FocusState.Programmatic);
-                SearchBox.SelectAll();
+                if (!hadItems)
+                {
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                }
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Number4 || e.Key == VirtualKey.NumberPad4 || e.Key == VirtualKey.D)
             {
+                var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
                 ViewModel.SelectSaleType(2);
-                SearchBox.Focus(FocusState.Programmatic);
-                SearchBox.SelectAll();
+                if (!hadItems)
+                {
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                }
                 e.Handled = true;
                 return;
             }
             if (e.Key == VirtualKey.Enter)
             {
                 var idx = ViewModel.SelectedSaleTypeIndex;
+                var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
                 ViewModel.SelectSaleType(idx);
                 if (idx == 3)
                 {
                     FocusPartyPicker();
                 }
-                else
+                else if (!hadItems)
                 {
                     SearchBox.Focus(FocusState.Programmatic);
                     SearchBox.SelectAll();
@@ -1091,7 +1156,7 @@ public sealed partial class PosPage : Page
             var focused = FocusManager.GetFocusedElement(this.XamlRoot);
             if (!ReferenceEquals(focused, SearchBox) && !(focused is TextBox) && !IsInsideNumberBox(focused) && !IsInsideComboBox(focused))
             {
-                if (!ViewModel.IsCreateProductModalOpen && !ViewModel.IsSaveConfirmationOpen && !ViewModel.IsAmountDetailsModalOpen && !ViewModel.IsCloseTabConfirmationOpen && !ViewModel.IsShortcutHelpOpen && !ViewModel.IsBatchPickerOpen && !ViewModel.IsPrintPromptOpen && !ViewModel.IsSaleTypePromptOpen && !ViewModel.IsPartyPickerOpen && !ViewModel.IsCreatePartyModalOpen && !ViewModel.IsPrintPreviewOpen)
+                if (!ViewModel.IsCreateProductModalOpen && !ViewModel.IsSaveConfirmationOpen && !ViewModel.IsAmountDetailsModalOpen && !ViewModel.IsCloseTabConfirmationOpen && !ViewModel.IsShortcutHelpOpen && !ViewModel.IsBatchPickerOpen && !ViewModel.IsPrintPromptOpen && !ViewModel.IsSaleTypePromptOpen && !ViewModel.IsPartyPickerOpen && !ViewModel.IsCreatePartyModalOpen && !ViewModel.IsPrintPreviewOpen && !ViewModel.IsSaleErrorModalOpen)
                 {
                     SearchBox.Focus(FocusState.Programmatic);
                     if (!string.IsNullOrEmpty(SearchBox.Text))
@@ -1130,7 +1195,7 @@ public sealed partial class PosPage : Page
             }
 
             // If a modal is open, don't hijack
-            if (ViewModel.IsCreateProductModalOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsSaleTypePromptOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsPrintPreviewOpen)
+            if (ViewModel.IsCreateProductModalOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsSaleTypePromptOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsPrintPreviewOpen || ViewModel.IsSaleErrorModalOpen)
             {
                 return;
             }
@@ -1164,7 +1229,7 @@ public sealed partial class PosPage : Page
 
     private void PageBackground_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (ViewModel.IsSaleTypePromptOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsPrintPreviewOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsCreateProductModalOpen)
+        if (ViewModel.IsSaleTypePromptOpen || ViewModel.IsSaveConfirmationOpen || ViewModel.IsAmountDetailsModalOpen || ViewModel.IsCloseTabConfirmationOpen || ViewModel.IsPrintPreviewOpen || ViewModel.IsPrintPromptOpen || ViewModel.IsShortcutHelpOpen || ViewModel.IsBatchPickerOpen || ViewModel.IsPartyPickerOpen || ViewModel.IsCreatePartyModalOpen || ViewModel.IsCreateProductModalOpen || ViewModel.IsSaleErrorModalOpen)
         {
             return;
         }
@@ -2541,9 +2606,13 @@ public sealed partial class PosPage : Page
 
     private void SaleTypeCash_Click(object sender, RoutedEventArgs e)
     {
+        var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
         ViewModel.SelectSaleType(0);
-        SearchBox.Focus(FocusState.Programmatic);
-        SearchBox.SelectAll();
+        if (!hadItems)
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
+        }
     }
 
     private void SaleTypeCredit_Click(object sender, RoutedEventArgs e)
@@ -2554,16 +2623,24 @@ public sealed partial class PosPage : Page
 
     private void SaleTypeUpi_Click(object sender, RoutedEventArgs e)
     {
+        var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
         ViewModel.SelectSaleType(1);
-        SearchBox.Focus(FocusState.Programmatic);
-        SearchBox.SelectAll();
+        if (!hadItems)
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
+        }
     }
 
     private void SaleTypeCard_Click(object sender, RoutedEventArgs e)
     {
+        var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
         ViewModel.SelectSaleType(2);
-        SearchBox.Focus(FocusState.Programmatic);
-        SearchBox.SelectAll();
+        if (!hadItems)
+        {
+            SearchBox.Focus(FocusState.Programmatic);
+            SearchBox.SelectAll();
+        }
     }
 
     private async Task ConfirmPrintPreviewAsync()
@@ -3267,12 +3344,16 @@ public sealed partial class PosPage : Page
     {
         if (e.ClickedItem is Medistock.Application.Customers.DTOs.CustomerDto customer)
         {
+            var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
             ViewModel.SelectParty(customer);
-            DispatcherQueue.TryEnqueue(() =>
+            if (!hadItems)
             {
-                SearchBox.Focus(FocusState.Programmatic);
-                SearchBox.SelectAll();
-            });
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SearchBox.Focus(FocusState.Programmatic);
+                    SearchBox.SelectAll();
+                });
+            }
         }
     }
 
@@ -3299,6 +3380,7 @@ public sealed partial class PosPage : Page
 
     private void SelectActivePartyAndStartBilling()
     {
+        var hadItems = ViewModel.ActiveTab?.CartItems.Any() == true;
         if (ViewModel.SelectedParty != null)
         {
             ViewModel.SelectParty(ViewModel.SelectedParty);
@@ -3314,11 +3396,14 @@ public sealed partial class PosPage : Page
             return;
         }
 
-        DispatcherQueue.TryEnqueue(() =>
+        if (!hadItems)
         {
-            SearchBox.Focus(FocusState.Programmatic);
-            SearchBox.SelectAll();
-        });
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SearchBox.Focus(FocusState.Programmatic);
+                SearchBox.SelectAll();
+            });
+        }
     }
 
     private async void FocusPartyPicker()
@@ -3482,6 +3567,12 @@ public sealed partial class PosPage : Page
             || ReferenceEquals(element, NewPartyGstinBox)
             || ReferenceEquals(element, CancelCreatePartyButton)
             || ReferenceEquals(element, SaveCreatePartyButton);
+    }
+
+    private void SaleErrorOkButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseSaleErrorModal();
+        SearchBox.Focus(FocusState.Programmatic);
     }
 }
 

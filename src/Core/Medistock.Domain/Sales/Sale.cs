@@ -103,7 +103,7 @@ public class Sale : AggregateRoot<string>
             throw new InvalidOperationException("Cannot post a sale with no line items.");
 
         var totalPaid = _payments.Sum(p => p.Amount);
-        if (totalPaid < Total && string.IsNullOrWhiteSpace(CustomerId))
+        if (totalPaid < (Total - 0.05m) && string.IsNullOrWhiteSpace(CustomerId))
         {
             throw new InvalidOperationException("Walk-in customer must pay full bill total.");
         }

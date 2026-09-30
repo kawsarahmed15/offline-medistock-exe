@@ -28,8 +28,11 @@ public class FakeProductSearchService : IProductSearchService
 
 public class FakePosTransactionService : IPosTransactionService
 {
+    public CommitSaleCommand? LastCommand { get; private set; }
+
     public Task<CommitSaleResult> ProcessSaleAsync(CommitSaleCommand command, CancellationToken cancellationToken = default)
     {
+        LastCommand = command;
         return Task.FromResult(new CommitSaleResult(true, "sale-1", "INV-1001", 100, 100, DateTime.UtcNow, null));
     }
 }

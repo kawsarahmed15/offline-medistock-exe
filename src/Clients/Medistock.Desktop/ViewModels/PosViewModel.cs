@@ -61,6 +61,7 @@ public class CartItemDraftDto
     public int StripsPerBox { get; set; } = 1;
     public int TabsPerStrip { get; set; } = 10;
     public int TotalUnitsPerBox { get; set; } = 10;
+    public decimal AvailableQuantity { get; set; } = 0;
     public decimal StripQuantity { get; set; } = 1;
     public decimal TabQuantity { get; set; } = 0;
     public decimal Quantity { get; set; } = 10;
@@ -206,15 +207,23 @@ public partial class CartItemViewModel : ObservableObject
     public int TabsPerStrip { get; set; } = 10;
     public int TotalUnitsPerBox { get; set; } = 10;
 
+    [ObservableProperty]
+    private decimal _availableQuantity;
+
     private decimal _stripQuantity = 1;
     public decimal StripQuantity
     {
         get => _stripQuantity;
         set
         {
+            var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+            if (AvailableQuantity > 0 && (value * tabsPerStrip + _tabQuantity) > AvailableQuantity)
+            {
+                value = Math.Max(0, Math.Floor((AvailableQuantity - _tabQuantity) / tabsPerStrip));
+            }
             if (SetProperty(ref _stripQuantity, value))
             {
-                _quantity = (value * (TabsPerStrip > 0 ? TabsPerStrip : 10m)) + _tabQuantity;
+                _quantity = (value * tabsPerStrip) + _tabQuantity;
                 OnPropertyChanged(nameof(StripQuantityDouble));
                 OnPropertyChanged(nameof(Quantity));
                 OnPropertyChanged(nameof(QuantityDouble));
@@ -235,8 +244,13 @@ public partial class CartItemViewModel : ObservableObject
             if (value >= 0)
             {
                 var val = (decimal)value;
+                var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+                if (AvailableQuantity > 0 && (val * tabsPerStrip + _tabQuantity) > AvailableQuantity)
+                {
+                    val = Math.Max(0, Math.Floor((AvailableQuantity - _tabQuantity) / tabsPerStrip));
+                }
                 _stripQuantity = val;
-                _quantity = (val * (TabsPerStrip > 0 ? TabsPerStrip : 10m)) + _tabQuantity;
+                _quantity = (val * tabsPerStrip) + _tabQuantity;
                 OnPropertyChanged(nameof(StripQuantity));
                 OnPropertyChanged(nameof(Quantity));
                 OnPropertyChanged(nameof(QuantityDouble));
@@ -255,9 +269,14 @@ public partial class CartItemViewModel : ObservableObject
         get => _tabQuantity;
         set
         {
+            var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+            if (AvailableQuantity > 0 && (_stripQuantity * tabsPerStrip + value) > AvailableQuantity)
+            {
+                value = Math.Max(0, AvailableQuantity - (_stripQuantity * tabsPerStrip));
+            }
             if (SetProperty(ref _tabQuantity, value))
             {
-                _quantity = (_stripQuantity * (TabsPerStrip > 0 ? TabsPerStrip : 10m)) + value;
+                _quantity = (_stripQuantity * tabsPerStrip) + value;
                 OnPropertyChanged(nameof(TabQuantityDouble));
                 OnPropertyChanged(nameof(Quantity));
                 OnPropertyChanged(nameof(QuantityDouble));
@@ -278,8 +297,13 @@ public partial class CartItemViewModel : ObservableObject
             if (value >= 0)
             {
                 var val = (decimal)value;
+                var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+                if (AvailableQuantity > 0 && (_stripQuantity * tabsPerStrip + val) > AvailableQuantity)
+                {
+                    val = Math.Max(0, AvailableQuantity - (_stripQuantity * tabsPerStrip));
+                }
                 _tabQuantity = val;
-                _quantity = (_stripQuantity * (TabsPerStrip > 0 ? TabsPerStrip : 10m)) + val;
+                _quantity = (_stripQuantity * tabsPerStrip) + val;
                 OnPropertyChanged(nameof(TabQuantity));
                 OnPropertyChanged(nameof(Quantity));
                 OnPropertyChanged(nameof(QuantityDouble));
@@ -298,6 +322,10 @@ public partial class CartItemViewModel : ObservableObject
         get => _quantity;
         set
         {
+            if (AvailableQuantity > 0 && value > AvailableQuantity)
+            {
+                value = AvailableQuantity;
+            }
             if (SetProperty(ref _quantity, value))
             {
                 _stripQuantity = value;
@@ -432,6 +460,22 @@ public partial class InvoiceTabViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TabTitle))]
     [NotifyPropertyChangedFor(nameof(DisplayInvoiceNo))]
     private int _tabNumber;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TabBackgroundHex))]
+    [NotifyPropertyChangedFor(nameof(TabBorderHex))]
+    [NotifyPropertyChangedFor(nameof(TabForegroundHex))]
+    [NotifyPropertyChangedFor(nameof(TabBadgeBackgroundHex))]
+    [NotifyPropertyChangedFor(nameof(TabBadgeForegroundHex))]
+    [NotifyPropertyChangedFor(nameof(TabCloseForegroundHex))]
+    private bool _isActive;
+
+    public string TabBackgroundHex => IsActive ? "#0D6EFD" : "#21262D";
+    public string TabBorderHex => IsActive ? "#0B5ED7" : "#30363D";
+    public string TabForegroundHex => IsActive ? "#FFFFFF" : "#94A3B8";
+    public string TabBadgeBackgroundHex => IsActive ? "#FFFFFF" : "#161B22";
+    public string TabBadgeForegroundHex => IsActive ? "#0D6EFD" : "#94A3B8";
+    public string TabCloseForegroundHex => IsActive ? "#FFFFFF" : "#94A3B8";
 
     public string TabId { get; }
     public string TabTitle => $"Bill #{TabNumber}";
@@ -751,9 +795,11 @@ public partial class InvoiceTabViewModel : ObservableObject
         TotalItemsCount = CartItems.Count;
         TotalQuantity = CartItems.Sum(i => i.Quantity);
 
-        // Net Payable is Subtotal minus Total Discount
-        GrandTotal = Math.Max(0m, Subtotal - TotalDiscount);
-        RoundOff = 0m;
+        // Net Payable is Subtotal minus Total Discount with standard rupee rounding
+        var netPayable = Math.Max(0m, Subtotal - TotalDiscount);
+        var roundedPayable = Math.Round(netPayable, 0, MidpointRounding.AwayFromZero);
+        RoundOff = roundedPayable - netPayable;
+        GrandTotal = roundedPayable;
 
         decimal totalCgst = 0m;
         decimal totalSgst = 0m;
@@ -881,8 +927,44 @@ public partial class PosViewModel : ObservableObject
     [ObservableProperty]
     private InvoiceTabViewModel? _activeTab;
 
+    partial void OnActiveTabChanged(InvoiceTabViewModel? value)
+    {
+        UpdateActiveTabState();
+    }
+
+    public void UpdateActiveTabState()
+    {
+        foreach (var tab in InvoiceTabs)
+        {
+            tab.IsActive = (tab == ActiveTab);
+        }
+    }
+
     [ObservableProperty]
     private int _activeTabIndex = 0;
+
+    // Sale Error / Insufficient Stock Alert Modal
+    [ObservableProperty]
+    private bool _isSaleErrorModalOpen = false;
+
+    [ObservableProperty]
+    private string _saleErrorTitle = "Cannot Complete Sale";
+
+    [ObservableProperty]
+    private string _saleErrorMessage = string.Empty;
+
+    [RelayCommand]
+    public void CloseSaleErrorModal()
+    {
+        IsSaleErrorModalOpen = false;
+    }
+
+    public void ShowSaleError(string title, string message)
+    {
+        SaleErrorTitle = title;
+        SaleErrorMessage = message;
+        IsSaleErrorModalOpen = true;
+    }
 
     // MARG ERP Line-Item Loop & Focus State
     [ObservableProperty]
@@ -1341,6 +1423,7 @@ public partial class PosViewModel : ObservableObject
                         StripsPerBox = c.StripsPerBox,
                         TabsPerStrip = c.TabsPerStrip,
                         TotalUnitsPerBox = c.TotalUnitsPerBox,
+                        AvailableQuantity = c.AvailableQuantity,
                         StripQuantity = c.StripQuantity,
                         TabQuantity = c.TabQuantity,
                         Quantity = c.Quantity,
@@ -1414,6 +1497,7 @@ public partial class PosViewModel : ObservableObject
                                     StripsPerBox = itemDto.StripsPerBox,
                                     TabsPerStrip = itemDto.TabsPerStrip,
                                     TotalUnitsPerBox = itemDto.TotalUnitsPerBox,
+                                    AvailableQuantity = itemDto.AvailableQuantity,
                                     StripQuantity = itemDto.StripQuantity,
                                     TabQuantity = itemDto.TabQuantity,
                                     Quantity = itemDto.Quantity,
@@ -1436,6 +1520,7 @@ public partial class PosViewModel : ObservableObject
 
                     ActiveTabIndex = draft.ActiveTabIndex >= 0 && draft.ActiveTabIndex < InvoiceTabs.Count ? draft.ActiveTabIndex : 0;
                     ActiveTab = InvoiceTabs[ActiveTabIndex];
+                    UpdateActiveTabState();
                     return;
                 }
             }
@@ -1451,6 +1536,7 @@ public partial class PosViewModel : ObservableObject
         InvoiceTabs.Add(initialTab);
         ActiveTab = initialTab;
         ActiveTabIndex = 0;
+        UpdateActiveTabState();
     }
 
     partial void OnActiveTabIndexChanged(int value)
@@ -1561,6 +1647,8 @@ public partial class PosViewModel : ObservableObject
         if (InvoiceTabs.Count <= 1) return;
         ActiveTabIndex = (ActiveTabIndex + 1) % InvoiceTabs.Count;
         ActiveTab = InvoiceTabs[ActiveTabIndex];
+        UpdateActiveTabState();
+        SaveDraftState();
         StatusMessage = $"Switched to {ActiveTab.TabTitle}";
     }
 
@@ -1570,6 +1658,8 @@ public partial class PosViewModel : ObservableObject
         if (InvoiceTabs.Count <= 1) return;
         ActiveTabIndex = (ActiveTabIndex - 1 + InvoiceTabs.Count) % InvoiceTabs.Count;
         ActiveTab = InvoiceTabs[ActiveTabIndex];
+        UpdateActiveTabState();
+        SaveDraftState();
         StatusMessage = $"Switched to {ActiveTab.TabTitle}";
     }
 
@@ -1938,11 +2028,28 @@ public partial class PosViewModel : ObservableObject
         var unitPrice = PendingRate > 0 ? (decimal)PendingRate : baseRate;
         var mrp = batch?.Mrp ?? product.Mrp;
 
+        var available = batch != null ? batch.AvailableQuantity : product.AvailableQuantity;
+        if (available <= 0)
+        {
+            StatusMessage = $"⚠️ Cannot add {product.Name}: Batch {batchNo} is OUT OF STOCK (0 units available).";
+            ShowSaleError("Out of Stock", $"Cannot add '{product.Name}' (Batch {batchNo}) because it is OUT OF STOCK (0 units available).");
+            return;
+        }
+
         var packaging = PackagingHelper.Parse(product.PackSizeDescription);
         var strips = (decimal)PendingStripQuantity;
         var tabs = (decimal)PendingTabQuantity;
         var freeQty = (decimal)PendingFreeQuantity;
         var disc = (decimal)PendingDiscountPercent;
+
+        var tabsPerStrip = packaging.TabsPerStrip > 0 ? packaging.TabsPerStrip : 1;
+        var requestedUnits = (strips * tabsPerStrip) + tabs;
+        if (available > 0 && requestedUnits > available)
+        {
+            strips = Math.Max(0, Math.Floor(available / (decimal)tabsPerStrip));
+            tabs = Math.Max(0, available - (strips * (decimal)tabsPerStrip));
+            StatusMessage = $"⚠️ Stock limited: {product.Name} (Batch {batchNo}) has only {available:0.#} available units. Quantity adjusted to {strips:0.#} strips, {tabs:0.#} tabs.";
+        }
 
         var item = new CartItemViewModel
         {
@@ -1960,6 +2067,7 @@ public partial class PosViewModel : ObservableObject
             GstRatePercent = product.GstRatePercent,
             IsColdChain = product.IsColdChain,
             Schedule = product.Schedule,
+            AvailableQuantity = available,
             StripQuantity = strips,
             TabQuantity = tabs,
             FreeQuantity = freeQty,
@@ -2090,7 +2198,14 @@ public partial class PosViewModel : ObservableObject
         }
         else
         {
-            StatusMessage = $"Sale Type set to {ActiveTab?.PaymentMode}. Enter invoice details.";
+            if (ActiveTab != null && ActiveTab.CartItems.Any())
+            {
+                _ = FinalizeSaleInternalAsync(showPrintPrompt: true);
+            }
+            else
+            {
+                StatusMessage = $"Sale Type set to {ActiveTab?.PaymentMode}. Enter invoice details.";
+            }
         }
     }
 
@@ -2170,7 +2285,15 @@ public partial class PosViewModel : ObservableObject
             ActiveTab.CustomerName = target.Name;
             ActiveTab.CustomerMobile = target.Phone ?? string.Empty;
             ClosePartyPicker();
-            StatusMessage = $"Party selected: {target.Name} (Bal: ₹{target.CurrentBalance:N2}). Ready for billing.";
+
+            if (ActiveTab.CartItems.Any())
+            {
+                _ = FinalizeSaleInternalAsync(showPrintPrompt: true);
+            }
+            else
+            {
+                StatusMessage = $"Party selected: {target.Name} (Bal: ₹{target.CurrentBalance:N2}). Ready for billing.";
+            }
         }
     }
 
@@ -2554,6 +2677,7 @@ public partial class PosViewModel : ObservableObject
         ActiveTab.TabNumber = ++_tabCounter;
         ActiveTab.CustomInvoiceNo = string.Empty;
         ActiveTab.CartItems.Clear();
+        ActiveTab.CustomerId = null;
         ActiveTab.CustomerName = "WALK-IN CUSTOMER";
         ActiveTab.CustomerMobile = string.Empty;
         ActiveTab.DoctorName = string.Empty;
@@ -2724,7 +2848,7 @@ public partial class PosViewModel : ObservableObject
             WarehouseId: WarehouseId,
             UserId: CashierName,
             DeviceId: Environment.MachineName,
-            CustomerId: null,
+            CustomerId: string.IsNullOrWhiteSpace(ActiveTab.CustomerId) ? null : ActiveTab.CustomerId,
             CustomerName: customerName,
             IsInterstate: ActiveTab.IsInterstate,
             PrescriptionRef: doctorFormatted,
@@ -2744,13 +2868,18 @@ public partial class PosViewModel : ObservableObject
                     }
                 }
 
+                // If strips/tabs are specified, compute the effective bill quantity matching the unit price
+                var billQty = (c.StripQuantity > 0 || c.TabQuantity > 0)
+                    ? (c.StripQuantity + (c.TabsPerStrip > 0 ? (c.TabQuantity / (decimal)c.TabsPerStrip) : 0m))
+                    : c.Quantity;
+
                 return new CartItemInput(
                     c.ProductId,
                     c.ProductName,
                     c.BatchId,
                     c.BatchNumber,
                     c.ExpiryDate,
-                    c.Quantity,
+                    billQty,
                     c.UnitPrice,
                     c.Mrp,
                     c.GstRatePercent,
@@ -2762,6 +2891,25 @@ public partial class PosViewModel : ObservableObject
                 new SalePaymentInput(ActiveTab.PaymentMode, grandTotal)
             }
         );
+
+        var overstockItem = ActiveTab.CartItems.FirstOrDefault(c =>
+        {
+            var billQty = (c.StripQuantity > 0 || c.TabQuantity > 0)
+                ? (c.StripQuantity + (c.TabsPerStrip > 0 ? (c.TabQuantity / (decimal)c.TabsPerStrip) : 0m))
+                : c.Quantity;
+            return c.AvailableQuantity > 0 && billQty > c.AvailableQuantity;
+        });
+
+        if (overstockItem != null)
+        {
+            var billQty = (overstockItem.StripQuantity > 0 || overstockItem.TabQuantity > 0)
+                ? (overstockItem.StripQuantity + (overstockItem.TabsPerStrip > 0 ? (overstockItem.TabQuantity / (decimal)overstockItem.TabsPerStrip) : 0m))
+                : overstockItem.Quantity;
+            var msg = $"Cannot complete sale for '{overstockItem.ProductName}' (Batch {overstockItem.BatchNumber}).\n\nRequested: {billQty:0.##} units\nAvailable in Stock: {overstockItem.AvailableQuantity:0.##} units\n\nPlease reduce the quantity before completing the sale.";
+            StatusMessage = $"⚠️ Insufficient stock for {overstockItem.ProductName}";
+            ShowSaleError("Insufficient Stock", msg);
+            return;
+        }
 
         try
         {
@@ -2780,11 +2928,13 @@ public partial class PosViewModel : ObservableObject
             else
             {
                 StatusMessage = $"⚠️ Cannot save sale: {result.ErrorMessage}";
+                ShowSaleError("Cannot Complete Sale", result.ErrorMessage ?? "Database rejected transaction.");
             }
         }
         catch (Exception ex)
         {
             StatusMessage = $"⚠️ Error completing sale: {ex.Message}";
+            ShowSaleError("Error Completing Sale", ex.Message);
         }
     }
 }
