@@ -25,7 +25,10 @@ public record StockSummaryItemDto(
     decimal SaleRate,
     decimal StockValueAtMrp,
     decimal StockValueAtCost,
-    decimal MinStockAlert = 10.0m
+    decimal MinStockAlert = 10.0m,
+    decimal GstRatePercent = 0.0m,
+    decimal NetPurchaseRate = 0.0m,
+    string? HsnCode = "3004"
 );
 
 public record ExpiryBandSummaryDto(
@@ -93,4 +96,28 @@ public record ScheduleDrugFilter(
     DrugSchedule? Schedule,
     string? SearchQuery,
     int Limit = 100
+);
+
+public record UpdateProductDetailsCommand(
+    string ProductId,
+    string ProductName,
+    string? GenericName,
+    string? SaltComposition,
+    string? Manufacturer,
+    string? CategoryName,
+    string? HsnCode,
+    decimal GstRatePercent,
+    DrugSchedule Schedule,
+    decimal MinStockAlert,
+    string? BatchId,
+    string? BatchNumber,
+    DateTime? ExpiryDate,
+    decimal? Mrp,
+    decimal? PurchaseRate,
+    decimal? SaleRate
+);
+
+public record UpdateProductDetailsResult(
+    bool Success,
+    string? ErrorMessage = null
 );

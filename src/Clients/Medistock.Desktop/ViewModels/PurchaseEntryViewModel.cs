@@ -288,6 +288,87 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     }
 }
 
+public partial class PurchaseReturnItemRowViewModel : ObservableObject
+{
+#pragma warning disable MVVMTK0045
+    [ObservableProperty]
+    private string _productId = string.Empty;
+
+    [ObservableProperty]
+    private string _productName = string.Empty;
+
+    [ObservableProperty]
+    private string _batchNumber = string.Empty;
+
+    [ObservableProperty]
+    private DateTime _expiryDate;
+
+    [ObservableProperty]
+    private decimal _inwardedQuantity;
+
+    [ObservableProperty]
+    private decimal _availableStock;
+
+    [ObservableProperty]
+    private decimal _maxReturnable;
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    [ObservableProperty]
+    private decimal _returnQuantity;
+
+    [ObservableProperty]
+    private decimal _unitPrice;
+
+    [ObservableProperty]
+    private decimal _discountPct;
+
+    [ObservableProperty]
+    private decimal _gstRatePercent;
+
+    [ObservableProperty]
+    private decimal _netUnitPrice;
+
+    [ObservableProperty]
+    private decimal _netAmount;
+
+    [ObservableProperty]
+    private string _reason = "Damaged / Expired";
+#pragma warning restore MVVMTK0045
+
+    public string ExpiryFormatted => ExpiryDate != default ? ExpiryDate.ToString("MM/yy") : "—";
+    public string NetUnitPriceFormatted => $"₹{NetUnitPrice:N2}";
+    public string NetAmountFormatted => $"₹{NetAmount:N2}";
+
+    public Action? OnChanged { get; set; }
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (value && ReturnQuantity <= 0 && MaxReturnable > 0)
+        {
+            ReturnQuantity = Math.Min(1, MaxReturnable);
+        }
+        Recalculate();
+    }
+
+    partial void OnReturnQuantityChanged(decimal value)
+    {
+        if (value > MaxReturnable)
+            ReturnQuantity = MaxReturnable;
+        if (value > 0 && !IsSelected)
+            IsSelected = true;
+        Recalculate();
+    }
+
+    public void Recalculate()
+    {
+        NetAmount = IsSelected ? Math.Round(ReturnQuantity * NetUnitPrice, 2, MidpointRounding.AwayFromZero) : 0m;
+        OnPropertyChanged(nameof(NetAmountFormatted));
+        OnChanged?.Invoke();
+    }
+}
+
 public partial class PurchaseEntryViewModel : ObservableObject
 {
     private readonly IPurchaseService _purchaseService;
@@ -320,7 +401,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedPurchasePeriod = "All"; // "Today", "1 Month", "All"
 
-    // Inward Header Fields
+    // Inward Header Fields - Empty by default
     [ObservableProperty]
     private SupplierDto? _selectedSupplier;
 
@@ -331,19 +412,67 @@ public partial class PurchaseEntryViewModel : ObservableObject
     private string _selectedSupplierId = string.Empty;
 
     [ObservableProperty]
-    private string _selectedSupplierName = "Apex Pharma Wholesalers & Distributors";
+    private string _selectedSupplierName = string.Empty;
 
     [ObservableProperty]
-    private string _supplierGstin = "07AABCU9603R1ZM";
+    private string _supplierGstin = string.Empty;
 
     [ObservableProperty]
-    private string _supplierDlNumber = "DL-20B-112233";
+    private string _supplierDlNumber = string.Empty;
 
     [ObservableProperty]
-    private int _supplierCreditDays = 30;
+    private int _supplierCreditDays = 0;
 
     [ObservableProperty]
     private decimal _supplierOutstandingBalance = 0;
+
+    // Bill Editing Mode
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SaveButtonText))]
+    [NotifyPropertyChangedFor(nameof(FormHeaderTitle))]
+    private bool _isEditingInvoice = false;
+
+    [ObservableProperty]
+    private string? _editingInvoiceId;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormHeaderTitle))]
+    private string _editingInvoicePurchaseNo = string.Empty;
+
+    public string SaveButtonText => IsEditingInvoice ? "UPDATE PURCHASE BILL [Ctrl+S]" : "POST INVOICE [Ctrl+S]";
+    public string FormHeaderTitle => IsEditingInvoice 
+        ? $"✏️ EDITING PURCHASE BILL ({EditingInvoicePurchaseNo})" 
+        : "New Purchase Inward Entry";
+
+    // Purchase Return (Debit Note) State
+    [ObservableProperty]
+    private bool _isPurchaseReturnModalOpen = false;
+
+    [ObservableProperty]
+    private bool _isPurchaseReturnBillModalOpen = false;
+
+    [ObservableProperty]
+    private PurchaseInvoiceDetailsDto? _returnSourceInvoice;
+
+    [ObservableProperty]
+    private string _returnSourcePurchaseNo = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<PurchaseReturnItemRowViewModel> _returnItems = new();
+
+    [ObservableProperty]
+    private PurchaseReturnBillDto? _currentPurchaseReturnBill;
+
+    [ObservableProperty]
+    private int _totalReturnSelectedItems = 0;
+
+    [ObservableProperty]
+    private decimal _totalReturnQuantity = 0m;
+
+    [ObservableProperty]
+    private decimal _totalReturnAmount = 0m;
+
+    public string TotalReturnAmountFormatted => $"₹{TotalReturnAmount:N2}";
 
     [ObservableProperty]
     private string _supplierInvoiceNo = string.Empty;
@@ -571,6 +700,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
     public async Task ViewWholesalersDirectoryAsync()
     {
         SelectedTab = "Suppliers";
+        await LoadRecentPurchasesAsync();
         await LoadSuppliersAsync();
         StatusMessage = $"🏢 Wholesaler Directory: {Suppliers.Count} active supply chain vendors enrolled.";
     }
@@ -579,15 +709,15 @@ public partial class PurchaseEntryViewModel : ObservableObject
     public async Task RefreshStockValueAsync()
     {
         await LoadKpisAsync();
-        StatusMessage = $"📊 Total Stock Valuation updated: {TotalStockValueFormatted} (calculated as Buying Price × Available Qty).";
+        StatusMessage = $"📊 Total Stock Valuation updated: {TotalStockValueFormatted} (calculated as Buying Price + GST × Available Qty).";
     }
 
     [RelayCommand]
     public async Task RefreshAllPurchaseDataAsync()
     {
         await LoadKpisAsync();
-        await LoadSuppliersAsync();
         await LoadRecentPurchasesAsync();
+        await LoadSuppliersAsync();
         StatusMessage = "🔄 Purchase master data, inward ledger, and stock valuation refreshed successfully.";
     }
 
@@ -626,15 +756,64 @@ public partial class PurchaseEntryViewModel : ObservableObject
             var list = await _purchaseService.GetSuppliersAsync(_orgId);
             Suppliers.Clear();
             FilteredSuppliers.Clear();
-            foreach (var s in list)
+
+            IEnumerable<PurchaseInvoiceSummaryDto> sourceInvoices = _allLoadedInvoices.Count > 0 ? _allLoadedInvoices : RecentPurchases;
+            var allInvoices = sourceInvoices
+                .OrderBy(p => p.CreatedAt)
+                .ToList();
+
+            var invoicePoMap = new Dictionary<string, string>();
+            for (int i = 0; i < allInvoices.Count; i++)
             {
-                Suppliers.Add(s);
-                FilteredSuppliers.Add(s);
+                var poNum = !string.IsNullOrWhiteSpace(allInvoices[i].PurchaseNo)
+                    ? allInvoices[i].PurchaseNo!
+                    : $"PO-{(i + 1):D4}";
+                invoicePoMap[allInvoices[i].Id] = poNum;
             }
 
-            if (Suppliers.Count > 0 && SelectedSupplier == null)
+            foreach (var s in list)
             {
-                OnSupplierSelected(Suppliers[0]);
+                var poNo = s.PurchaseNo;
+                var invNo = s.InvoiceNo ?? s.PurchaseBillNo;
+
+                if (allInvoices.Count > 0)
+                {
+                    var matching = allInvoices
+                        .Where(p => (string.Equals(p.SupplierName, s.Name, StringComparison.OrdinalIgnoreCase) ||
+                                     (!string.IsNullOrWhiteSpace(s.Gstin) && string.Equals(p.SupplierGstin, s.Gstin, StringComparison.OrdinalIgnoreCase)))
+                                    && p.Status != PurchaseInvoiceStatus.Cancelled)
+                        .ToList();
+
+                    if (matching.Count > 0)
+                    {
+                        if (string.IsNullOrWhiteSpace(poNo))
+                        {
+                            var pos = matching
+                                .Select(m => invoicePoMap.TryGetValue(m.Id, out var po) ? po : m.PurchaseNo)
+                                .Where(p => !string.IsNullOrWhiteSpace(p))
+                                .Distinct()
+                                .ToList();
+                            if (pos.Count > 0)
+                                poNo = string.Join(", ", pos);
+                        }
+
+                        if (string.IsNullOrWhiteSpace(invNo))
+                        {
+                            var invs = matching
+                                .Select(m => m.SupplierInvoiceNo)
+                                .Where(no => !string.IsNullOrWhiteSpace(no))
+                                .Distinct()
+                                .ToList();
+                            if (invs.Count > 0)
+                                invNo = string.Join(", ", invs);
+                        }
+                    }
+                }
+
+                var finalSupplier = s with { PurchaseNo = poNo, InvoiceNo = invNo };
+
+                Suppliers.Add(finalSupplier);
+                FilteredSuppliers.Add(finalSupplier);
             }
         }
         catch { }
@@ -692,19 +871,105 @@ public partial class PurchaseEntryViewModel : ObservableObject
     [RelayCommand]
     public void AddNewRow() => AddBlankRow();
 
+    private readonly Stack<(int Index, PurchaseItemRowViewModel Row)> _undoDeletedRows = new();
+
+    public int UndoCount => _undoDeletedRows.Count;
+
     [RelayCommand]
-    public void RemoveRow(PurchaseItemRowViewModel row)
+    public void RemoveRow(PurchaseItemRowViewModel? row)
     {
+        var target = row ?? ActiveRow;
+        if (target == null && LineItems.Count > 0)
+        {
+            var sel = Math.Clamp(ActiveRowIndex >= 0 ? ActiveRowIndex : 0, 0, LineItems.Count - 1);
+            target = LineItems[sel];
+        }
+        if (target == null) return;
+
+        var idx = LineItems.IndexOf(target);
+        if (idx < 0) return;
+
+        // Snapshot row for undo
+        var snapshot = CloneRow(target);
+        _undoDeletedRows.Push((idx, snapshot));
+
         if (LineItems.Count > 1)
         {
-            var idx = LineItems.IndexOf(row);
-            LineItems.Remove(row);
-            if (ActiveRowIndex >= LineItems.Count)
-            {
-                ActiveRowIndex = LineItems.Count - 1;
-            }
-            RecalculateTotals();
+            LineItems.RemoveAt(idx);
+            ActiveRowIndex = Math.Clamp(idx, 0, LineItems.Count - 1);
         }
+        else
+        {
+            // If it's the last row, reset it to blank
+            LineItems.Clear();
+            AddBlankRow();
+            ActiveRowIndex = 0;
+        }
+
+        RecalculateTotals();
+        var displayName = !string.IsNullOrWhiteSpace(snapshot.ProductName) ? snapshot.ProductName : "Medicine";
+        StatusMessage = $"🗑️ Row removed ({displayName}). Press [Ctrl+Z] to undo.";
+    }
+
+    public static bool IsBlankRow(PurchaseItemRowViewModel row)
+    {
+        return string.IsNullOrWhiteSpace(row.ProductName) &&
+               string.IsNullOrWhiteSpace(row.BatchNumber) &&
+               string.IsNullOrWhiteSpace(row.ExpiryText) &&
+               row.UnitPrice <= 0;
+    }
+
+    [RelayCommand]
+    public void UndoRemoveRow()
+    {
+        if (_undoDeletedRows.Count == 0)
+        {
+            StatusMessage = "ℹ️ Nothing to undo.";
+            return;
+        }
+
+        var (idx, restored) = _undoDeletedRows.Pop();
+
+        // If table currently has just 1 empty/blank row, clear it before restoring
+        if (LineItems.Count == 1 && IsBlankRow(LineItems[0]))
+        {
+            LineItems.Clear();
+        }
+
+        restored.OnRowChanged = RecalculateTotals;
+        restored.PropertyChanged += (s, e) => RecalculateTotals();
+
+        var insertIndex = Math.Clamp(idx, 0, LineItems.Count);
+        LineItems.Insert(insertIndex, restored);
+        ActiveRowIndex = insertIndex;
+        RecalculateTotals();
+
+        var displayName = !string.IsNullOrWhiteSpace(restored.ProductName) ? restored.ProductName : "Medicine";
+        StatusMessage = $"↩️ Restored '{displayName}' at row {insertIndex + 1} (Undo).";
+    }
+
+    public static PurchaseItemRowViewModel CloneRow(PurchaseItemRowViewModel src)
+    {
+        return new PurchaseItemRowViewModel
+        {
+            ProductId = src.ProductId,
+            ProductName = src.ProductName,
+            GenericName = src.GenericName,
+            HsnCode = src.HsnCode,
+            Unit = src.Unit,
+            PackUnits = src.PackUnits,
+            BatchNumber = src.BatchNumber,
+            ExpiryDate = src.ExpiryDate,
+            ExpiryText = src.ExpiryText,
+            Quantity = src.Quantity,
+            FreeQuantity = src.FreeQuantity,
+            UnitPrice = src.UnitPrice,
+            Mrp = src.Mrp,
+            SaleRate = src.SaleRate,
+            DiscountPct = src.DiscountPct,
+            GstRatePercent = src.GstRatePercent,
+            IsInterstate = src.IsInterstate
+        };
     }
 
     public async Task SearchMedicinesAsync(string query)
@@ -920,12 +1185,45 @@ public partial class PurchaseEntryViewModel : ObservableObject
         GrandTotal = rounded;
     }
 
+    public void ResetForm()
+    {
+        LineItems.Clear();
+        AddBlankRow();
+        SupplierInvoiceNo = string.Empty;
+        SupplierInvoiceDate = DateTimeOffset.UtcNow;
+        Notes = string.Empty;
+        SelectedSupplier = null;
+        SelectedSupplierId = string.Empty;
+        SelectedSupplierName = string.Empty;
+        SupplierSearchText = string.Empty;
+        SupplierGstin = string.Empty;
+        SupplierDlNumber = string.Empty;
+        SupplierCreditDays = 0;
+        SupplierOutstandingBalance = 0m;
+        IsInterstate = false;
+        RecalculateTotals();
+    }
+
+    [RelayCommand]
+    public void ClearForm() => ResetForm();
+
     [RelayCommand]
     public async Task PostPurchaseInvoiceAsync()
     {
         if (string.IsNullOrWhiteSpace(SupplierInvoiceNo))
         {
             StatusMessage = "⚠️ Please enter the Wholesaler Supplier Invoice Number.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedSupplierName) && !string.IsNullOrWhiteSpace(SupplierSearchText))
+        {
+            SelectedSupplierName = SupplierSearchText.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedSupplierName))
+        {
+            StatusMessage = "⚠️ Please select or enter a Wholesaler / Supplier.";
             return;
         }
 
@@ -955,6 +1253,73 @@ public partial class PurchaseEntryViewModel : ObservableObject
             }
         }
 
+        // Branch: If we are in Edit Mode, perform atomic update on the existing invoice
+        if (IsEditingInvoice && !string.IsNullOrEmpty(EditingInvoiceId))
+        {
+            IsBusy = true;
+            StatusMessage = "⏳ Updating purchase bill & revising stock...";
+            try
+            {
+                var updateCmd = new UpdatePurchaseInvoiceCommand(
+                    InvoiceId: EditingInvoiceId,
+                    OrgId: _orgId,
+                    BranchId: _branchId,
+                    WarehouseId: _warehouseId,
+                    SupplierId: string.IsNullOrEmpty(SelectedSupplierId) ? "sup-1" : SelectedSupplierId,
+                    SupplierName: SelectedSupplierName,
+                    SupplierGstin: SupplierGstin,
+                    SupplierInvoiceNo: SupplierInvoiceNo.Trim(),
+                    SupplierInvoiceDate: SupplierInvoiceDate.UtcDateTime,
+                    IsInterstate: IsInterstate,
+                    UpdatedByUserId: "USER-STOREKEEPER",
+                    Notes: Notes,
+                    Items: LineItems.Select(i => new PurchaseInvoiceItemInputDto(
+                        ProductId: string.IsNullOrEmpty(i.ProductId) ? $"p_{Guid.NewGuid():N}" : i.ProductId,
+                        ProductName: i.ProductName,
+                        HsnCode: i.HsnCode,
+                        BatchNumber: i.BatchNumber.Trim().ToUpperInvariant(),
+                        ExpiryDate: i.ExpiryDate.UtcDateTime,
+                        ManufacturingDate: null,
+                        Quantity: i.Quantity,
+                        FreeQuantity: i.FreeQuantity,
+                        UnitPrice: i.UnitPrice,
+                        Mrp: i.Mrp,
+                        SaleRate: i.SaleRate > 0 ? i.SaleRate : i.Mrp,
+                        DiscountPct: i.DiscountPct,
+                        GstRatePercent: i.GstRatePercent
+                    )).ToList()
+                );
+
+                var updateResult = await _purchaseService.UpdatePurchaseInvoiceAsync(updateCmd);
+                if (updateResult.Success)
+                {
+                    StatusMessage = $"✅ Purchase Bill {SupplierInvoiceNo} updated successfully! Stock balances and items revised.";
+                    IsEditingInvoice = false;
+                    EditingInvoiceId = null;
+                    EditingInvoicePurchaseNo = string.Empty;
+                    ResetForm();
+
+                    await LoadKpisAsync();
+                    await LoadRecentPurchasesAsync();
+                    await LoadSuppliersAsync();
+                }
+                else
+                {
+                    StatusMessage = $"❌ Update failed: {updateResult.ErrorMessage}";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"❌ Error: {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+            return;
+        }
+
+        // New purchase entry
         if (!string.IsNullOrEmpty(SelectedSupplierId))
         {
             try
@@ -1008,10 +1373,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
             if (result.Success)
             {
                 StatusMessage = $"✅ Purchase Bill {SupplierInvoiceNo} saved & posted to Invoices Recorded section! Inwarded {result.TotalStockAdded} units across {result.BatchesCreatedOrUpdated} batches.";
-                LineItems.Clear();
-                AddBlankRow();
-                SupplierInvoiceNo = string.Empty;
-                Notes = string.Empty;
+                ResetForm();
 
                 await LoadKpisAsync();
                 await LoadRecentPurchasesAsync();
@@ -1030,6 +1392,266 @@ public partial class PurchaseEntryViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    public async Task EditPurchaseInvoiceAsync(PurchaseInvoiceSummaryDto? summary)
+    {
+        if (summary == null) return;
+        try
+        {
+            var details = await _purchaseService.GetPurchaseInvoiceDetailsAsync(summary.Id);
+            if (details == null)
+            {
+                StatusMessage = "❌ Could not load purchase invoice details.";
+                return;
+            }
+
+            IsEditingInvoice = true;
+            EditingInvoiceId = details.Id;
+            EditingInvoicePurchaseNo = summary.PurchaseNo ?? (!string.IsNullOrWhiteSpace(summary.SupplierInvoiceNo) ? summary.SupplierInvoiceNo : "PO-BILL");
+            SupplierInvoiceNo = details.SupplierInvoiceNo;
+            SupplierInvoiceDate = new DateTimeOffset(details.SupplierInvoiceDate);
+            SelectedSupplierId = details.SupplierId;
+            SelectedSupplierName = details.SupplierName;
+            SupplierSearchText = details.SupplierName;
+            SupplierGstin = details.SupplierGstin ?? string.Empty;
+            IsInterstate = details.IsInterstate;
+            Notes = details.Notes ?? string.Empty;
+
+            var sup = Suppliers.FirstOrDefault(s => s.Id == details.SupplierId || string.Equals(s.Name, details.SupplierName, StringComparison.OrdinalIgnoreCase));
+            SelectedSupplier = sup;
+            if (sup != null)
+            {
+                SupplierDlNumber = sup.DlNumber ?? string.Empty;
+                SupplierCreditDays = sup.CreditDays;
+                SupplierOutstandingBalance = sup.CurrentOutstandingBalance;
+            }
+
+            LineItems.Clear();
+            foreach (var item in details.Items)
+            {
+                var row = new PurchaseItemRowViewModel
+                {
+                    ProductId = item.ProductId,
+                    ProductName = item.ProductName,
+                    HsnCode = item.HsnCode,
+                    BatchNumber = item.BatchNumber,
+                    ExpiryDate = new DateTimeOffset(item.ExpiryDate),
+                    ExpiryText = item.ExpiryDate.ToString("MM/yy"),
+                    Quantity = item.Quantity,
+                    FreeQuantity = item.FreeQuantity,
+                    UnitPrice = item.UnitPrice,
+                    Mrp = item.Mrp,
+                    SaleRate = item.SaleRate > 0 ? item.SaleRate : item.Mrp,
+                    DiscountPct = item.DiscountPct,
+                    GstRatePercent = item.GstRatePercent,
+                    IsInterstate = details.IsInterstate,
+                    OnRowChanged = RecalculateTotals
+                };
+                row.PropertyChanged += (s, e) => RecalculateTotals();
+                LineItems.Add(row);
+            }
+
+            if (LineItems.Count == 0)
+            {
+                AddBlankRow();
+            }
+
+            RecalculateTotals();
+            SelectedTab = "Entry";
+            StatusMessage = $"✏️ Loaded Bill {details.SupplierInvoiceNo} ({EditingInvoicePurchaseNo}) for editing. You can add new medicines, adjust quantities/rates, and save changes.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Failed to load invoice for editing: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public void CancelEditInvoice()
+    {
+        IsEditingInvoice = false;
+        EditingInvoiceId = null;
+        EditingInvoicePurchaseNo = string.Empty;
+        ResetForm();
+        StatusMessage = "ℹ️ Exited edit mode. Ready for new purchase entry.";
+    }
+
+    [RelayCommand]
+    public async Task OpenPurchaseReturnAsync(PurchaseInvoiceSummaryDto? summary)
+    {
+        if (summary == null) return;
+        try
+        {
+            var details = await _purchaseService.GetPurchaseInvoiceDetailsAsync(summary.Id);
+            if (details == null || details.Items.Count == 0)
+            {
+                StatusMessage = "❌ No items found in this purchase invoice to return.";
+                return;
+            }
+
+            ReturnSourceInvoice = details;
+            ReturnSourcePurchaseNo = summary.PurchaseNo ?? summary.SupplierInvoiceNo;
+            ReturnItems.Clear();
+
+            foreach (var it in details.Items)
+            {
+                var stock = await _purchaseService.GetBatchAvailableStockAsync(it.ProductId, it.BatchNumber, details.WarehouseId, details.OrgId);
+                var maxReturnable = Math.Min(it.TotalQuantity, Math.Max(0, stock));
+
+                // Net buying rate (unit price with discount + GST)
+                decimal netRate = it.LandedCostPerUnit > 0
+                    ? it.LandedCostPerUnit
+                    : Math.Round(it.UnitPrice * (1m - it.DiscountPct / 100m) * (1m + it.GstRatePercent / 100m), 2, MidpointRounding.AwayFromZero);
+
+                var rRow = new PurchaseReturnItemRowViewModel
+                {
+                    ProductId = it.ProductId,
+                    ProductName = it.ProductName,
+                    BatchNumber = it.BatchNumber,
+                    ExpiryDate = it.ExpiryDate,
+                    InwardedQuantity = it.TotalQuantity,
+                    AvailableStock = stock,
+                    MaxReturnable = maxReturnable,
+                    IsSelected = false,
+                    ReturnQuantity = maxReturnable > 0 ? 1 : 0,
+                    UnitPrice = it.UnitPrice,
+                    DiscountPct = it.DiscountPct,
+                    GstRatePercent = it.GstRatePercent,
+                    NetUnitPrice = netRate,
+                    Reason = "Damaged / Expired",
+                    OnChanged = RecalculateReturnTotals
+                };
+                ReturnItems.Add(rRow);
+            }
+
+            RecalculateReturnTotals();
+            IsPurchaseReturnModalOpen = true;
+            StatusMessage = $"↩️ Selected Bill {details.SupplierInvoiceNo} for Purchase Return. Select medicines and return quantities.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Error loading return details: {ex.Message}";
+        }
+    }
+
+    public void RecalculateReturnTotals()
+    {
+        var selected = ReturnItems.Where(i => i.IsSelected && i.ReturnQuantity > 0).ToList();
+        TotalReturnSelectedItems = selected.Count;
+        TotalReturnQuantity = selected.Sum(i => i.ReturnQuantity);
+        TotalReturnAmount = selected.Sum(i => i.NetAmount);
+        OnPropertyChanged(nameof(TotalReturnAmountFormatted));
+    }
+
+    [RelayCommand]
+    public void ClosePurchaseReturnModal()
+    {
+        IsPurchaseReturnModalOpen = false;
+        ReturnItems.Clear();
+        ReturnSourceInvoice = null;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmPurchaseReturnAsync()
+    {
+        if (ReturnSourceInvoice == null) return;
+        var selected = ReturnItems.Where(i => i.IsSelected && i.ReturnQuantity > 0).ToList();
+        if (selected.Count == 0)
+        {
+            StatusMessage = "⚠️ Please select at least one item with return quantity greater than 0.";
+            return;
+        }
+
+        var invalidStock = selected.FirstOrDefault(i => i.ReturnQuantity > i.MaxReturnable);
+        if (invalidStock != null)
+        {
+            StatusMessage = $"❌ Return quantity for {invalidStock.ProductName} ({invalidStock.ReturnQuantity}) exceeds available stock ({invalidStock.MaxReturnable}).";
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "⏳ Processing purchase return & deducting stock...";
+        try
+        {
+            var cmd = new CreatePurchaseReturnCommand(
+                OrgId: _orgId,
+                BranchId: _branchId,
+                WarehouseId: _warehouseId,
+                PurchaseInvoiceId: ReturnSourceInvoice.Id,
+                SupplierId: ReturnSourceInvoice.SupplierId,
+                SupplierName: ReturnSourceInvoice.SupplierName,
+                SupplierGstin: ReturnSourceInvoice.SupplierGstin,
+                OriginalInvoiceNo: ReturnSourceInvoice.SupplierInvoiceNo,
+                CreatedByUserId: "USER-STOREKEEPER",
+                Notes: $"Purchase return against {ReturnSourceInvoice.SupplierInvoiceNo}",
+                Items: selected.Select(s => new PurchaseReturnItemInputDto(
+                    ProductId: s.ProductId,
+                    ProductName: s.ProductName,
+                    BatchNumber: s.BatchNumber,
+                    ExpiryDate: s.ExpiryDate,
+                    ReturnQuantity: s.ReturnQuantity,
+                    UnitPrice: s.UnitPrice,
+                    GstRatePercent: s.GstRatePercent,
+                    NetUnitPrice: s.NetUnitPrice,
+                    NetAmount: s.NetAmount,
+                    Reason: s.Reason
+                )).ToList()
+            );
+
+            var res = await _purchaseService.ProcessPurchaseReturnAsync(cmd);
+            if (res.Success)
+            {
+                IsPurchaseReturnModalOpen = false;
+
+                CurrentPurchaseReturnBill = new PurchaseReturnBillDto(
+                    ReturnNumber: res.ReturnNumber ?? "PR-0001",
+                    ReturnDate: DateTime.Now,
+                    SupplierName: ReturnSourceInvoice.SupplierName,
+                    SupplierGstin: ReturnSourceInvoice.SupplierGstin,
+                    OriginalInvoiceNo: ReturnSourceInvoice.SupplierInvoiceNo,
+                    ItemsCount: res.ItemsReturnedCount,
+                    TotalQuantity: res.TotalQuantityReturned,
+                    TotalReturnAmount: res.TotalReturnAmount,
+                    Items: cmd.Items,
+                    OriginalPurchaseNo: ReturnSourcePurchaseNo
+                );
+
+                IsPurchaseReturnBillModalOpen = true;
+
+                await LoadKpisAsync();
+                await LoadRecentPurchasesAsync();
+                await LoadSuppliersAsync();
+
+                StatusMessage = $"✅ Purchase Return {res.ReturnNumber} generated successfully! Net stock value reduced by ₹{res.TotalReturnAmount:N2}.";
+            }
+            else
+            {
+                StatusMessage = $"❌ Purchase return failed: {res.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    public void ClosePurchaseReturnBillModal()
+    {
+        IsPurchaseReturnBillModalOpen = false;
+        CurrentPurchaseReturnBill = null;
+    }
+
+    [RelayCommand]
+    public void PrintPurchaseReturnBill()
+    {
+        StatusMessage = $"🖨️ Purchase Return Bill {CurrentPurchaseReturnBill?.ReturnNumber} sent to printer / PDF.";
     }
 
     [RelayCommand]

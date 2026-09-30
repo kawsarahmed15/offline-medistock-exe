@@ -26,19 +26,36 @@ public class SqliteSupplierRepository : ISupplierRepository
 
         const string sql = @"
             SELECT 
-                id AS Id,
-                name AS Name,
-                gstin AS Gstin,
-                dl_number AS DlNumber,
-                phone AS Phone,
-                email AS Email,
-                address AS Address,
-                credit_days AS CreditDays,
-                outstanding_balance AS CurrentOutstandingBalance,
-                is_active AS IsActive
-            FROM suppliers
-            WHERE org_id = @orgId
-            ORDER BY name ASC;
+                s.id AS Id,
+                s.name AS Name,
+                s.gstin AS Gstin,
+                s.dl_number AS DlNumber,
+                s.phone AS Phone,
+                s.email AS Email,
+                s.address AS Address,
+                s.credit_days AS CreditDays,
+                s.outstanding_balance AS CurrentOutstandingBalance,
+                s.is_active AS IsActive,
+                (
+                    SELECT GROUP_CONCAT('PO-' || PRINTF('%04d', (
+                        SELECT COUNT(1) 
+                        FROM purchase_invoices pi2 
+                        WHERE pi2.org_id = pi.org_id 
+                          AND (pi2.created_at < pi.created_at OR (pi2.created_at = pi.created_at AND pi2.rowid <= pi.rowid))
+                    )), ', ')
+                    FROM purchase_invoices pi
+                    WHERE (pi.supplier_id = s.id OR (pi.supplier_name IS NOT NULL AND pi.supplier_name = s.name))
+                      AND pi.status != 2
+                ) AS PurchaseNo,
+                (
+                    SELECT GROUP_CONCAT(pi.supplier_invoice_no, ', ')
+                    FROM purchase_invoices pi
+                    WHERE (pi.supplier_id = s.id OR (pi.supplier_name IS NOT NULL AND pi.supplier_name = s.name))
+                      AND pi.status != 2
+                ) AS InvoiceNo
+            FROM suppliers s
+            WHERE s.org_id = @orgId
+            ORDER BY s.name ASC;
         ";
 
         var rows = await connection.QueryAsync<dynamic>(
@@ -57,7 +74,9 @@ public class SqliteSupplierRepository : ISupplierRepository
                 Address: (string?)r.Address,
                 CreditDays: Convert.ToInt32(r.CreditDays),
                 CurrentOutstandingBalance: Convert.ToDecimal(r.CurrentOutstandingBalance),
-                IsActive: Convert.ToInt32(r.IsActive) == 1
+                IsActive: Convert.ToInt32(r.IsActive) == 1,
+                PurchaseNo: (string?)r.PurchaseNo,
+                InvoiceNo: (string?)r.InvoiceNo
             ));
         }
 
@@ -70,18 +89,35 @@ public class SqliteSupplierRepository : ISupplierRepository
 
         const string sql = @"
             SELECT 
-                id AS Id,
-                name AS Name,
-                gstin AS Gstin,
-                dl_number AS DlNumber,
-                phone AS Phone,
-                email AS Email,
-                address AS Address,
-                credit_days AS CreditDays,
-                outstanding_balance AS CurrentOutstandingBalance,
-                is_active AS IsActive
-            FROM suppliers
-            WHERE id = @supplierId;
+                s.id AS Id,
+                s.name AS Name,
+                s.gstin AS Gstin,
+                s.dl_number AS DlNumber,
+                s.phone AS Phone,
+                s.email AS Email,
+                s.address AS Address,
+                s.credit_days AS CreditDays,
+                s.outstanding_balance AS CurrentOutstandingBalance,
+                s.is_active AS IsActive,
+                (
+                    SELECT GROUP_CONCAT('PO-' || PRINTF('%04d', (
+                        SELECT COUNT(1) 
+                        FROM purchase_invoices pi2 
+                        WHERE pi2.org_id = pi.org_id 
+                          AND (pi2.created_at < pi.created_at OR (pi2.created_at = pi.created_at AND pi2.rowid <= pi.rowid))
+                    )), ', ')
+                    FROM purchase_invoices pi
+                    WHERE (pi.supplier_id = s.id OR (pi.supplier_name IS NOT NULL AND pi.supplier_name = s.name))
+                      AND pi.status != 2
+                ) AS PurchaseNo,
+                (
+                    SELECT GROUP_CONCAT(pi.supplier_invoice_no, ', ')
+                    FROM purchase_invoices pi
+                    WHERE (pi.supplier_id = s.id OR (pi.supplier_name IS NOT NULL AND pi.supplier_name = s.name))
+                      AND pi.status != 2
+                ) AS InvoiceNo
+            FROM suppliers s
+            WHERE s.id = @supplierId;
         ";
 
         var r = await connection.QuerySingleOrDefaultAsync<dynamic>(
@@ -99,7 +135,9 @@ public class SqliteSupplierRepository : ISupplierRepository
             Address: (string?)r.Address,
             CreditDays: Convert.ToInt32(r.CreditDays),
             CurrentOutstandingBalance: Convert.ToDecimal(r.CurrentOutstandingBalance),
-            IsActive: Convert.ToInt32(r.IsActive) == 1
+            IsActive: Convert.ToInt32(r.IsActive) == 1,
+            PurchaseNo: (string?)r.PurchaseNo,
+            InvoiceNo: (string?)r.InvoiceNo
         );
     }
 

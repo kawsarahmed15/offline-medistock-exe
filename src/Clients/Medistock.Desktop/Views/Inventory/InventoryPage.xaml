@@ -125,12 +125,12 @@
                         CornerRadius="6"
                         Padding="14,10">
                     <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="TOTAL STOCK VALUATION (COST)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        <TextBlock Text="TOTAL STOCK VALUATION (NET RATE)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                         </StackPanel>
-                        <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
+                        <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost + GST %) × Available Quantity" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -217,7 +217,7 @@
             <Grid RowDefinitions="Auto,*">
                 <!-- Table Header Row -->
                 <Grid Grid.Row="0"
-                      ColumnDefinitions="3.2*,1.1*,1.1*,0.9*,1.0*,0.9*,1.0*,1.0*,1.2*,1.0*,1.1*"
+                      ColumnDefinitions="3.0*,1.1*,1.1*,0.9*,1.0*,0.9*,1.0*,1.0*,1.2*,0.9*,1.3*"
                       Padding="12,8"
                       Background="{ThemeResource SurfaceSubtle}"
                       BorderBrush="{ThemeResource BorderDefault}"
@@ -255,7 +255,7 @@
                                     BorderBrush="{ThemeResource BorderDefault}"
                                     BorderThickness="0,0,0,1"
                                     Padding="12,6">
-                                <Grid ColumnDefinitions="3.2*,1.1*,1.1*,0.9*,1.0*,0.9*,1.0*,1.0*,1.2*,1.0*,1.1*">
+                                <Grid ColumnDefinitions="3.0*,1.1*,1.1*,0.9*,1.0*,0.9*,1.0*,1.0*,1.2*,0.9*,1.3*">
                                     <!-- 0. Product Name & Salt Composition -->
                                     <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12.5" Foreground="{ThemeResource TextPrimary}" TextTrimming="CharacterEllipsis" />
@@ -337,11 +337,13 @@
 
                                     <!-- 10. Actions -->
                                     <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Button Content="Quarantine"
-                                                FontSize="9.5"
-                                                Padding="6,2"
-                                                Command="{Binding DataContext.QuarantineExpiredBatchCommand, ElementName=StockTableRoot}"
-                                                CommandParameter="{Binding}" />
+                                        <Button Content="✏️ Edit Details"
+                                                FontSize="10"
+                                                FontWeight="SemiBold"
+                                                Padding="8,3"
+                                                Command="{Binding DataContext.OpenEditProductCommand, ElementName=StockTableRoot}"
+                                                CommandParameter="{Binding}"
+                                                ToolTipService.ToolTip="Edit product information and batch details" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -350,5 +352,145 @@
                 </ListView>
             </Grid>
         </Border>
+
+        <!-- 4. Edit Product Details Modal Popup -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Visibility="{Binding IsEditProductModalOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#80000000"
+              Margin="-20">
+            <Border Background="{ThemeResource SurfaceDefault}"
+                    BorderBrush="{ThemeResource BorderDefault}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Width="680"
+                    MaxHeight="680"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="24">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14">
+                        <!-- Modal Title Bar -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="✏️" FontSize="18" />
+                                <TextBlock Text="Edit Product Details" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="✕" Command="{Binding CloseEditProductCommand}" Padding="6,2" />
+                        </Grid>
+
+                        <!-- Error Message Alert if any -->
+                        <Border Visibility="{Binding EditErrorMessage, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Background="#25DC2626"
+                                BorderBrush="#DC2626"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="10,6">
+                            <TextBlock Text="{Binding EditErrorMessage}" Foreground="#DC2626" FontSize="11.5" TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- Section: Product Master Info -->
+                        <TextBlock Text="Product Master Information" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+                        
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox Header="Product Name *"
+                                     Text="{Binding EditProductName, Mode=TwoWay}"
+                                     PlaceholderText="Brand / Trade Name"
+                                     Margin="0,0,6,0" />
+                            <TextBox Grid.Column="1"
+                                     Header="Generic Name"
+                                     Text="{Binding EditGenericName, Mode=TwoWay}"
+                                     PlaceholderText="Generic Molecule Name"
+                                     Margin="6,0,0,0" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox Header="Salt Composition"
+                                     Text="{Binding EditSaltComposition, Mode=TwoWay}"
+                                     PlaceholderText="e.g. Paracetamol 650mg"
+                                     Margin="0,0,6,0" />
+                            <TextBox Grid.Column="1"
+                                     Header="Manufacturer"
+                                     Text="{Binding EditManufacturer, Mode=TwoWay}"
+                                     PlaceholderText="e.g. Cipla / Sun Pharma"
+                                     Margin="6,0,0,0" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*,*">
+                            <TextBox Header="Category / Unit"
+                                     Text="{Binding EditCategoryName, Mode=TwoWay}"
+                                     PlaceholderText="e.g. TAB, SYR"
+                                     Margin="0,0,4,0" />
+                            <TextBox Grid.Column="1"
+                                     Header="HSN Code"
+                                     Text="{Binding EditHsnCode, Mode=TwoWay}"
+                                     PlaceholderText="3004"
+                                     Margin="4,0,4,0" />
+                            <TextBox Grid.Column="2"
+                                     Header="GST Rate (%)"
+                                     Text="{Binding EditGstRatePercent, Mode=TwoWay}"
+                                     PlaceholderText="12.0"
+                                     Margin="4,0,0,0" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*">
+                            <ComboBox Header="Drug Schedule"
+                                      SelectedIndex="{Binding EditScheduleIndex, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      Margin="0,0,6,0">
+                                <ComboBoxItem Content="OTC (Over The Counter)" />
+                                <ComboBoxItem Content="Schedule H (Rx Required)" />
+                                <ComboBoxItem Content="Schedule H1 (High Risk Rx)" />
+                                <ComboBoxItem Content="Schedule X (Narcotic / Controlled)" />
+                            </ComboBox>
+                            <TextBox Grid.Column="1"
+                                     Header="Min Stock Alert Threshold"
+                                     Text="{Binding EditMinStockAlert, Mode=TwoWay}"
+                                     PlaceholderText="10"
+                                     Margin="6,0,0,0" />
+                        </Grid>
+
+                        <!-- Section: Batch Details (Editable) -->
+                        <TextBlock Text="Selected Batch &amp; Pricing Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,6,0,0" />
+
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox Header="Batch Number"
+                                     Text="{Binding EditBatchNumber, Mode=TwoWay}"
+                                     PlaceholderText="Batch No"
+                                     Margin="0,0,6,0" />
+                            <DatePicker Grid.Column="1"
+                                        Header="Expiry Date"
+                                        Date="{Binding EditExpiryDate, Mode=TwoWay}"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="6,0,0,0" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*,*">
+                            <TextBox Header="MRP (₹)"
+                                     Text="{Binding EditMrp, Mode=TwoWay}"
+                                     Margin="0,0,4,0" />
+                            <TextBox Grid.Column="1"
+                                     Header="Purchase Rate (₹)"
+                                     Text="{Binding EditPurchaseRate, Mode=TwoWay}"
+                                     Margin="4,0,4,0" />
+                            <TextBox Grid.Column="2"
+                                     Header="Sale Rate (₹)"
+                                     Text="{Binding EditSaleRate, Mode=TwoWay}"
+                                     Margin="4,0,0,0" />
+                        </Grid>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                            <Button Content="Cancel [Esc]"
+                                    Command="{Binding CloseEditProductCommand}"
+                                    Padding="16,6" />
+                            <Button Content="Save Changes [Enter]"
+                                    Command="{Binding SaveProductDetailsCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Padding="20,6" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </Grid>
 </Page>

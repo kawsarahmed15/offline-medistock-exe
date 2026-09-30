@@ -38,6 +38,10 @@ public interface IInventoryService
         string userId,
         string deviceId,
         CancellationToken cancellationToken = default);
+
+    Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
+        UpdateProductDetailsCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public class InventoryService : IInventoryService
@@ -112,5 +116,12 @@ public class InventoryService : IInventoryService
         );
 
         return _inventoryRepository.AdjustStockAsync(request, cancellationToken);
+    }
+
+    public Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
+        UpdateProductDetailsCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        return _inventoryRepository.UpdateProductDetailsAsync(command, cancellationToken);
     }
 }

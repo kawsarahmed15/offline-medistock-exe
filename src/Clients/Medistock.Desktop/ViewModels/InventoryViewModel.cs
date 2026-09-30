@@ -21,6 +21,7 @@ public partial class StockItemViewModel : ObservableObject
     public string SaltComposition { get; }
     public string Manufacturer { get; }
     public string CategoryName { get; }
+    public string HsnCode { get; }
     public DrugSchedule Schedule { get; }
     public string BatchId { get; }
     public string BatchNumber { get; }
@@ -32,6 +33,8 @@ public partial class StockItemViewModel : ObservableObject
     public decimal TotalQuantity { get; }
     public decimal Mrp { get; }
     public decimal PurchaseRate { get; }
+    public decimal GstRatePercent { get; }
+    public decimal NetPurchaseRate { get; }
     public decimal SaleRate { get; }
     public decimal StockValueAtMrp { get; }
     public decimal StockValueAtCost { get; }
@@ -54,6 +57,7 @@ public partial class StockItemViewModel : ObservableObject
 
     public string MrpFormatted => $"{Mrp:F2}";
     public string PurchaseRateFormatted => $"{PurchaseRate:F2}";
+    public string NetPurchaseRateFormatted => $"{NetPurchaseRate:F2}";
     public string StockValueAtCostFormatted => $"{StockValueAtCost:F2}";
 
     public string StockDisplay => IsOutOfStock ? "0 (OOS)" : (IsLowStock ? $"{AvailableQuantity:0.#} (LOW)" : $"{AvailableQuantity:0.#}");
@@ -86,6 +90,7 @@ public partial class StockItemViewModel : ObservableObject
         SaltComposition = dto.SaltComposition ?? "";
         Manufacturer = dto.Manufacturer ?? "";
         CategoryName = dto.CategoryName ?? "General";
+        HsnCode = dto.HsnCode ?? "3004";
         Schedule = dto.Schedule;
         BatchId = dto.BatchId;
         BatchNumber = dto.BatchNumber;
@@ -97,6 +102,8 @@ public partial class StockItemViewModel : ObservableObject
         TotalQuantity = dto.TotalQuantity;
         Mrp = dto.Mrp;
         PurchaseRate = dto.PurchaseRate;
+        GstRatePercent = dto.GstRatePercent;
+        NetPurchaseRate = dto.NetPurchaseRate > 0 ? dto.NetPurchaseRate : Math.Round(dto.PurchaseRate * (1m + (dto.GstRatePercent / 100m)), 2, MidpointRounding.AwayFromZero);
         SaleRate = dto.SaleRate;
         StockValueAtMrp = dto.StockValueAtMrp;
         StockValueAtCost = dto.StockValueAtCost;
@@ -158,6 +165,63 @@ public partial class InventoryViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasExportMessage))]
     private string _exportStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isEditProductModalOpen;
+
+    [ObservableProperty]
+    private string _editProductId = string.Empty;
+
+    [ObservableProperty]
+    private string _editProductName = string.Empty;
+
+    [ObservableProperty]
+    private string _editGenericName = string.Empty;
+
+    [ObservableProperty]
+    private string _editSaltComposition = string.Empty;
+
+    [ObservableProperty]
+    private string _editManufacturer = string.Empty;
+
+    [ObservableProperty]
+    private string _editCategoryName = string.Empty;
+
+    [ObservableProperty]
+    private string _editHsnCode = string.Empty;
+
+    [ObservableProperty]
+    private decimal _editGstRatePercent = 12.0m;
+
+    [ObservableProperty]
+    private int _editScheduleIndex = 0;
+
+    [ObservableProperty]
+    private decimal _editMinStockAlert = 10.0m;
+
+    [ObservableProperty]
+    private string _editBatchId = string.Empty;
+
+    [ObservableProperty]
+    private string _editBatchNumber = string.Empty;
+
+    [ObservableProperty]
+    private DateTimeOffset _editExpiryDate = DateTimeOffset.UtcNow.AddYears(1);
+
+    [ObservableProperty]
+    private decimal _editMrp;
+
+    [ObservableProperty]
+    private decimal _editPurchaseRate;
+
+    [ObservableProperty]
+    private decimal _editSaleRate;
+
+    [ObservableProperty]
+    private string _editErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isSavingProduct;
 #pragma warning restore MVVMTK0045
 
     public string TotalBatchesCountDisplay => $"({TotalItemsCount} batches)";
@@ -431,6 +495,94 @@ public partial class InventoryViewModel : ObservableObject
         if (result.Success)
         {
             await LoadStocksAsync();
+        }
+    }
+
+    [RelayCommand]
+    public void OpenEditProduct(StockItemViewModel? item)
+    {
+        if (item == null) return;
+
+        EditProductId = item.ProductId;
+        EditProductName = item.ProductName;
+        EditGenericName = item.GenericName;
+        EditSaltComposition = item.SaltComposition;
+        EditManufacturer = item.Manufacturer;
+        EditCategoryName = item.CategoryName;
+        EditHsnCode = item.HsnCode;
+        EditGstRatePercent = item.GstRatePercent;
+        EditScheduleIndex = (int)item.Schedule;
+        EditMinStockAlert = item.MinStockAlert;
+
+        EditBatchId = item.BatchId;
+        EditBatchNumber = item.BatchNumber;
+        EditExpiryDate = item.ExpiryDate > DateTime.MinValue ? new DateTimeOffset(item.ExpiryDate) : DateTimeOffset.UtcNow.AddYears(1);
+        EditMrp = item.Mrp;
+        EditPurchaseRate = item.PurchaseRate;
+        EditSaleRate = item.SaleRate;
+
+        EditErrorMessage = string.Empty;
+        IsEditProductModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseEditProduct()
+    {
+        IsEditProductModalOpen = false;
+        EditErrorMessage = string.Empty;
+    }
+
+    [RelayCommand]
+    public async Task SaveProductDetailsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(EditProductName))
+        {
+            EditErrorMessage = "Product name is required.";
+            return;
+        }
+
+        IsSavingProduct = true;
+        EditErrorMessage = string.Empty;
+
+        try
+        {
+            var command = new UpdateProductDetailsCommand(
+                ProductId: EditProductId,
+                ProductName: EditProductName.Trim(),
+                GenericName: string.IsNullOrWhiteSpace(EditGenericName) ? null : EditGenericName.Trim(),
+                SaltComposition: string.IsNullOrWhiteSpace(EditSaltComposition) ? null : EditSaltComposition.Trim(),
+                Manufacturer: string.IsNullOrWhiteSpace(EditManufacturer) ? null : EditManufacturer.Trim(),
+                CategoryName: string.IsNullOrWhiteSpace(EditCategoryName) ? null : EditCategoryName.Trim(),
+                HsnCode: string.IsNullOrWhiteSpace(EditHsnCode) ? "3004" : EditHsnCode.Trim(),
+                GstRatePercent: EditGstRatePercent,
+                Schedule: (DrugSchedule)EditScheduleIndex,
+                MinStockAlert: EditMinStockAlert,
+                BatchId: string.IsNullOrWhiteSpace(EditBatchId) ? null : EditBatchId,
+                BatchNumber: string.IsNullOrWhiteSpace(EditBatchNumber) ? null : EditBatchNumber.Trim(),
+                ExpiryDate: EditExpiryDate.UtcDateTime,
+                Mrp: EditMrp,
+                PurchaseRate: EditPurchaseRate,
+                SaleRate: EditSaleRate
+            );
+
+            var result = await _inventoryService.UpdateProductDetailsAsync(command);
+            if (result.Success)
+            {
+                IsEditProductModalOpen = false;
+                await LoadStocksAsync();
+            }
+            else
+            {
+                EditErrorMessage = result.ErrorMessage ?? "Failed to update product details.";
+            }
+        }
+        catch (Exception ex)
+        {
+            EditErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSavingProduct = false;
         }
     }
 }

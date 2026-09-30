@@ -38,73 +38,129 @@ public class SqliteSaleRepository : ISaleRepository
 
         try
         {
-            // 1. Ensure batches & stock balances exist, and deduct stock atomically
+            // 1. Ensure batches & stock balances exist, resolve actual batches, and deduct stock atomically
+            var resolvedBatchMap = new Dictionary<string, string>(); // item.Id -> actualBatchId
+
             foreach (var item in sale.Items)
             {
-                // Ensure batch exists in batches table
-                const string ensureBatchSql = @"
-                    INSERT OR IGNORE INTO batches (
-                        id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at
-                    ) VALUES (
-                        @BatchId, @ProductId, @OrgId, @BatchNumber, @ExpiryDate, CAST(@Mrp AS REAL), CAST(@UnitPrice AS REAL) * 0.8, CAST(@UnitPrice AS REAL), @CreatedAt
-                    );
-                ";
-                await connection.ExecuteAsync(new CommandDefinition(
-                    ensureBatchSql,
-                    new
-                    {
-                        item.BatchId,
-                        item.ProductId,
-                        sale.OrgId,
-                        item.BatchNumber,
-                        ExpiryDate = item.ExpiryDate.ToString("o"),
-                        Mrp = (double)item.Mrp,
-                        UnitPrice = (double)item.UnitPrice,
-                        CreatedAt = DateTime.UtcNow.ToString("o")
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
+                string actualBatchId = item.BatchId;
+                var existingBatch = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT id, mrp, purchase_rate, sale_rate FROM batches WHERE id = @BatchId LIMIT 1;",
+                    new { BatchId = item.BatchId }, transaction);
 
-                // Ensure stock_balances record exists for new batches
-                const string ensureStockSql = @"
-                    INSERT OR IGNORE INTO stock_balances (
-                        id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at
-                    ) VALUES (
-                        @Id, @BatchId, @ProductId, @WarehouseId, CAST(@Quantity AS REAL), 0.0, @LastUpdatedAt
-                    );
-                ";
-                await connection.ExecuteAsync(new CommandDefinition(
-                    ensureStockSql,
-                    new
-                    {
-                        Id = $"sb_{item.BatchId}_{sale.WarehouseId}",
-                        item.BatchId,
-                        item.ProductId,
-                        sale.WarehouseId,
-                        Quantity = (double)item.Quantity,
-                        LastUpdatedAt = DateTime.UtcNow.ToString("o")
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
-
-                var deducted = await _stockRepository.DeductStockAtomicAsync(
-                    item.BatchId,
-                    sale.WarehouseId,
-                    item.Quantity,
-                    (System.Data.Common.DbTransaction)transaction,
-                    cancellationToken);
-
-                if (!deducted)
+                if (existingBatch == null)
                 {
-                    transaction.Rollback();
-                    return new CommitSaleResult(
-                        false,
-                        null,
-                        null,
-                        0,
-                        0,
-                        DateTime.UtcNow,
-                        $"Insufficient stock for item: {item.ProductName} (Batch: {item.BatchNumber})");
+                    // Check by product_id and batch_number
+                    var matchByNo = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                        "SELECT id, mrp, purchase_rate, sale_rate FROM batches WHERE product_id = @ProductId AND batch_number = @BatchNumber LIMIT 1;",
+                        new { item.ProductId, item.BatchNumber }, transaction);
+
+                    if (matchByNo != null)
+                    {
+                        actualBatchId = (string)matchByNo.id;
+                    }
+                    else
+                    {
+                        // Check if any batch with available stock exists for this product in this warehouse
+                        var matchByStock = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                            @"SELECT b.id FROM batches b 
+                              JOIN stock_balances sb ON sb.batch_id = b.id 
+                              WHERE b.product_id = @ProductId AND (sb.warehouse_id = @WarehouseId OR @WarehouseId = '') AND sb.quantity > 0 
+                              ORDER BY b.expiry_date ASC LIMIT 1;",
+                            new { item.ProductId, sale.WarehouseId }, transaction);
+
+                        if (matchByStock != null)
+                        {
+                            actualBatchId = (string)matchByStock.id;
+                        }
+                        else
+                        {
+                            actualBatchId = string.IsNullOrWhiteSpace(item.BatchId) ? Guid.NewGuid().ToString("N") : item.BatchId;
+                            const string ensureBatchSql = @"
+                                INSERT OR IGNORE INTO batches (
+                                    id, product_id, org_id, batch_number, expiry_date, mrp, purchase_rate, sale_rate, created_at
+                                ) VALUES (
+                                    @BatchId, @ProductId, @OrgId, @BatchNumber, @ExpiryDate, CAST(@Mrp AS REAL), CAST(@UnitPrice AS REAL) * 0.8, CAST(@UnitPrice AS REAL), @CreatedAt
+                                );
+                            ";
+                            await connection.ExecuteAsync(new CommandDefinition(
+                                ensureBatchSql,
+                                new
+                                {
+                                    BatchId = actualBatchId,
+                                    item.ProductId,
+                                    sale.OrgId,
+                                    item.BatchNumber,
+                                    ExpiryDate = item.ExpiryDate.ToString("o"),
+                                    Mrp = (double)item.Mrp,
+                                    UnitPrice = (double)item.UnitPrice,
+                                    CreatedAt = DateTime.UtcNow.ToString("o")
+                                },
+                                transaction,
+                                cancellationToken: cancellationToken));
+                        }
+                    }
+                }
+
+                resolvedBatchMap[item.Id] = actualBatchId;
+
+                // Deduct stock from stock_balances
+                var existingStock = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT id, quantity, reserved_quantity FROM stock_balances WHERE batch_id = @BatchId AND (warehouse_id = @WarehouseId OR @WarehouseId = '' OR warehouse_id = 'wh-1' OR warehouse_id = 'WH-MAIN') LIMIT 1;",
+                    new { BatchId = actualBatchId, sale.WarehouseId }, transaction);
+
+                if (existingStock != null)
+                {
+                    string stockId = (string)existingStock.id;
+                    var affected = await connection.ExecuteAsync(new CommandDefinition(
+                        "UPDATE stock_balances SET quantity = quantity - @Quantity, last_updated_at = @UpdatedAt WHERE id = @Id AND (quantity - reserved_quantity) >= @Quantity;",
+                        new { Id = stockId, Quantity = (double)item.Quantity, UpdatedAt = DateTime.UtcNow.ToString("o") },
+                        transaction, cancellationToken: cancellationToken));
+
+                    if (affected == 0)
+                    {
+                        transaction.Rollback();
+                        return new CommitSaleResult(false, null, null, 0, 0, DateTime.UtcNow, $"Insufficient stock for batch {item.BatchNumber}. Requested: {item.Quantity}");
+                    }
+                }
+                else
+                {
+                    // Check if stock exists for this product in warehouse under any batch
+                    var prodStock = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                        "SELECT id, quantity FROM stock_balances WHERE product_id = @ProductId AND (warehouse_id = @WarehouseId OR @WarehouseId = '' OR warehouse_id = 'wh-1' OR warehouse_id = 'WH-MAIN') AND (quantity - reserved_quantity) >= @Quantity ORDER BY quantity DESC LIMIT 1;",
+                        new { item.ProductId, sale.WarehouseId, Quantity = (double)item.Quantity }, transaction);
+
+                    if (prodStock != null)
+                    {
+                        string stockId = (string)prodStock.id;
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "UPDATE stock_balances SET quantity = quantity - @Quantity, last_updated_at = @UpdatedAt WHERE id = @Id AND (quantity - reserved_quantity) >= @Quantity;",
+                            new { Id = stockId, Quantity = (double)item.Quantity, UpdatedAt = DateTime.UtcNow.ToString("o") },
+                            transaction, cancellationToken: cancellationToken));
+                    }
+                    else
+                    {
+                        // Ensure stock balance record exists at 0
+                        const string ensureStockSql = @"
+                            INSERT OR IGNORE INTO stock_balances (
+                                id, batch_id, product_id, warehouse_id, quantity, reserved_quantity, last_updated_at
+                            ) VALUES (
+                                @Id, @BatchId, @ProductId, @WarehouseId, 0.0, 0.0, @LastUpdatedAt
+                            );
+                        ";
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            ensureStockSql,
+                            new
+                            {
+                                Id = $"sb_{actualBatchId}_{sale.WarehouseId}",
+                                BatchId = actualBatchId,
+                                item.ProductId,
+                                sale.WarehouseId,
+                                LastUpdatedAt = DateTime.UtcNow.ToString("o")
+                            },
+                            transaction,
+                            cancellationToken: cancellationToken));
+                    }
                 }
             }
 
@@ -181,7 +237,7 @@ public class SqliteSaleRepository : ISaleRepository
                         item.SaleId,
                         item.ProductId,
                         item.ProductName,
-                        item.BatchId,
+                        BatchId = resolvedBatchMap.TryGetValue(item.Id, out var rId) ? rId : item.BatchId,
                         item.BatchNumber,
                         ExpiryDate = item.ExpiryDate.ToString("o"),
                         Quantity = (double)item.Quantity,

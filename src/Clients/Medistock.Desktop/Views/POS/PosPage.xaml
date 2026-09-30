@@ -1640,9 +1640,9 @@
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <Border Background="{ThemeResource AccentSubtle}" CornerRadius="6" Padding="6,4">
-                                <TextBlock Text="🖨️ TAX INVOICE PREVIEW" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Text="🖨️ TAX INVOICE GENERATED" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                             </Border>
-                            <TextBlock Text="{x:Bind ViewModel.ActiveTab.DisplayInvoiceNo, Mode=OneWay}" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.LastCompletedInvoiceNo, Mode=OneWay, FallbackValue='TAX INVOICE'}" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button Grid.Column="1" Content="✕" Command="{x:Bind ViewModel.ClosePrintPreviewCommand}" Background="Transparent" BorderThickness="0" FontSize="14" />
                     </Grid>
@@ -1654,7 +1654,7 @@
 
                     <!-- Modal Actions Footer -->
                     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,14,0,0" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
-                        <TextBlock Grid.Column="0" Text="Press [← / →] to switch buttons | [Enter] to activate | [Esc] to Close" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="0" Text="Press [← / →] to switch buttons | [Enter] to Print | [Esc] to Close &amp; Next Invoice" FontSize="12" Foreground="{ThemeResource TextMuted}" VerticalAlignment="Center" />
                         <Button Grid.Column="1"
                                 x:Name="ClosePrintPreviewButton"
                                 Content="✕ Close [Esc]"
@@ -1673,7 +1673,7 @@
                                 Height="40" />
                         <Button Grid.Column="3"
                                 x:Name="ConfirmPrintPreviewButton"
-                                Content="🖨️ Confirm, Save &amp; Print [Enter]"
+                                Content="🖨️ Print Receipt [Enter]"
                                 Click="ConfirmPrintPreviewButton_Click"
                                 KeyDown="PrintPreviewBtn_KeyDown"
                                 PreviewKeyDown="PrintPreviewBtn_PreviewKeyDown"

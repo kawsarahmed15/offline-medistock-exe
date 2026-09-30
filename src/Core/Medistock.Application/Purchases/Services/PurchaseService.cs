@@ -25,6 +25,9 @@ public interface IPurchaseService
     Task<PurchaseKpiSummaryDto> GetPurchaseKpiSummaryAsync(string orgId, string branchId, string period = "All", CancellationToken cancellationToken = default);
     Task<bool> IsDuplicateInvoiceAsync(string orgId, string supplierId, string supplierInvoiceNo, CancellationToken cancellationToken = default);
     Task<PurchaseCancelResult> CancelPurchaseInvoiceAsync(string invoiceId, string cancelledByUserId, CancellationToken cancellationToken = default);
+    Task<PurchasePostingResult> UpdatePurchaseInvoiceAsync(UpdatePurchaseInvoiceCommand command, CancellationToken cancellationToken = default);
+    Task<PurchaseReturnResult> ProcessPurchaseReturnAsync(CreatePurchaseReturnCommand command, CancellationToken cancellationToken = default);
+    Task<decimal> GetBatchAvailableStockAsync(string productId, string batchNumber, string warehouseId, string orgId, CancellationToken cancellationToken = default);
 }
 
 public class PurchaseService : IPurchaseService
@@ -205,5 +208,20 @@ public class PurchaseService : IPurchaseService
     public Task<PurchaseCancelResult> CancelPurchaseInvoiceAsync(string invoiceId, string cancelledByUserId, CancellationToken cancellationToken = default)
     {
         return _purchaseRepository.CancelPurchaseInvoiceAsync(invoiceId, cancelledByUserId, cancellationToken);
+    }
+
+    public Task<PurchasePostingResult> UpdatePurchaseInvoiceAsync(UpdatePurchaseInvoiceCommand command, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.UpdatePurchaseInvoiceAtomicAsync(command, cancellationToken);
+    }
+
+    public Task<PurchaseReturnResult> ProcessPurchaseReturnAsync(CreatePurchaseReturnCommand command, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.ProcessPurchaseReturnAtomicAsync(command, cancellationToken);
+    }
+
+    public Task<decimal> GetBatchAvailableStockAsync(string productId, string batchNumber, string warehouseId, string orgId, CancellationToken cancellationToken = default)
+    {
+        return _purchaseRepository.GetBatchAvailableStockAsync(productId, batchNumber, warehouseId, orgId, cancellationToken);
     }
 }

@@ -43,6 +43,11 @@ public class FakeInventoryService : IInventoryService
     {
         return Task.FromResult(new StockAdjustmentResult(true, "M-002", 0));
     }
+
+    public Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(UpdateProductDetailsCommand command, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new UpdateProductDetailsResult(true));
+    }
 }
 
 public class InventoryAlertAndExportTests
@@ -285,5 +290,122 @@ public class InventoryAlertAndExportTests
                 Directory.Delete(tempDir, true);
             }
         }
+    }
+
+    [Fact]
+    public async Task InventoryValuation_CalculatedWithNetRate_BuyingPricePlusGstTimesQuantity()
+    {
+        // Product buying price is 10 and has 5% GST -> Net rate = 10.50
+        // Total Qty = 100 -> Total stock valuation = 10.50 * 100 = 1050.00
+        var fakeService = new FakeInventoryService();
+        decimal buyingCost = 10m;
+        decimal gstPercent = 5m;
+        decimal qty = 100m;
+        decimal netRate = buyingCost * (1m + (gstPercent / 100m)); // 10.50m
+        decimal totalValuation = Math.Round(qty * netRate, 2);    // 1050.00m
+
+        var itemDto = new StockSummaryItemDto(
+            ProductId: "P-101",
+            ProductName: "Test Med 100mg",
+            GenericName: "Test Salt",
+            SaltComposition: "Test 100mg",
+            Manufacturer: "Test Pharma",
+            CategoryName: "Tablet",
+            Schedule: DrugSchedule.OTC,
+            BatchId: "B-101",
+            BatchNumber: "BATCH-TEST",
+            ExpiryDate: DateTime.UtcNow.AddMonths(12),
+            DaysUntilExpiry: 365,
+            ExpiryStatus: ExpiryBand.Good,
+            AvailableQuantity: qty,
+            ReservedQuantity: 0,
+            TotalQuantity: qty,
+            Mrp: 15m,
+            PurchaseRate: buyingCost,
+            SaleRate: 14m,
+            StockValueAtMrp: qty * 15m,
+            StockValueAtCost: totalValuation,
+            MinStockAlert: 10m,
+            GstRatePercent: gstPercent,
+            NetPurchaseRate: netRate
+        );
+
+        fakeService.Items.Add(itemDto);
+
+        var vm = new InventoryViewModel(fakeService);
+        await vm.LoadStocksCommand.ExecuteAsync(null);
+
+        Assert.Single(vm.StockItems);
+        var loadedItem = vm.StockItems[0];
+        Assert.Equal(10m, loadedItem.PurchaseRate);
+        Assert.Equal(10.50m, loadedItem.NetPurchaseRate);
+        Assert.Equal(1050m, loadedItem.StockValueAtCost);
+        Assert.Equal(1050m, vm.TotalStockValue);
+        Assert.Equal("1,050.00", vm.TotalStockValueFormatted);
+    }
+
+    [Fact]
+    public async Task OpenEditProduct_PopulatesFields_AndSaveUpdatesProduct()
+    {
+        var fakeService = new FakeInventoryService();
+        var itemDto = new StockSummaryItemDto(
+            ProductId: "P-EDIT-1",
+            ProductName: "Amoxicillin 500mg",
+            GenericName: "Amoxicillin",
+            SaltComposition: "Amoxicillin Trihydrate 500mg",
+            Manufacturer: "Alkem",
+            CategoryName: "CAP",
+            Schedule: DrugSchedule.ScheduleH,
+            BatchId: "B-EDIT-1",
+            BatchNumber: "AMX-99",
+            ExpiryDate: new DateTime(2027, 12, 31),
+            DaysUntilExpiry: 500,
+            ExpiryStatus: ExpiryBand.Good,
+            AvailableQuantity: 50,
+            ReservedQuantity: 0,
+            TotalQuantity: 50,
+            Mrp: 120m,
+            PurchaseRate: 80m,
+            SaleRate: 110m,
+            StockValueAtMrp: 6000m,
+            StockValueAtCost: 4480m,
+            MinStockAlert: 15m,
+            GstRatePercent: 12m,
+            NetPurchaseRate: 89.6m,
+            HsnCode: "30041010"
+        );
+
+        fakeService.Items.Add(itemDto);
+
+        var vm = new InventoryViewModel(fakeService);
+        await vm.LoadStocksCommand.ExecuteAsync(null);
+
+        var stockItem = vm.StockItems[0];
+        vm.OpenEditProductCommand.Execute(stockItem);
+
+        Assert.True(vm.IsEditProductModalOpen);
+        Assert.Equal("P-EDIT-1", vm.EditProductId);
+        Assert.Equal("Amoxicillin 500mg", vm.EditProductName);
+        Assert.Equal("Amoxicillin", vm.EditGenericName);
+        Assert.Equal("Amoxicillin Trihydrate 500mg", vm.EditSaltComposition);
+        Assert.Equal("Alkem", vm.EditManufacturer);
+        Assert.Equal("CAP", vm.EditCategoryName);
+        Assert.Equal("30041010", vm.EditHsnCode);
+        Assert.Equal(12m, vm.EditGstRatePercent);
+        Assert.Equal((int)DrugSchedule.ScheduleH, vm.EditScheduleIndex);
+        Assert.Equal(15m, vm.EditMinStockAlert);
+        Assert.Equal("B-EDIT-1", vm.EditBatchId);
+        Assert.Equal("AMX-99", vm.EditBatchNumber);
+        Assert.Equal(120m, vm.EditMrp);
+        Assert.Equal(80m, vm.EditPurchaseRate);
+        Assert.Equal(110m, vm.EditSaleRate);
+
+        // Edit fields
+        vm.EditProductName = "Amoxicillin 500mg Forte";
+        vm.EditSaleRate = 115m;
+
+        await vm.SaveProductDetailsCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsEditProductModalOpen);
     }
 }

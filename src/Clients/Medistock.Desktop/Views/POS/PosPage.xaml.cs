@@ -2174,27 +2174,17 @@ public sealed partial class PosPage : Page
 
     private void ConfirmSaveButton_Click(object sender, RoutedEventArgs e)
     {
-        _ = SaveAndNextInvoiceAsync();
+        _ = HandlePayAndPrintAsync();
     }
 
     private void SaveAndPrintButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.SaveAndOpenPrintPreview();
-        DispatcherQueue.TryEnqueue(() => ConfirmPrintPreviewButton.Focus(FocusState.Programmatic));
+        _ = HandlePayAndPrintAsync();
     }
 
     private async Task SaveAndNextInvoiceAsync()
     {
-        try
-        {
-            await ViewModel.SaveAndNextInvoiceAsync();
-            SearchBox.Focus(FocusState.Programmatic);
-            SearchBox.SelectAll();
-        }
-        catch (Exception ex)
-        {
-            ViewModel.StatusMessage = $"Error: {ex.Message}";
-        }
+        await HandlePayAndPrintAsync();
     }
 
     private void SaveConfirmationBtn_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -2206,14 +2196,9 @@ public sealed partial class PosPage : Page
                 ViewModel.CloseSaveConfirmation();
                 FocusBottomBarDiscount();
             }
-            else if (ReferenceEquals(sender, SaveAndPrintButton))
-            {
-                ViewModel.SaveAndOpenPrintPreview();
-                DispatcherQueue.TryEnqueue(() => ConfirmPrintPreviewButton.Focus(FocusState.Programmatic));
-            }
             else
             {
-                _ = SaveAndNextInvoiceAsync();
+                _ = HandlePayAndPrintAsync();
             }
             e.Handled = true;
         }
@@ -2583,7 +2568,8 @@ public sealed partial class PosPage : Page
 
     private async Task ConfirmPrintPreviewAsync()
     {
-        await ViewModel.ConfirmPrintPreviewAndSaveAsync();
+        await ViewModel.PrintReceiptAsync();
+        ViewModel.ClosePrintPreview();
         FocusHeaderStart();
     }
 
@@ -2712,11 +2698,13 @@ public sealed partial class PosPage : Page
         }
     }
 
-    private async Task LoadPosPreviewHtmlAsync()
+    private SaleReceiptModel? _lastGeneratedReceipt;
+
+    private async Task LoadPosPreviewHtmlAsync(SaleReceiptModel? specificReceipt = null)
     {
         try
         {
-            var receipt = BuildReceiptModelFromActiveTab();
+            var receipt = specificReceipt ?? _lastGeneratedReceipt ?? BuildReceiptModelFromActiveTab();
             var templateRepo = App.Services.GetRequiredService<IBillTemplateRepository>();
             var generator = App.Services.GetRequiredService<IBillDocumentGenerator>();
 
@@ -2739,8 +2727,7 @@ public sealed partial class PosPage : Page
     {
         try
         {
-            var tab = ViewModel.ActiveTab;
-            var invoiceNo = tab?.DisplayInvoiceNo ?? $"INV-{DateTime.Now:yyyyMMddHHmmss}";
+            var invoiceNo = _lastGeneratedReceipt?.InvoiceNo ?? ViewModel.LastCompletedInvoiceNo ?? ViewModel.ActiveTab?.DisplayInvoiceNo ?? $"INV-{DateTime.Now:yyyyMMddHHmmss}";
             var cleanInvoiceNo = string.Join("_", invoiceNo.Split(Path.GetInvalidFileNameChars()));
             var docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             var targetPath = Path.Combine(docsPath, $"{cleanInvoiceNo}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
@@ -2764,8 +2751,7 @@ public sealed partial class PosPage : Page
                 }
             }
 
-            // Immediately save and finalize sale to SQLite so it appears in Sale History
-            await ViewModel.ConfirmPrintPreviewAndSaveAsync();
+            ViewModel.ClosePrintPreview();
             FocusHeaderStart();
         }
         catch (Exception ex)
@@ -2798,6 +2784,42 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private async Task HandlePayAndPrintAsync()
+    {
+        SyncActiveDiscountBox();
+        if (ViewModel.ActiveTab == null || !ViewModel.ActiveTab.CartItems.Any())
+        {
+            ViewModel.StatusMessage = "Cart is empty. Scan barcode or type medicine name to begin.";
+            return;
+        }
+
+        try
+        {
+            var receipt = BuildReceiptModelFromActiveTab();
+            ViewModel.CloseSaveConfirmation();
+
+            // Commit and save sale atomically to SQLite
+            await ViewModel.FinalizeSaleInternalAsync(showPrintPrompt: false);
+
+            if (!string.IsNullOrEmpty(ViewModel.LastCompletedInvoiceNo))
+            {
+                _lastGeneratedReceipt = receipt with
+                {
+                    InvoiceNo = ViewModel.LastCompletedInvoiceNo,
+                    GrandTotal = ViewModel.LastCompletedAmount > 0 ? ViewModel.LastCompletedAmount : receipt.GrandTotal
+                };
+
+                await LoadPosPreviewHtmlAsync(_lastGeneratedReceipt);
+                ViewModel.IsPrintPreviewOpen = true;
+                DispatcherQueue.TryEnqueue(() => ConfirmPrintPreviewButton.Focus(FocusState.Programmatic));
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.StatusMessage = $"⚠️ Error generating invoice: {ex.Message}";
+        }
+    }
+
     private void ConfirmPrintPreviewButton_Click(object sender, RoutedEventArgs e)
     {
         _ = ConfirmPrintPreviewAsync();
@@ -2805,16 +2827,7 @@ public sealed partial class PosPage : Page
 
     private void PayAndPrintBottomBar_Click(object sender, RoutedEventArgs e)
     {
-        SyncActiveDiscountBox();
-        if (ViewModel.ActiveTab != null && ViewModel.ActiveTab.CartItems.Any())
-        {
-            ViewModel.OpenSaveConfirmation();
-            DispatcherQueue.TryEnqueue(() => SaveAndPrintButton.Focus(FocusState.Programmatic));
-        }
-        else
-        {
-            ViewModel.StatusMessage = "Cart is empty. Scan barcode or type medicine name to begin.";
-        }
+        _ = HandlePayAndPrintAsync();
     }
 
     private async void PrintReceiptButton_Click(object sender, RoutedEventArgs e)

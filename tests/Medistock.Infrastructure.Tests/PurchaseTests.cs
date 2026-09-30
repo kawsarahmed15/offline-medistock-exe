@@ -375,5 +375,140 @@ public class PurchaseTests : IDisposable
         // Prior seeded batches might exist, but the newly added batch must add 10 * (10.00 * 1.05) = 105.00
         Assert.True(kpis.TotalStockValue >= 105.00m);
     }
+
+    [Fact]
+    public async Task UpdatePurchaseInvoiceAtomicAsync_UpdatesItemsAndRevisesStockBalances()
+    {
+        // 1. Post initial invoice with 10 units of BATCH-EDIT-01
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "Vendor For Edit", Gstin: "07AABCE1234F1Z1",
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 30, OpeningBalance: 0));
+
+        var initialCmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "Vendor For Edit",
+            SupplierGstin: "07AABCE1234F1Z1", SupplierInvoiceNo: "EDIT-INV-001",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: "Initial bill",
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_edit_1", "Edit Medicine 1", "30049099", "BATCH-EDIT-01",
+                    DateTime.UtcNow.AddMonths(12), null, 10m, 0m, 50.00m, 80.00m, 80.00m, 0m, 12.0m)
+            });
+
+        var postRes = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(initialCmd);
+        Assert.True(postRes.Success);
+
+        var stockInitial = await _purchaseRepository.GetBatchAvailableStockAsync("p_edit_1", "BATCH-EDIT-01", "wh-1", "org-1");
+        Assert.Equal(10m, stockInitial);
+
+        // 2. Now edit this invoice: update BATCH-EDIT-01 quantity from 10 to 15, and add a new medicine BATCH-EDIT-02 (5 units)
+        var updateCmd = new UpdatePurchaseInvoiceCommand(
+            InvoiceId: postRes.PurchaseInvoiceId!,
+            OrgId: "org-1",
+            BranchId: "br-1",
+            WarehouseId: "wh-1",
+            SupplierId: supplierId,
+            SupplierName: "Vendor For Edit",
+            SupplierGstin: "07AABCE1234F1Z1",
+            SupplierInvoiceNo: "EDIT-INV-001",
+            SupplierInvoiceDate: DateTime.UtcNow,
+            IsInterstate: false,
+            UpdatedByUserId: "user-1",
+            Notes: "Edited bill with revised quantities and extra product",
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_edit_1", "Edit Medicine 1", "30049099", "BATCH-EDIT-01",
+                    DateTime.UtcNow.AddMonths(12), null, 15m, 0m, 50.00m, 80.00m, 80.00m, 0m, 12.0m),
+                new("p_edit_2", "Edit Medicine 2", "30049099", "BATCH-EDIT-02",
+                    DateTime.UtcNow.AddMonths(18), null, 5m, 0m, 20.00m, 35.00m, 35.00m, 0m, 5.0m)
+            }
+        );
+
+        var updateRes = await _purchaseRepository.UpdatePurchaseInvoiceAtomicAsync(updateCmd);
+        Assert.True(updateRes.Success, updateRes.ErrorMessage);
+
+        // 3. Verify stock balances: BATCH-EDIT-01 must be 15 (reversal of 10, then add 15), BATCH-EDIT-02 must be 5
+        var stockAfter1 = await _purchaseRepository.GetBatchAvailableStockAsync("p_edit_1", "BATCH-EDIT-01", "wh-1", "org-1");
+        var stockAfter2 = await _purchaseRepository.GetBatchAvailableStockAsync("p_edit_2", "BATCH-EDIT-02", "wh-1", "org-1");
+
+        Assert.Equal(15m, stockAfter1);
+        Assert.Equal(5m, stockAfter2);
+
+        // 4. Verify invoice details reflects updated items count and totals
+        var details = await _purchaseRepository.GetPurchaseInvoiceDetailsAsync(postRes.PurchaseInvoiceId!);
+        Assert.NotNull(details);
+        Assert.Equal(2, details.Items.Count);
+        Assert.Equal("Edited bill with revised quantities and extra product", details.Notes);
+    }
+
+    [Fact]
+    public async Task ProcessPurchaseReturnAtomicAsync_DeductsStockAndAdjustsInventoryValuation_AndGeneratesDebitNote()
+    {
+        // 1. Post purchase invoice: 20 units of product with buying rate 10.00, GST 5% -> Net unit cost = 10.50
+        var supplierId = await _purchaseService.CreateSupplierAsync(new CreateSupplierCommand(
+            OrgId: "org-1", Name: "Return Wholesaler Co", Gstin: "27AABCR1234F1Z3",
+            DlNumber: null, Phone: null, Email: null, Address: null, CreditDays: 30, OpeningBalance: 0));
+
+        var cmd = new CreatePurchaseInvoiceCommand(
+            OrgId: "org-1", BranchId: "br-1", WarehouseId: "wh-1",
+            SupplierId: supplierId, SupplierName: "Return Wholesaler Co",
+            SupplierGstin: "27AABCR1234F1Z3", SupplierInvoiceNo: "RET-INV-100",
+            SupplierInvoiceDate: DateTime.UtcNow, IsInterstate: false,
+            CreatedByUserId: "user-1", Notes: "Return test invoice",
+            Items: new List<PurchaseInvoiceItemInputDto>
+            {
+                new("p_return_test", "Return Test Medicine", "30049099", "BATCH-RET-01",
+                    DateTime.UtcNow.AddMonths(12), null, 20m, 0m, 10.00m, 20.00m, 20.00m, 0m, 5.0m)
+            });
+
+        var postRes = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(cmd);
+        Assert.True(postRes.Success);
+
+        // Initial stock = 20
+        var stockBefore = await _purchaseRepository.GetBatchAvailableStockAsync("p_return_test", "BATCH-RET-01", "wh-1", "org-1");
+        Assert.Equal(20m, stockBefore);
+
+        var kpiBefore = await _purchaseRepository.GetPurchaseKpiSummaryAsync("org-1", "br-1");
+        var stockValuationBefore = kpiBefore.TotalStockValue;
+
+        // 2. Process Purchase Return for 6 units:
+        // Net unit price = 10.00 * 1.05 = 10.50
+        // Net return value = 6 * 10.50 = 63.00
+        var returnCmd = new CreatePurchaseReturnCommand(
+            OrgId: "org-1",
+            BranchId: "br-1",
+            WarehouseId: "wh-1",
+            PurchaseInvoiceId: postRes.PurchaseInvoiceId!,
+            SupplierId: supplierId,
+            SupplierName: "Return Wholesaler Co",
+            SupplierGstin: "27AABCR1234F1Z3",
+            OriginalInvoiceNo: "RET-INV-100",
+            CreatedByUserId: "user-1",
+            Notes: "Return of damaged goods",
+            Items: new List<PurchaseReturnItemInputDto>
+            {
+                new("p_return_test", "Return Test Medicine", "BATCH-RET-01",
+                    DateTime.UtcNow.AddMonths(12), 6m, 10.00m, 5.0m, 10.50m, 63.00m, "Damaged in transit")
+            }
+        );
+
+        var returnRes = await _purchaseRepository.ProcessPurchaseReturnAtomicAsync(returnCmd);
+
+        // 3. Verify Return Result
+        Assert.True(returnRes.Success, returnRes.ErrorMessage);
+        Assert.StartsWith("PR-", returnRes.ReturnNumber);
+        Assert.Equal(1, returnRes.ItemsReturnedCount);
+        Assert.Equal(6m, returnRes.TotalQuantityReturned);
+        Assert.Equal(63.00m, returnRes.TotalReturnAmount);
+
+        // 4. Verify Stock balance is reduced by 6 units (20 - 6 = 14)
+        var stockAfter = await _purchaseRepository.GetBatchAvailableStockAsync("p_return_test", "BATCH-RET-01", "wh-1", "org-1");
+        Assert.Equal(14m, stockAfter);
+
+        // 5. Verify Total Stock Valuation dropped by exactly 63.00 (6 * 10.50)
+        var kpiAfter = await _purchaseRepository.GetPurchaseKpiSummaryAsync("org-1", "br-1");
+        Assert.Equal(stockValuationBefore - 63.00m, kpiAfter.TotalStockValue);
+    }
 }
 

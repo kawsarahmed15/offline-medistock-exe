@@ -58,7 +58,7 @@ public class SqliteConnectionFactory : ISqliteConnectionFactory
         try
         {
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;";
+            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 10000;";
             cmd.ExecuteNonQuery();
         }
         catch { }
@@ -69,7 +69,7 @@ public class SqliteConnectionFactory : ISqliteConnectionFactory
         try
         {
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;";
+            cmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 10000;";
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
         catch { }

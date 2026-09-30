@@ -55,4 +55,19 @@ public interface IPurchaseRepository
         string invoiceId,
         string cancelledByUserId,
         CancellationToken cancellationToken = default);
+
+    Task<PurchasePostingResult> UpdatePurchaseInvoiceAtomicAsync(
+        UpdatePurchaseInvoiceCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<PurchaseReturnResult> ProcessPurchaseReturnAtomicAsync(
+        CreatePurchaseReturnCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<decimal> GetBatchAvailableStockAsync(
+        string productId,
+        string batchNumber,
+        string warehouseId,
+        string orgId,
+        CancellationToken cancellationToken = default);
 }

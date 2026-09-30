@@ -111,6 +111,23 @@ public class MockPurchaseService : IPurchaseService
     {
         return Task.FromResult(new PurchaseCancelResult(true));
     }
+
+    public Task<PurchasePostingResult> UpdatePurchaseInvoiceAsync(UpdatePurchaseInvoiceCommand command, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new PurchasePostingResult(true, command.InvoiceId, command.Items.Count, command.Items.Count * 50, 25000m));
+    }
+
+    public Task<PurchaseReturnResult> ProcessPurchaseReturnAsync(CreatePurchaseReturnCommand command, CancellationToken cancellationToken = default)
+    {
+        var totalQty = command.Items.Sum(i => i.ReturnQuantity);
+        var totalAmt = command.Items.Sum(i => i.NetAmount);
+        return Task.FromResult(new PurchaseReturnResult(true, "ret-1", "PR-0001", command.Items.Count, totalQty, totalAmt));
+    }
+
+    public Task<decimal> GetBatchAvailableStockAsync(string productId, string batchNumber, string warehouseId, string orgId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(50m);
+    }
 }
 
 public class MockProductSearchRepository : IProductSearchRepository
@@ -271,6 +288,131 @@ public class PurchaseViewModelAndExportTests
         await vm.SetPurchasePeriodCommand.ExecuteAsync("All");
         Assert.Equal("All", vm.SelectedPurchasePeriod);
         Assert.Equal(22400m, vm.TotalPurchasesAmount);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_RemoveRow_And_UndoRemoveRow_Restores_Row()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.LineItems.Clear();
+        var row1 = new PurchaseItemRowViewModel { ProductName = "Medicine A", Quantity = 10, UnitPrice = 15m };
+        var row2 = new PurchaseItemRowViewModel { ProductName = "Medicine B", Quantity = 5, UnitPrice = 25m };
+        var row3 = new PurchaseItemRowViewModel { ProductName = "Medicine C", Quantity = 8, UnitPrice = 50m };
+        vm.LineItems.Add(row1);
+        vm.LineItems.Add(row2);
+        vm.LineItems.Add(row3);
+        vm.RecalculateTotals();
+
+        Assert.Equal(3, vm.LineItems.Count);
+
+        // Remove row 2 ("Medicine B")
+        vm.RemoveRow(row2);
+        Assert.Equal(2, vm.LineItems.Count);
+        Assert.DoesNotContain(vm.LineItems, r => r.ProductName == "Medicine B");
+        Assert.Equal(1, vm.UndoCount);
+
+        // Undo removal -> Medicine B should be restored at its original index (1)
+        vm.UndoRemoveRow();
+        Assert.Equal(3, vm.LineItems.Count);
+        Assert.Equal("Medicine B", vm.LineItems[1].ProductName);
+        Assert.Equal(5, vm.LineItems[1].Quantity);
+        Assert.Equal(25m, vm.LineItems[1].UnitPrice);
+        Assert.Equal(0, vm.UndoCount);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_MultiLevel_Undo_Restores_In_Reverse_Order()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.LineItems.Clear();
+        var row1 = new PurchaseItemRowViewModel { ProductName = "Item 1", Quantity = 1 };
+        var row2 = new PurchaseItemRowViewModel { ProductName = "Item 2", Quantity = 2 };
+        var row3 = new PurchaseItemRowViewModel { ProductName = "Item 3", Quantity = 3 };
+        vm.LineItems.Add(row1);
+        vm.LineItems.Add(row2);
+        vm.LineItems.Add(row3);
+
+        // Remove Item 1, then Item 3
+        vm.RemoveRow(row1);
+        vm.RemoveRow(row3);
+        Assert.Single(vm.LineItems);
+        Assert.Equal("Item 2", vm.LineItems[0].ProductName);
+        Assert.Equal(2, vm.UndoCount);
+
+        // First Undo -> restores Item 3
+        vm.UndoRemoveRow();
+        Assert.Equal(2, vm.LineItems.Count);
+        Assert.Contains(vm.LineItems, r => r.ProductName == "Item 3");
+
+        // Second Undo -> restores Item 1
+        vm.UndoRemoveRow();
+        Assert.Equal(3, vm.LineItems.Count);
+        Assert.Equal("Item 1", vm.LineItems[0].ProductName);
+        Assert.Equal(0, vm.UndoCount);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_WhenFirstRowIsActive_RemoveRow_DeletesFirstRow_NotSecondRow()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.LineItems.Clear();
+        var row1 = new PurchaseItemRowViewModel { ProductName = "Medicine 1 (First)", Quantity = 10, UnitPrice = 10m };
+        var row2 = new PurchaseItemRowViewModel { ProductName = "Medicine 2 (Second)", Quantity = 20, UnitPrice = 20m };
+        vm.LineItems.Add(row1);
+        vm.LineItems.Add(row2);
+        vm.SetActiveRow(0); // First row is active/focused
+
+        Assert.Equal(2, vm.LineItems.Count);
+        Assert.Equal("Medicine 1 (First)", vm.ActiveRow?.ProductName);
+
+        // Delete active row (first row)
+        vm.RemoveRow(vm.ActiveRow);
+
+        // Only first row was deleted, second row must still exist and be at index 0
+        Assert.Single(vm.LineItems);
+        Assert.Equal("Medicine 2 (Second)", vm.LineItems[0].ProductName);
+        Assert.Equal(20, vm.LineItems[0].Quantity);
+
+        // Undo restores only the first row
+        vm.UndoRemoveRow();
+        Assert.Equal(2, vm.LineItems.Count);
+        Assert.Equal("Medicine 1 (First)", vm.LineItems[0].ProductName);
+        Assert.Equal("Medicine 2 (Second)", vm.LineItems[1].ProductName);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_UndoRemoveRow_WhenOnlyRowDeleted_RestoresOnlyDeletedRow_WithoutLeavingExtraBlankRow()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.LineItems.Clear();
+        var row = new PurchaseItemRowViewModel { ProductName = "Solo Medicine", Quantity = 5, UnitPrice = 100m, BatchNumber = "B-001" };
+        vm.LineItems.Add(row);
+        vm.SetActiveRow(0);
+
+        // Delete the only row -> table creates a blank placeholder
+        vm.RemoveRow(row);
+        Assert.Single(vm.LineItems);
+        Assert.True(PurchaseEntryViewModel.IsBlankRow(vm.LineItems[0]));
+
+        // Press Ctrl+Z (Undo) -> must restore ONLY "Solo Medicine", NO extra blank row should remain!
+        vm.UndoRemoveRow();
+        Assert.Single(vm.LineItems);
+        Assert.Equal("Solo Medicine", vm.LineItems[0].ProductName);
+        Assert.Equal(5, vm.LineItems[0].Quantity);
+        Assert.Equal(100m, vm.LineItems[0].UnitPrice);
+        Assert.Equal("B-001", vm.LineItems[0].BatchNumber);
     }
 
     [Fact]
@@ -651,6 +793,205 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("DL-20B-9988", vm.SupplierDlNumber);
         Assert.Equal(45, vm.SupplierCreditDays);
         Assert.Equal(12000m, vm.SupplierOutstandingBalance);
+    }
+
+    [Fact]
+    public void SupplierDto_FormattedPurchaseNoAndInvoiceNo_ReturnsCorrectDisplay()
+    {
+        var supplierWithoutBill = new SupplierDto("sup-1", "Test Wholesaler", "07AABCU1234F1Z1", "DL-1", "123", "a@b.com", "City", 30, 0m, true);
+        Assert.Null(supplierWithoutBill.PurchaseNo);
+        Assert.Null(supplierWithoutBill.InvoiceNo);
+        Assert.Equal("—", supplierWithoutBill.FormattedPurchaseNo);
+        Assert.Equal("—", supplierWithoutBill.FormattedInvoiceNo);
+
+        var supplierWithBill = new SupplierDto("sup-2", "Apex Wholesalers", "07AABCU1234F1Z2", "DL-2", "456", "b@b.com", "City", 30, 0m, true, "PO-0001", "INV-2026-99");
+        Assert.Equal("PO-0001", supplierWithBill.PurchaseNo);
+        Assert.Equal("PO-0001", supplierWithBill.FormattedPurchaseNo);
+        Assert.Equal("INV-2026-99", supplierWithBill.InvoiceNo);
+        Assert.Equal("INV-2026-99", supplierWithBill.FormattedInvoiceNo);
+    }
+
+    [Fact]
+    public async Task WholesalerDirectory_LoadsSuppliers_AndPopulatesPurchaseNoAndInvoiceNo()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        await vm.ViewWholesalersDirectoryCommand.ExecuteAsync(null);
+
+        Assert.Equal("Suppliers", vm.SelectedTab);
+        Assert.NotEmpty(vm.FilteredSuppliers);
+
+        // Apex Pharma has recorded invoice APEX/2026/001 in RecentPurchasesList -> should get PO-0001 and APEX/2026/001
+        var apexSupplier = vm.FilteredSuppliers.FirstOrDefault(s => s.Name == "Apex Pharma Wholesalers");
+        Assert.NotNull(apexSupplier);
+        Assert.Equal("PO-0001", apexSupplier.PurchaseNo);
+        Assert.Equal("PO-0001", apexSupplier.FormattedPurchaseNo);
+        Assert.Equal("APEX/2026/001", apexSupplier.InvoiceNo);
+        Assert.Equal("APEX/2026/001", apexSupplier.FormattedInvoiceNo);
+
+        // Cipla Direct Depot has no invoices recorded yet
+        var ciplaSupplier = vm.FilteredSuppliers.FirstOrDefault(s => s.Name == "Cipla Direct Depot");
+        Assert.NotNull(ciplaSupplier);
+        Assert.Equal("—", ciplaSupplier.FormattedPurchaseNo);
+        Assert.Equal("—", ciplaSupplier.FormattedInvoiceNo);
+    }
+
+    [Fact]
+    public async Task PurchaseEntry_SupplierFields_EmptyByDefault()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        // Verification: On initial creation, supplier is empty
+        Assert.Null(vm.SelectedSupplier);
+        Assert.True(string.IsNullOrEmpty(vm.SelectedSupplierName));
+        Assert.True(string.IsNullOrEmpty(vm.SupplierSearchText));
+        Assert.True(string.IsNullOrEmpty(vm.SupplierGstin));
+        Assert.True(string.IsNullOrEmpty(vm.SupplierDlNumber));
+        Assert.Equal(0, vm.SupplierCreditDays);
+        Assert.Equal(0m, vm.SupplierOutstandingBalance);
+
+        // Verification: After loading suppliers, it does NOT auto-select Suppliers[0]
+        await vm.LoadSuppliersCommand.ExecuteAsync(null);
+        Assert.Null(vm.SelectedSupplier);
+        Assert.True(string.IsNullOrEmpty(vm.SelectedSupplierName));
+        Assert.True(string.IsNullOrEmpty(vm.SupplierSearchText));
+    }
+
+    [Fact]
+    public async Task PurchaseEntry_EditInvoice_LoadsDataIntoEntryForm_AndUpdatesOnSave()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        var summary = new PurchaseInvoiceSummaryDto(
+            Id: "inv-1",
+            SupplierName: "Apex Pharma Wholesalers",
+            SupplierGstin: "07AABCU9603R1ZM",
+            SupplierInvoiceNo: "APEX/2026/001",
+            SupplierInvoiceDate: DateTime.UtcNow.AddDays(-2),
+            Status: PurchaseInvoiceStatus.Posted,
+            TaxableAmount: 2000m,
+            CgstAmount: 120m,
+            SgstAmount: 120m,
+            IgstAmount: 0m,
+            GrandTotal: 2240m,
+            ItemCount: 1,
+            CreatedAt: DateTime.UtcNow.AddDays(-2),
+            PostedAt: DateTime.UtcNow.AddDays(-2),
+            PurchaseNo: "PO-0001"
+        );
+
+        // 1. Trigger Edit
+        await vm.EditPurchaseInvoiceCommand.ExecuteAsync(summary);
+
+        Assert.True(vm.IsEditingInvoice);
+        Assert.Equal("inv-1", vm.EditingInvoiceId);
+        Assert.Equal("PO-0001", vm.EditingInvoicePurchaseNo);
+        Assert.Equal("APEX/2026/001", vm.SupplierInvoiceNo);
+        Assert.Equal("Apex Pharma Wholesalers", vm.SelectedSupplierName);
+        Assert.Equal("Entry", vm.SelectedTab);
+        Assert.Equal("UPDATE PURCHASE BILL [Ctrl+S]", vm.SaveButtonText);
+        Assert.Contains("PO-0001", vm.FormHeaderTitle);
+        Assert.Single(vm.LineItems);
+        Assert.Equal("Dolo 650", vm.LineItems[0].ProductName);
+        Assert.Equal(100m, vm.LineItems[0].Quantity);
+
+        // 2. Add a new item to this same bill
+        vm.LineItems.Add(new PurchaseItemRowViewModel
+        {
+            ProductId = "p2",
+            ProductName = "Paracetamol 500",
+            BatchNumber = "PCM2602",
+            ExpiryDate = DateTimeOffset.UtcNow.AddYears(1),
+            ExpiryText = "12/27",
+            Quantity = 50,
+            UnitPrice = 15m,
+            Mrp = 25m,
+            GstRatePercent = 12m
+        });
+
+        Assert.Equal(2, vm.LineItems.Count);
+
+        // 3. Save updated bill
+        await vm.PostPurchaseInvoiceCommand.ExecuteAsync(null);
+
+        // Should exit edit mode and reset form
+        Assert.False(vm.IsEditingInvoice);
+        Assert.Null(vm.EditingInvoiceId);
+        Assert.Contains("updated successfully", vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task PurchaseEntry_PurchaseReturn_OpensModal_CalculatesNetValuation_AndGeneratesReturnBill()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        var summary = new PurchaseInvoiceSummaryDto(
+            Id: "inv-1",
+            SupplierName: "Apex Pharma Wholesalers",
+            SupplierGstin: "07AABCU9603R1ZM",
+            SupplierInvoiceNo: "APEX/2026/001",
+            SupplierInvoiceDate: DateTime.UtcNow.AddDays(-2),
+            Status: PurchaseInvoiceStatus.Posted,
+            TaxableAmount: 2000m,
+            CgstAmount: 120m,
+            SgstAmount: 120m,
+            IgstAmount: 0m,
+            GrandTotal: 2240m,
+            ItemCount: 1,
+            CreatedAt: DateTime.UtcNow.AddDays(-2),
+            PostedAt: DateTime.UtcNow.AddDays(-2),
+            PurchaseNo: "PO-0001"
+        );
+
+        // 1. Open Return Dialog
+        await vm.OpenPurchaseReturnCommand.ExecuteAsync(summary);
+
+        Assert.True(vm.IsPurchaseReturnModalOpen);
+        Assert.NotNull(vm.ReturnSourceInvoice);
+        Assert.Single(vm.ReturnItems);
+
+        var returnItem = vm.ReturnItems[0];
+        Assert.Equal("Dolo 650", returnItem.ProductName);
+        Assert.Equal(110m, returnItem.InwardedQuantity); // Qty (100) + Free (10)
+        Assert.Equal(50m, returnItem.AvailableStock);
+        Assert.Equal(50m, returnItem.MaxReturnable); // min(110, 50)
+        // Landed cost / net unit rate with GST
+        Assert.True(returnItem.NetUnitPrice > 0);
+
+        // 2. Select item for return with quantity 10
+        returnItem.IsSelected = true;
+        returnItem.ReturnQuantity = 10m;
+        returnItem.Reason = "Expired Batch";
+
+        Assert.Equal(1, vm.TotalReturnSelectedItems);
+        Assert.Equal(10m, vm.TotalReturnQuantity);
+        Assert.True(vm.TotalReturnAmount > 0);
+
+        // 3. Confirm Return
+        await vm.ConfirmPurchaseReturnCommand.ExecuteAsync(null);
+
+        // Modal closes, Return Bill modal opens
+        Assert.False(vm.IsPurchaseReturnModalOpen);
+        Assert.True(vm.IsPurchaseReturnBillModalOpen);
+        Assert.NotNull(vm.CurrentPurchaseReturnBill);
+        Assert.Equal("PR-0001", vm.CurrentPurchaseReturnBill.ReturnNumber);
+        Assert.Equal("PO-0001", vm.CurrentPurchaseReturnBill.OriginalPurchaseNo);
+        Assert.Equal("APEX/2026/001", vm.CurrentPurchaseReturnBill.OriginalInvoiceNo);
+        Assert.Equal("Apex Pharma Wholesalers", vm.CurrentPurchaseReturnBill.SupplierName);
+        Assert.Contains("PR-0001", vm.StatusMessage);
+
+        // 4. Close Return Bill
+        vm.ClosePurchaseReturnBillModalCommand.Execute(null);
+        Assert.False(vm.IsPurchaseReturnBillModalOpen);
+        Assert.Null(vm.CurrentPurchaseReturnBill);
     }
 }
 

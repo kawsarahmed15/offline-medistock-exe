@@ -108,15 +108,37 @@ public partial class App : Microsoft.UI.Xaml.Application
     {
         try
         {
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                try
+                {
+                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                }
+                catch { }
+            };
+
             System.IO.File.AppendAllText(MedistockPaths.StartupLog,
                 $"OnLaunched at {DateTime.UtcNow:O}\n");
 
             // Run DB migration & seed before activating UI
             try
             {
+                // 1. Ensure database file and WAL integrity (auto-heals if malformed)
+                Medistock.Infrastructure.Data.Persistence.DatabaseRepairService.EnsureDatabaseHealthy(MedistockPaths.Database);
+
                 using var scope = Services.CreateScope();
                 var migrator = scope.ServiceProvider.GetRequiredService<IDatabaseMigrator>();
-                migrator.MigrateAsync().GetAwaiter().GetResult();
+                try
+                {
+                    migrator.MigrateAsync().GetAwaiter().GetResult();
+                }
+                catch (Microsoft.Data.Sqlite.SqliteException sex) when (sex.SqliteErrorCode == 11 || (sex.Message != null && sex.Message.IndexOf("malformed", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    System.IO.File.AppendAllText(MedistockPaths.StartupLog,
+                        $"Database malformed during migration; auto-healing: {sex.Message}\n");
+                    Medistock.Infrastructure.Data.Persistence.DatabaseRepairService.AutoHealCorruptDatabase(MedistockPaths.Database);
+                    migrator.MigrateAsync().GetAwaiter().GetResult();
+                }
 
                 var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
                 seeder.SeedIfEmptyAsync().GetAwaiter().GetResult();

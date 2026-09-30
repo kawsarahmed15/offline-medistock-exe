@@ -24,6 +24,10 @@ public interface IInventoryRepository
     Task<StockAdjustmentResult> AdjustStockAsync(
         StockAdjustmentRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
+        UpdateProductDetailsCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IScheduleDrugRepository

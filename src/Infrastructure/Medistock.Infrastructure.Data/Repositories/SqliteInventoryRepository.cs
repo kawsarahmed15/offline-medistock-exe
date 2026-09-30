@@ -41,6 +41,8 @@ public class SqliteInventoryRepository : IInventoryRepository
                 p.base_unit AS CategoryName,
                 p.schedule AS Schedule,
                 CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert,
+                CAST(IFNULL(p.gst_rate_percent, 0.0) AS REAL) AS GstRatePercent,
+                p.hsn_code AS HsnCode,
                 b.id AS BatchId,
                 b.batch_number AS BatchNumber,
                 b.expiry_date AS ExpiryDateStr,
@@ -115,6 +117,9 @@ public class SqliteInventoryRepository : IInventoryRepository
             decimal purchaseRate = Convert.ToDecimal(r.PurchaseRate);
             decimal saleRate = Convert.ToDecimal(r.SaleRate);
             decimal minStockAlert = r.MinStockAlert != null ? Convert.ToDecimal(r.MinStockAlert) : 10.0m;
+            decimal gstRatePercent = r.GstRatePercent != null ? Convert.ToDecimal(r.GstRatePercent) : 0.0m;
+            decimal netRate = purchaseRate * (1m + (gstRatePercent / 100m));
+            decimal stockValueAtCost = Math.Round(availQty * netRate, 2, MidpointRounding.AwayFromZero);
 
             list.Add(new StockSummaryItemDto(
                 ProductId: (string)r.ProductId,
@@ -136,8 +141,11 @@ public class SqliteInventoryRepository : IInventoryRepository
                 PurchaseRate: purchaseRate,
                 SaleRate: saleRate,
                 StockValueAtMrp: Math.Round(availQty * mrp, 2),
-                StockValueAtCost: Math.Round(availQty * purchaseRate, 2),
-                MinStockAlert: minStockAlert
+                StockValueAtCost: stockValueAtCost,
+                MinStockAlert: minStockAlert,
+                GstRatePercent: gstRatePercent,
+                NetPurchaseRate: Math.Round(netRate, 2, MidpointRounding.AwayFromZero),
+                HsnCode: (string)(r.HsnCode ?? "3004")
             ));
         }
 
@@ -333,6 +341,88 @@ public class SqliteInventoryRepository : IInventoryRepository
         {
             transaction.Rollback();
             return new StockAdjustmentResult(false, null, 0, ex.Message);
+        }
+    }
+
+    public async Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
+        UpdateProductDetailsCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(command.ProductId))
+            return new UpdateProductDetailsResult(false, "Product ID cannot be empty.");
+
+        if (string.IsNullOrWhiteSpace(command.ProductName))
+            return new UpdateProductDetailsResult(false, "Product name cannot be empty.");
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            const string updateProductSql = @"
+                UPDATE products SET
+                    name = @ProductName,
+                    generic_name = @GenericName,
+                    composition = @Composition,
+                    manufacturer_name = @Manufacturer,
+                    base_unit = @CategoryName,
+                    hsn_code = @HsnCode,
+                    gst_rate_percent = @GstRatePercent,
+                    schedule = @Schedule,
+                    min_stock_alert = @MinStockAlert
+                WHERE id = @ProductId;
+            ";
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                updateProductSql,
+                new
+                {
+                    command.ProductId,
+                    command.ProductName,
+                    command.GenericName,
+                    Composition = command.SaltComposition,
+                    command.Manufacturer,
+                    command.CategoryName,
+                    command.HsnCode,
+                    GstRatePercent = (double)command.GstRatePercent,
+                    Schedule = (int)command.Schedule,
+                    MinStockAlert = (double)command.MinStockAlert
+                },
+                transaction, cancellationToken: cancellationToken));
+
+            if (!string.IsNullOrWhiteSpace(command.BatchId))
+            {
+                const string updateBatchSql = @"
+                    UPDATE batches SET
+                        batch_number = COALESCE(@BatchNumber, batch_number),
+                        expiry_date = CASE WHEN @ExpiryDate IS NOT NULL THEN @ExpiryDate ELSE expiry_date END,
+                        mrp = CASE WHEN @Mrp IS NOT NULL THEN @Mrp ELSE mrp END,
+                        purchase_rate = CASE WHEN @PurchaseRate IS NOT NULL THEN @PurchaseRate ELSE purchase_rate END,
+                        sale_rate = CASE WHEN @SaleRate IS NOT NULL THEN @SaleRate ELSE sale_rate END
+                    WHERE id = @BatchId;
+                ";
+
+                await connection.ExecuteAsync(new CommandDefinition(
+                    updateBatchSql,
+                    new
+                    {
+                        command.BatchId,
+                        command.BatchNumber,
+                        ExpiryDate = command.ExpiryDate?.ToString("o"),
+                        Mrp = command.Mrp.HasValue ? (double)command.Mrp.Value : (double?)null,
+                        PurchaseRate = command.PurchaseRate.HasValue ? (double)command.PurchaseRate.Value : (double?)null,
+                        SaleRate = command.SaleRate.HasValue ? (double)command.SaleRate.Value : (double?)null
+                    },
+                    transaction, cancellationToken: cancellationToken));
+            }
+
+            transaction.Commit();
+            return new UpdateProductDetailsResult(true);
+        }
+        catch (Exception ex)
+        {
+            transaction.Rollback();
+            return new UpdateProductDetailsResult(false, ex.Message);
         }
     }
 }

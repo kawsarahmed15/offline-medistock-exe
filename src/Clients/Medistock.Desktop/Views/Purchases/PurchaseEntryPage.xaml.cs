@@ -74,9 +74,17 @@ public sealed partial class PurchaseEntryPage : Page
         {
             if (e.Key == VirtualKey.Escape)
             {
+                bool wasAddSupplier = ViewModel.IsAddSupplierModalOpen;
                 ViewModel.DismissCancelConfirmCommand.Execute(null);
                 ViewModel.CloseAddSupplierModalCommand.Execute(null);
                 ViewModel.CloseInvoiceDetailsCommand.Execute(null);
+                if (wasAddSupplier)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                    });
+                }
                 e.Handled = true;
             }
             return;
@@ -84,6 +92,12 @@ public sealed partial class PurchaseEntryPage : Page
 
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // If the key was already handled by child controls (e.g. PreviewKeyDown), do not process Delete or Ctrl+Z again!
+        if (e.Handled && (e.Key == VirtualKey.Delete || (e.Key == VirtualKey.Z && ctrl)))
+        {
+            return;
+        }
 
         switch (e.Key)
         {
@@ -107,16 +121,43 @@ public sealed partial class PurchaseEntryPage : Page
                 }
                 break;
 
+            case VirtualKey.Z when ctrl:
+                if (ViewModel.SelectedTab == "Entry")
+                {
+                    if (e.Handled) return;
+                    ViewModel.UndoRemoveRow();
+                    if (ViewModel.ActiveRowIndex >= 0 && ViewModel.ActiveRowIndex < ViewModel.LineItems.Count)
+                    {
+                        FocusRowColumn(ViewModel.ActiveRowIndex, 0);
+                    }
+                    e.Handled = true;
+                }
+                break;
+
             case VirtualKey.Escape:
                 FocusControl("SupplierInvoiceNoBox");
                 e.Handled = true;
                 break;
 
-            case VirtualKey.Delete when ctrl:
-                if (ViewModel.SelectedTab == "Entry" && ViewModel.ActiveRow != null)
+            case VirtualKey.Delete:
+                if (ViewModel.SelectedTab == "Entry")
                 {
-                    ViewModel.RemoveRowCommand.Execute(ViewModel.ActiveRow);
-                    e.Handled = true;
+                    if (e.Handled) return;
+
+                    var focusedElement = FocusManager.GetFocusedElement(this.XamlRoot) as DependencyObject;
+                    var targetRow = FindRowFromElement(focusedElement)
+                                 ?? (ViewModel.ActiveRowIndex >= 0 && ViewModel.ActiveRowIndex < ViewModel.LineItems.Count ? ViewModel.LineItems[ViewModel.ActiveRowIndex] : null);
+                    if (targetRow != null)
+                    {
+                        var rIdx = ViewModel.LineItems.IndexOf(targetRow);
+                        ViewModel.RemoveRow(targetRow);
+                        if (ViewModel.LineItems.Count > 0)
+                        {
+                            var nextIdx = Math.Clamp(rIdx, 0, ViewModel.LineItems.Count - 1);
+                            FocusRowColumn(nextIdx, 0);
+                        }
+                        e.Handled = true;
+                    }
                 }
                 break;
         }
@@ -269,6 +310,38 @@ public sealed partial class PurchaseEntryPage : Page
 
     private async void ProductNameBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        if (e.Key == VirtualKey.Z && ctrl)
+        {
+            ViewModel.UndoRemoveRow();
+            if (ViewModel.ActiveRowIndex >= 0 && ViewModel.ActiveRowIndex < ViewModel.LineItems.Count)
+            {
+                FocusRowColumn(ViewModel.ActiveRowIndex, 0);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Delete && !ViewModel.IsProductSearchOpen)
+        {
+            var targetRow = FindRowFromElement(sender as DependencyObject) 
+                         ?? (sender as FrameworkElement)?.DataContext as PurchaseItemRowViewModel;
+            if (targetRow != null)
+            {
+                var rowIndex = ViewModel.LineItems.IndexOf(targetRow);
+                ViewModel.RemoveRow(targetRow);
+                if (ViewModel.LineItems.Count > 0)
+                {
+                    var nextIdx = Math.Clamp(rowIndex, 0, ViewModel.LineItems.Count - 1);
+                    FocusRowColumn(nextIdx, 0);
+                }
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (e.Key == VirtualKey.Down || e.Key == VirtualKey.Up || e.Key == VirtualKey.Enter || e.Key == VirtualKey.Escape)
         {
             if (ViewModel.IsProductSearchOpen && ViewModel.ProductSearchResults.Count > 0)
@@ -498,6 +571,38 @@ public sealed partial class PurchaseEntryPage : Page
 
     private void RowCell_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // 0. Row shortcuts: Ctrl+Z (Undo) and Delete (Remove row)
+        if (e.Key == VirtualKey.Z && ctrl)
+        {
+            ViewModel.UndoRemoveRow();
+            if (ViewModel.ActiveRowIndex >= 0 && ViewModel.ActiveRowIndex < ViewModel.LineItems.Count)
+            {
+                FocusRowColumn(ViewModel.ActiveRowIndex, 0);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Delete)
+        {
+            var targetRow = FindRowFromElement(sender as DependencyObject) 
+                         ?? (sender as FrameworkElement)?.DataContext as PurchaseItemRowViewModel;
+            if (targetRow != null)
+            {
+                var rIdx = ViewModel.LineItems.IndexOf(targetRow);
+                ViewModel.RemoveRow(targetRow);
+                if (ViewModel.LineItems.Count > 0)
+                {
+                    var nextIdx = Math.Clamp(rIdx, 0, ViewModel.LineItems.Count - 1);
+                    FocusRowColumn(nextIdx, 0);
+                }
+                e.Handled = true;
+                return;
+            }
+        }
         // 1. Intercept keys on ExpiryBox (Tag = 2): Strictly numeric digits and slash only!
         if (sender is TextBox tb && tb.Tag is string tag && tag == "2")
         {
@@ -832,20 +937,70 @@ public sealed partial class PurchaseEntryPage : Page
         }
     }
 
+    private PurchaseItemRowViewModel? FindRowFromElement(DependencyObject? element)
+    {
+        while (element != null)
+        {
+            if (element is FrameworkElement fe && fe.DataContext is PurchaseItemRowViewModel row)
+            {
+                return row;
+            }
+            element = VisualTreeHelper.GetParent(element);
+        }
+        return null;
+    }
+
+    private void Row_GotFocus(object sender, RoutedEventArgs e)
+    {
+        var row = (sender as FrameworkElement)?.DataContext as PurchaseItemRowViewModel
+               ?? FindRowFromElement(e.OriginalSource as DependencyObject);
+        if (row != null)
+        {
+            int idx = ViewModel.LineItems.IndexOf(row);
+            if (idx >= 0 && idx != ViewModel.ActiveRowIndex)
+            {
+                ViewModel.SetActiveRow(idx);
+            }
+        }
+    }
+
+    private void RowDeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        var targetRow = FindRowFromElement(sender as DependencyObject) 
+                     ?? (sender as FrameworkElement)?.DataContext as PurchaseItemRowViewModel;
+        if (targetRow != null)
+        {
+            var idx = ViewModel.LineItems.IndexOf(targetRow);
+            ViewModel.RemoveRow(targetRow);
+            if (ViewModel.LineItems.Count > 0)
+            {
+                var nextIdx = Math.Clamp(idx, 0, ViewModel.LineItems.Count - 1);
+                FocusRowColumn(nextIdx, 0);
+            }
+        }
+    }
+
     private (int RowIndex, int ColIndex) GetRowAndColIndex(object sender)
     {
-        if (sender is FrameworkElement fe)
+        if (sender is DependencyObject dobj)
         {
-            int colIndex = 0;
-            if (fe.Tag is string tagStr && int.TryParse(tagStr, out int parsedCol))
+            int colIndex = -1;
+            DependencyObject? curr = dobj;
+            while (curr != null)
             {
-                colIndex = parsedCol;
-            }
-
-            if (fe.DataContext is PurchaseItemRowViewModel rowItem)
-            {
-                int rowIndex = ViewModel.LineItems.IndexOf(rowItem);
-                return (rowIndex, colIndex);
+                if (curr is FrameworkElement fe)
+                {
+                    if (colIndex < 0 && fe.Tag is string tagStr && int.TryParse(tagStr, out int parsedCol))
+                    {
+                        colIndex = parsedCol;
+                    }
+                    if (fe.DataContext is PurchaseItemRowViewModel rowItem)
+                    {
+                        int rowIndex = ViewModel.LineItems.IndexOf(rowItem);
+                        return (rowIndex, Math.Max(0, colIndex));
+                    }
+                }
+                curr = VisualTreeHelper.GetParent(curr);
             }
         }
         return (-1, -1);
@@ -962,6 +1117,157 @@ public sealed partial class PurchaseEntryPage : Page
         if (RecentPurchasesListView?.SelectedItem is PurchaseInvoiceSummaryDto selected)
         {
             await ViewModel.ViewInvoiceDetailsAsync(selected);
+        }
+    }
+
+    private void TotalStockValueCard_Click(object sender, RoutedEventArgs e)
+    {
+        App.MainWindowInstance?.NavigateToInventory();
+    }
+
+    private void NewSupplierField_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseAddSupplierModalCommand.Execute(null);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+            });
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (sender == NewSupplierNameBox)
+            {
+                NewSupplierGstinBox?.Focus(FocusState.Programmatic);
+                NewSupplierGstinBox?.SelectAll();
+            }
+            else if (sender == NewSupplierGstinBox)
+            {
+                NewSupplierDlNumberBox?.Focus(FocusState.Programmatic);
+                NewSupplierDlNumberBox?.SelectAll();
+            }
+            else if (sender == NewSupplierDlNumberBox)
+            {
+                NewSupplierPhoneBox?.Focus(FocusState.Programmatic);
+                NewSupplierPhoneBox?.SelectAll();
+            }
+            else if (sender == NewSupplierPhoneBox)
+            {
+                NewSupplierEmailBox?.Focus(FocusState.Programmatic);
+                NewSupplierEmailBox?.SelectAll();
+            }
+            else if (sender == NewSupplierEmailBox)
+            {
+                NewSupplierAddressBox?.Focus(FocusState.Programmatic);
+                NewSupplierAddressBox?.SelectAll();
+            }
+            else if (sender == NewSupplierAddressBox)
+            {
+                NewSupplierCreditDaysBox?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == NewSupplierCreditDaysBox)
+            {
+                NewSupplierOpeningBalanceBox?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == NewSupplierOpeningBalanceBox)
+            {
+                SaveNewSupplierBtn?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == SaveNewSupplierBtn)
+            {
+                ViewModel.SaveNewSupplierCommand.Execute(null);
+            }
+            else if (sender == CancelNewSupplierBtn)
+            {
+                ViewModel.CloseAddSupplierModalCommand.Execute(null);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                });
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Down)
+        {
+            if (sender == NewSupplierNameBox)
+            {
+                NewSupplierGstinBox?.Focus(FocusState.Programmatic);
+                NewSupplierGstinBox?.SelectAll();
+            }
+            else if (sender == NewSupplierGstinBox)
+            {
+                NewSupplierPhoneBox?.Focus(FocusState.Programmatic);
+                NewSupplierPhoneBox?.SelectAll();
+            }
+            else if (sender == NewSupplierDlNumberBox)
+            {
+                NewSupplierEmailBox?.Focus(FocusState.Programmatic);
+                NewSupplierEmailBox?.SelectAll();
+            }
+            else if (sender == NewSupplierPhoneBox || sender == NewSupplierEmailBox)
+            {
+                NewSupplierAddressBox?.Focus(FocusState.Programmatic);
+                NewSupplierAddressBox?.SelectAll();
+            }
+            else if (sender == NewSupplierAddressBox)
+            {
+                NewSupplierCreditDaysBox?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == NewSupplierCreditDaysBox)
+            {
+                CancelNewSupplierBtn?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == NewSupplierOpeningBalanceBox)
+            {
+                SaveNewSupplierBtn?.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Up)
+        {
+            if (sender == SaveNewSupplierBtn)
+            {
+                NewSupplierOpeningBalanceBox?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == CancelNewSupplierBtn)
+            {
+                NewSupplierCreditDaysBox?.Focus(FocusState.Programmatic);
+            }
+            else if (sender == NewSupplierOpeningBalanceBox || sender == NewSupplierCreditDaysBox)
+            {
+                NewSupplierAddressBox?.Focus(FocusState.Programmatic);
+                NewSupplierAddressBox?.SelectAll();
+            }
+            else if (sender == NewSupplierAddressBox)
+            {
+                NewSupplierPhoneBox?.Focus(FocusState.Programmatic);
+                NewSupplierPhoneBox?.SelectAll();
+            }
+            else if (sender == NewSupplierEmailBox)
+            {
+                NewSupplierDlNumberBox?.Focus(FocusState.Programmatic);
+                NewSupplierDlNumberBox?.SelectAll();
+            }
+            else if (sender == NewSupplierPhoneBox)
+            {
+                NewSupplierGstinBox?.Focus(FocusState.Programmatic);
+                NewSupplierGstinBox?.SelectAll();
+            }
+            else if (sender == NewSupplierDlNumberBox || sender == NewSupplierGstinBox)
+            {
+                NewSupplierNameBox?.Focus(FocusState.Programmatic);
+                NewSupplierNameBox?.SelectAll();
+            }
+            e.Handled = true;
+            return;
         }
     }
 }

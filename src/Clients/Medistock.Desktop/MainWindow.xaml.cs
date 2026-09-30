@@ -95,6 +95,19 @@ public sealed partial class MainWindow : Window
         ContentFrame.Content = App.Services.GetRequiredService<SalesHistoryPage>();
     }
 
+    public void NavigateToInventory()
+    {
+        foreach (var menuItem in NavView.MenuItems)
+        {
+            if (menuItem is NavigationViewItem nvi && (string)nvi.Tag == "inventory")
+            {
+                NavView.SelectedItem = nvi;
+                break;
+            }
+        }
+        ContentFrame.Content = App.Services.GetRequiredService<InventoryPage>();
+    }
+
     private void InitializePreferences()
     {
         try

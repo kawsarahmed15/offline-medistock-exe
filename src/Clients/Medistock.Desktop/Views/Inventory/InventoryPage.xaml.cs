@@ -17,5 +17,14 @@ public sealed partial class InventoryPage : Page
         {
             await ViewModel.LoadStocksAsync();
         };
+
+        this.KeyDown += (s, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Escape && ViewModel.IsEditProductModalOpen)
+            {
+                ViewModel.CloseEditProduct();
+                e.Handled = true;
+            }
+        };
     }
 }
