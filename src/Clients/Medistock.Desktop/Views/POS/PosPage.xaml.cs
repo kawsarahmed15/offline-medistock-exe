@@ -1046,8 +1046,7 @@ public sealed partial class PosPage : Page
             }
             else
             {
-                ViewModel.OpenCreateProductModal();
-                FocusCreateProductModal();
+                RedirectToPurchaseSection(SearchBox?.Text);
             }
             e.Handled = true;
             return;
@@ -1426,14 +1425,36 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private void RedirectToPurchaseSection(string? initialProductName = null)
+    {
+        ViewModel.HasSearchResults = false;
+        ViewModel.SearchResults.Clear();
+        ViewModel.IsCreateProductModalOpen = false;
+
+        var productName = !string.IsNullOrWhiteSpace(initialProductName)
+            ? initialProductName.Trim()
+            : SearchBox?.Text?.Trim();
+
+        if (SearchBox != null)
+        {
+            SearchBox.Text = string.Empty;
+        }
+
+        App.MainWindowInstance?.NavigateToPurchases(productName);
+    }
+
+    private void AddProductButton_Click(object sender, RoutedEventArgs e)
+    {
+        RedirectToPurchaseSection(SearchBox?.Text);
+    }
+
     private async void SearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         var isCtrl = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
 
         if (e.Key == VirtualKey.F2)
         {
-            ViewModel.OpenCreateProductModal();
-            FocusCreateProductModal();
+            RedirectToPurchaseSection(SearchBox?.Text);
             e.Handled = true;
             return;
         }
@@ -1623,9 +1644,8 @@ public sealed partial class PosPage : Page
             }
             else
             {
-                // If no search matches, open F2 create product with the query pre-filled
-                ViewModel.OpenCreateProductModal();
-                FocusCreateProductModal();
+                // If no search matches, redirect to Purchase section instead of popup
+                RedirectToPurchaseSection(text);
             }
             e.Handled = true;
         }
@@ -3162,27 +3182,290 @@ public sealed partial class PosPage : Page
         }
     }
 
+    private async void CreateProductInput_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        await ProcessCreateProductKeyAsync(sender, e);
+    }
+
     private async void CreateProductInput_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter)
-        {
-            if (ReferenceEquals(sender, CancelCreateProductButton))
-            {
-                ViewModel.CloseCreateProductModal();
-                SearchBox.Focus(FocusState.Programmatic);
-            }
-            else
-            {
-                await HandleCreateProductSaveAndFocusAsync();
-            }
-            e.Handled = true;
-        }
-        else if (e.Key == VirtualKey.Escape)
+        if (e.Handled) return;
+        await ProcessCreateProductKeyAsync(sender, e);
+    }
+
+    private async Task ProcessCreateProductKeyAsync(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled) return;
+        if (sender is not Control currentControl) return;
+
+        var shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var ctrlDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // Escape: cancel modal
+        if (e.Key == VirtualKey.Escape)
         {
             ViewModel.CloseCreateProductModal();
             SearchBox.Focus(FocusState.Programmatic);
             e.Handled = true;
+            return;
         }
+
+        // F2 or Ctrl+Enter: instant Save from any field
+        if (e.Key == VirtualKey.F2 || (e.Key == VirtualKey.Enter && ctrlDown))
+        {
+            await HandleCreateProductSaveAndFocusAsync();
+            e.Handled = true;
+            return;
+        }
+
+        // Enter: move to next field, or trigger action on buttons
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(currentControl, SaveCreateProductButton))
+            {
+                await HandleCreateProductSaveAndFocusAsync();
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(currentControl, CancelCreateProductButton))
+            {
+                ViewModel.CloseCreateProductModal();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
+            if (shiftDown)
+            {
+                var prev = GetPrevProductModalField(currentControl);
+                if (prev != null)
+                {
+                    FocusProductModalField(prev);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else
+            {
+                var next = GetNextProductModalField(currentControl);
+                if (next != null)
+                {
+                    FocusProductModalField(next);
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
+        // Arrow Down: move focus to field below
+        if (e.Key == VirtualKey.Down)
+        {
+            var down = GetDownProductModalField(currentControl);
+            if (down != null)
+            {
+                FocusProductModalField(down);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Arrow Up: move focus to field above
+        if (e.Key == VirtualKey.Up)
+        {
+            var up = GetUpProductModalField(currentControl);
+            if (up != null)
+            {
+                FocusProductModalField(up);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Arrow Right: move focus to right field
+        if (e.Key == VirtualKey.Right)
+        {
+            bool canNavigate = true;
+            if (currentControl is TextBox tb)
+            {
+                // Navigate if all text is selected, or empty, or cursor at end of text
+                canNavigate = string.IsNullOrEmpty(tb.Text) ||
+                              tb.SelectionLength == tb.Text.Length ||
+                              tb.SelectionStart >= tb.Text.Length;
+            }
+
+            if (canNavigate)
+            {
+                var right = GetRightProductModalField(currentControl);
+                if (right != null)
+                {
+                    FocusProductModalField(right);
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
+        // Arrow Left: move focus to left field
+        if (e.Key == VirtualKey.Left)
+        {
+            bool canNavigate = true;
+            if (currentControl is TextBox tb)
+            {
+                // Navigate if all text is selected, or empty, or cursor at start of text
+                canNavigate = string.IsNullOrEmpty(tb.Text) ||
+                              tb.SelectionLength == tb.Text.Length ||
+                              (tb.SelectionStart == 0 && tb.SelectionLength == 0);
+            }
+
+            if (canNavigate)
+            {
+                var left = GetLeftProductModalField(currentControl);
+                if (left != null)
+                {
+                    FocusProductModalField(left);
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    private void FocusProductModalField(Control target)
+    {
+        if (target == null) return;
+        target.Focus(FocusState.Programmatic);
+        if (target is TextBox tb)
+        {
+            tb.SelectAll();
+        }
+    }
+
+    private Control? GetRightProductModalField(Control current)
+    {
+        if (ReferenceEquals(current, CancelCreateProductButton)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, SaveCreateProductButton)) return CancelCreateProductButton;
+        return GetNextProductModalField(current);
+    }
+
+    private Control? GetLeftProductModalField(Control current)
+    {
+        if (ReferenceEquals(current, SaveCreateProductButton)) return CancelCreateProductButton;
+        if (ReferenceEquals(current, CancelCreateProductButton)) return SaveCreateProductButton;
+        return GetPrevProductModalField(current);
+    }
+
+    private Control? GetNextProductModalField(Control current)
+    {
+        if (ReferenceEquals(current, NewProductNameBox)) return NewGenericNameBox;
+        if (ReferenceEquals(current, NewGenericNameBox)) return NewPackSizeTextBox;
+        if (ReferenceEquals(current, NewPackSizeTextBox)) return NewBaseUnitBox;
+        if (ReferenceEquals(current, NewBaseUnitBox)) return NewManufacturerNameBox;
+        if (ReferenceEquals(current, NewManufacturerNameBox)) return NewHsnCodeBox;
+        if (ReferenceEquals(current, NewHsnCodeBox)) return NewGstPercentBox;
+        if (ReferenceEquals(current, NewGstPercentBox)) return NewBarcodeBox;
+        if (ReferenceEquals(current, NewBarcodeBox)) return NewBatchNumberBox;
+        if (ReferenceEquals(current, NewBatchNumberBox)) return NewExpiryDatePicker;
+        if (ReferenceEquals(current, NewExpiryDatePicker)) return NewMrpBox;
+        if (ReferenceEquals(current, NewMrpBox)) return NewPurchaseRateBox;
+        if (ReferenceEquals(current, NewPurchaseRateBox)) return NewSaleRateBox;
+        if (ReferenceEquals(current, NewSaleRateBox)) return NewOpeningQtyBox;
+        if (ReferenceEquals(current, NewOpeningQtyBox)) return NewMinStockAlertBox;
+        if (ReferenceEquals(current, NewMinStockAlertBox)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, CancelCreateProductButton)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, SaveCreateProductButton)) return NewProductNameBox;
+        return null;
+    }
+
+    private Control? GetPrevProductModalField(Control current)
+    {
+        if (ReferenceEquals(current, NewProductNameBox)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, NewGenericNameBox)) return NewProductNameBox;
+        if (ReferenceEquals(current, NewPackSizeTextBox)) return NewGenericNameBox;
+        if (ReferenceEquals(current, NewBaseUnitBox)) return NewPackSizeTextBox;
+        if (ReferenceEquals(current, NewManufacturerNameBox)) return NewBaseUnitBox;
+        if (ReferenceEquals(current, NewHsnCodeBox)) return NewManufacturerNameBox;
+        if (ReferenceEquals(current, NewGstPercentBox)) return NewHsnCodeBox;
+        if (ReferenceEquals(current, NewBarcodeBox)) return NewGstPercentBox;
+        if (ReferenceEquals(current, NewBatchNumberBox)) return NewBarcodeBox;
+        if (ReferenceEquals(current, NewExpiryDatePicker)) return NewBatchNumberBox;
+        if (ReferenceEquals(current, NewMrpBox)) return NewExpiryDatePicker;
+        if (ReferenceEquals(current, NewPurchaseRateBox)) return NewMrpBox;
+        if (ReferenceEquals(current, NewSaleRateBox)) return NewPurchaseRateBox;
+        if (ReferenceEquals(current, NewOpeningQtyBox)) return NewSaleRateBox;
+        if (ReferenceEquals(current, NewMinStockAlertBox)) return NewOpeningQtyBox;
+        if (ReferenceEquals(current, SaveCreateProductButton)) return NewMinStockAlertBox;
+        if (ReferenceEquals(current, CancelCreateProductButton)) return NewMinStockAlertBox;
+        return null;
+    }
+
+    private Control? GetDownProductModalField(Control current)
+    {
+        // Row 0 (ProductName, GenericName) -> Row 1
+        if (ReferenceEquals(current, NewProductNameBox)) return NewPackSizeTextBox;
+        if (ReferenceEquals(current, NewGenericNameBox)) return NewManufacturerNameBox;
+
+        // Row 1 (PackSize, BaseUnit, Manufacturer) -> Row 2
+        if (ReferenceEquals(current, NewPackSizeTextBox)) return NewHsnCodeBox;
+        if (ReferenceEquals(current, NewBaseUnitBox)) return NewGstPercentBox;
+        if (ReferenceEquals(current, NewManufacturerNameBox)) return NewBarcodeBox;
+
+        // Row 2 (Hsn, Gst, Barcode) -> Row 3
+        if (ReferenceEquals(current, NewHsnCodeBox)) return NewBatchNumberBox;
+        if (ReferenceEquals(current, NewGstPercentBox)) return NewExpiryDatePicker;
+        if (ReferenceEquals(current, NewBarcodeBox)) return NewExpiryDatePicker;
+
+        // Row 3 (BatchNumber, ExpiryDate) -> Row 4
+        if (ReferenceEquals(current, NewBatchNumberBox)) return NewMrpBox;
+        if (ReferenceEquals(current, NewExpiryDatePicker)) return NewSaleRateBox;
+
+        // Row 4 (Mrp, PurchaseRate, SaleRate, OpeningQty, MinStockAlert) -> Row 5 (Buttons)
+        if (ReferenceEquals(current, NewMrpBox)) return CancelCreateProductButton;
+        if (ReferenceEquals(current, NewPurchaseRateBox)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, NewSaleRateBox)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, NewOpeningQtyBox)) return SaveCreateProductButton;
+        if (ReferenceEquals(current, NewMinStockAlertBox)) return SaveCreateProductButton;
+
+        // Row 5 (Buttons) -> wrap to top
+        if (ReferenceEquals(current, CancelCreateProductButton)) return NewProductNameBox;
+        if (ReferenceEquals(current, SaveCreateProductButton)) return NewGenericNameBox;
+
+        return null;
+    }
+
+    private Control? GetUpProductModalField(Control current)
+    {
+        // Row 5 (Buttons) -> Row 4
+        if (ReferenceEquals(current, CancelCreateProductButton)) return NewMrpBox;
+        if (ReferenceEquals(current, SaveCreateProductButton)) return NewSaleRateBox;
+
+        // Row 4 (Mrp, PurchaseRate, SaleRate, OpeningQty, MinStockAlert) -> Row 3
+        if (ReferenceEquals(current, NewMrpBox)) return NewBatchNumberBox;
+        if (ReferenceEquals(current, NewPurchaseRateBox)) return NewBatchNumberBox;
+        if (ReferenceEquals(current, NewSaleRateBox)) return NewExpiryDatePicker;
+        if (ReferenceEquals(current, NewOpeningQtyBox)) return NewExpiryDatePicker;
+        if (ReferenceEquals(current, NewMinStockAlertBox)) return NewExpiryDatePicker;
+
+        // Row 3 (BatchNumber, ExpiryDate) -> Row 2
+        if (ReferenceEquals(current, NewBatchNumberBox)) return NewHsnCodeBox;
+        if (ReferenceEquals(current, NewExpiryDatePicker)) return NewGstPercentBox;
+
+        // Row 2 (Hsn, Gst, Barcode) -> Row 1
+        if (ReferenceEquals(current, NewHsnCodeBox)) return NewPackSizeTextBox;
+        if (ReferenceEquals(current, NewGstPercentBox)) return NewBaseUnitBox;
+        if (ReferenceEquals(current, NewBarcodeBox)) return NewManufacturerNameBox;
+
+        // Row 1 (PackSize, BaseUnit, Manufacturer) -> Row 0
+        if (ReferenceEquals(current, NewPackSizeTextBox)) return NewProductNameBox;
+        if (ReferenceEquals(current, NewBaseUnitBox)) return NewProductNameBox;
+        if (ReferenceEquals(current, NewManufacturerNameBox)) return NewGenericNameBox;
+
+        // Row 0 (ProductName, GenericName) -> wrap to bottom
+        if (ReferenceEquals(current, NewProductNameBox)) return CancelCreateProductButton;
+        if (ReferenceEquals(current, NewGenericNameBox)) return SaveCreateProductButton;
+
+        return null;
     }
 
     private async void SaveCreateProductButton_Click(object sender, RoutedEventArgs e)

@@ -55,9 +55,34 @@ public sealed partial class PurchaseEntryPage : Page
         }
     }
 
+    private string? _pendingInitialProductName;
+
+    public void PrepareNewProductEntry(string productName)
+    {
+        var trimmed = productName?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return;
+        _pendingInitialProductName = trimmed;
+
+        ApplyPendingProductEntry();
+    }
+
+    private void ApplyPendingProductEntry()
+    {
+        if (string.IsNullOrWhiteSpace(_pendingInitialProductName)) return;
+
+        ViewModel.SelectedTab = "Entry";
+        var targetRow = ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[0] : null);
+        if (targetRow != null)
+        {
+            ViewModel.CreateOrApplyCustomProduct(_pendingInitialProductName, targetRow);
+            ViewModel.StatusMessage = $"Adding new product '{_pendingInitialProductName}' via Purchase Inward.";
+        }
+    }
+
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         await ViewModel.InitializeAsync();
+        ApplyPendingProductEntry();
         await Task.Delay(150);
         FocusControl("SupplierAutoSuggestBox");
         if (SupplierAutoSuggestBox != null)

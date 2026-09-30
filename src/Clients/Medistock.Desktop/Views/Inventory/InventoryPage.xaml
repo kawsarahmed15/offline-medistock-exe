@@ -392,101 +392,133 @@
                         <TextBlock Text="Product Master Information" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
                         
                         <Grid ColumnDefinitions="*,*">
-                            <TextBox Header="Product Name *"
+                            <TextBox x:Name="EditProductNameBox"
+                                     Header="Product Name *"
                                      Text="{Binding EditProductName, Mode=TwoWay}"
                                      PlaceholderText="Brand / Trade Name"
-                                     Margin="0,0,6,0" />
-                            <TextBox Grid.Column="1"
+                                     Margin="0,0,6,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditGenericNameBox"
+                                     Grid.Column="1"
                                      Header="Generic Name"
                                      Text="{Binding EditGenericName, Mode=TwoWay}"
                                      PlaceholderText="Generic Molecule Name"
-                                     Margin="6,0,0,0" />
+                                     Margin="6,0,0,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*">
-                            <TextBox Header="Salt Composition"
+                            <TextBox x:Name="EditSaltCompositionBox"
+                                     Header="Salt Composition"
                                      Text="{Binding EditSaltComposition, Mode=TwoWay}"
                                      PlaceholderText="e.g. Paracetamol 650mg"
-                                     Margin="0,0,6,0" />
-                            <TextBox Grid.Column="1"
+                                     Margin="0,0,6,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditManufacturerBox"
+                                     Grid.Column="1"
                                      Header="Manufacturer"
                                      Text="{Binding EditManufacturer, Mode=TwoWay}"
                                      PlaceholderText="e.g. Cipla / Sun Pharma"
-                                     Margin="6,0,0,0" />
+                                     Margin="6,0,0,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*,*">
-                            <TextBox Header="Category / Unit"
+                            <TextBox x:Name="EditCategoryNameBox"
+                                     Header="Category / Unit"
                                      Text="{Binding EditCategoryName, Mode=TwoWay}"
                                      PlaceholderText="e.g. TAB, SYR"
-                                     Margin="0,0,4,0" />
-                            <TextBox Grid.Column="1"
+                                     Margin="0,0,4,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditHsnCodeBox"
+                                     Grid.Column="1"
                                      Header="HSN Code"
                                      Text="{Binding EditHsnCode, Mode=TwoWay}"
                                      PlaceholderText="3004"
-                                     Margin="4,0,4,0" />
-                            <TextBox Grid.Column="2"
+                                     Margin="4,0,4,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditGstRatePercentBox"
+                                     Grid.Column="2"
                                      Header="GST Rate (%)"
                                      Text="{Binding EditGstRatePercent, Mode=TwoWay}"
                                      PlaceholderText="12.0"
-                                     Margin="4,0,0,0" />
+                                     Margin="4,0,0,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*">
-                            <ComboBox Header="Drug Schedule"
+                            <ComboBox x:Name="EditScheduleComboBox"
+                                      Header="Drug Schedule"
                                       SelectedIndex="{Binding EditScheduleIndex, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
-                                      Margin="0,0,6,0">
+                                      Margin="0,0,6,0"
+                                      PreviewKeyDown="EditProductInput_PreviewKeyDown">
                                 <ComboBoxItem Content="OTC (Over The Counter)" />
                                 <ComboBoxItem Content="Schedule H (Rx Required)" />
                                 <ComboBoxItem Content="Schedule H1 (High Risk Rx)" />
                                 <ComboBoxItem Content="Schedule X (Narcotic / Controlled)" />
                             </ComboBox>
-                            <TextBox Grid.Column="1"
+                            <TextBox x:Name="EditMinStockAlertBox"
+                                     Grid.Column="1"
                                      Header="Min Stock Alert Threshold"
                                      Text="{Binding EditMinStockAlert, Mode=TwoWay}"
                                      PlaceholderText="10"
-                                     Margin="6,0,0,0" />
+                                     Margin="6,0,0,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <!-- Section: Batch Details (Editable) -->
                         <TextBlock Text="Selected Batch &amp; Pricing Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,6,0,0" />
 
                         <Grid ColumnDefinitions="*,*">
-                            <TextBox Header="Batch Number"
+                            <TextBox x:Name="EditBatchNumberBox"
+                                     Header="Batch Number"
                                      Text="{Binding EditBatchNumber, Mode=TwoWay}"
                                      PlaceholderText="Batch No"
-                                     Margin="0,0,6,0" />
-                            <DatePicker Grid.Column="1"
+                                     Margin="0,0,6,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <DatePicker x:Name="EditExpiryDatePicker"
+                                        Grid.Column="1"
                                         Header="Expiry Date"
                                         Date="{Binding EditExpiryDate, Mode=TwoWay}"
                                         HorizontalAlignment="Stretch"
-                                        Margin="6,0,0,0" />
+                                        Margin="6,0,0,0"
+                                        PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*,*">
-                            <TextBox Header="MRP (₹)"
+                            <TextBox x:Name="EditMrpBox"
+                                     Header="MRP (₹)"
                                      Text="{Binding EditMrp, Mode=TwoWay}"
-                                     Margin="0,0,4,0" />
-                            <TextBox Grid.Column="1"
+                                     Margin="0,0,4,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditPurchaseRateBox"
+                                     Grid.Column="1"
                                      Header="Purchase Rate (₹)"
                                      Text="{Binding EditPurchaseRate, Mode=TwoWay}"
-                                     Margin="4,0,4,0" />
-                            <TextBox Grid.Column="2"
+                                     Margin="4,0,4,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <TextBox x:Name="EditSaleRateBox"
+                                     Grid.Column="2"
                                      Header="Sale Rate (₹)"
                                      Text="{Binding EditSaleRate, Mode=TwoWay}"
-                                     Margin="4,0,0,0" />
+                                     Margin="4,0,0,0"
+                                     PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </Grid>
 
                         <!-- Action Buttons -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
-                            <Button Content="Cancel [Esc]"
+                            <Button x:Name="CancelEditProductButton"
+                                    Content="Cancel [Esc]"
                                     Command="{Binding CloseEditProductCommand}"
-                                    Padding="16,6" />
-                            <Button Content="Save Changes [Enter]"
+                                    Padding="16,6"
+                                    PreviewKeyDown="EditProductInput_PreviewKeyDown" />
+                            <Button x:Name="SaveEditProductButton"
+                                    Content="Save Changes [Enter]"
                                     Command="{Binding SaveProductDetailsCommand}"
                                     Style="{StaticResource AccentButtonStyle}"
-                                    Padding="20,6" />
+                                    Padding="20,6"
+                                    PreviewKeyDown="EditProductInput_PreviewKeyDown" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

@@ -108,6 +108,33 @@ public sealed partial class MainWindow : Window
         ContentFrame.Content = App.Services.GetRequiredService<InventoryPage>();
     }
 
+    public void NavigateToPurchases(string? initialProductName = null)
+    {
+        NavigationViewItem? targetItem = null;
+        foreach (var menuItem in NavView.MenuItems)
+        {
+            if (menuItem is NavigationViewItem nvi && (string)nvi.Tag == "purchases")
+            {
+                targetItem = nvi;
+                break;
+            }
+        }
+
+        if (targetItem != null && NavView.SelectedItem != targetItem)
+        {
+            NavView.SelectedItem = targetItem;
+        }
+        else
+        {
+            ContentFrame.Content = App.Services.GetRequiredService<PurchaseEntryPage>();
+        }
+
+        if (ContentFrame.Content is PurchaseEntryPage page && !string.IsNullOrWhiteSpace(initialProductName))
+        {
+            page.PrepareNewProductEntry(initialProductName);
+        }
+    }
+
     private void InitializePreferences()
     {
         try
