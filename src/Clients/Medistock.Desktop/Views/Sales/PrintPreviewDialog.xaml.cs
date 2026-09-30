@@ -20,11 +20,14 @@ public sealed partial class PrintPreviewDialog : ContentDialog
         this.Loaded += PrintPreviewDialog_Loaded;
     }
 
+    private double _zoomFactor = 1.0;
+
     private async void PrintPreviewDialog_Loaded(object sender, RoutedEventArgs e)
     {
         try
         {
             await PreviewWebView.EnsureCoreWebView2Async();
+            ApplyZoom();
             UpdateWebViewContent();
         }
         catch { }
@@ -35,7 +38,45 @@ public sealed partial class PrintPreviewDialog : ContentDialog
         if (PreviewWebView.CoreWebView2 != null && !string.IsNullOrWhiteSpace(ViewModel.CurrentHtmlContent))
         {
             PreviewWebView.NavigateToString(ViewModel.CurrentHtmlContent);
+            ApplyZoom();
         }
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_zoomFactor < 2.5)
+        {
+            _zoomFactor = Math.Round(_zoomFactor + 0.15, 2);
+            ApplyZoom();
+        }
+    }
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_zoomFactor > 0.4)
+        {
+            _zoomFactor = Math.Round(_zoomFactor - 0.15, 2);
+            ApplyZoom();
+        }
+    }
+
+    private void ZoomReset_Click(object sender, RoutedEventArgs e)
+    {
+        _zoomFactor = 1.0;
+        ApplyZoom();
+    }
+
+    private async void ApplyZoom()
+    {
+        try
+        {
+            if (PreviewWebView.CoreWebView2 != null)
+            {
+                await PreviewWebView.ExecuteScriptAsync($"document.body.style.zoom = '{_zoomFactor}';");
+                ZoomPercentButton.Content = $"{Math.Round(_zoomFactor * 100)}%";
+            }
+        }
+        catch { }
     }
 
     private async void TemplateComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

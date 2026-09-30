@@ -222,11 +222,58 @@ public partial class InventoryViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSavingProduct;
+
+    [ObservableProperty]
+    private decimal _estimatedProfit;
+
+    [ObservableProperty]
+    private decimal _estimatedProfitMarginPercent;
+
+    [ObservableProperty]
+    private decimal _revenueThisMonth;
+
+    [ObservableProperty]
+    private int _monthlyInvoicesCount;
+
+    [ObservableProperty]
+    private decimal _cashCollectionThisMonth;
+
+    [ObservableProperty]
+    private int _cashInvoicesCount;
+
+    [ObservableProperty]
+    private decimal _onlineCollectionThisMonth;
+
+    [ObservableProperty]
+    private int _onlineInvoicesCount;
+
+    [ObservableProperty]
+    private decimal _allTimeRevenue;
+
+    [ObservableProperty]
+    private decimal _allTimeCash;
+
+    [ObservableProperty]
+    private decimal _allTimeOnline;
 #pragma warning restore MVVMTK0045
 
     public string TotalBatchesCountDisplay => $"({TotalItemsCount} batches)";
     public string TotalStockValueFormatted => $"{TotalStockValue:N2}";
     public string TotalStockValueMrpFormatted => $"MRP Val: ₹{TotalStockValueMrp:N2}";
+
+    public string EstimatedProfitFormatted => $"{EstimatedProfit:N2}";
+    public string EstimatedProfitMarginDisplay => EstimatedProfitMarginPercent > 0
+        ? $"Margin: ~{EstimatedProfitMarginPercent:F1}% on active stock"
+        : "Stock Margin Valuation";
+
+    public string RevenueThisMonthFormatted => $"{RevenueThisMonth:N2}";
+    public string MonthlyInvoicesCountDisplay => $"{MonthlyInvoicesCount} invoices finalized this month";
+
+    public string CashCollectionThisMonthFormatted => $"{CashCollectionThisMonth:N2}";
+    public string CashCollectionCountDisplay => $"{CashInvoicesCount} cash transactions this month";
+
+    public string OnlineCollectionThisMonthFormatted => $"{OnlineCollectionThisMonth:N2}";
+    public string OnlineCollectionCountDisplay => $"{OnlineInvoicesCount} UPI / Card payments this month";
 
     public bool HasExportMessage => !string.IsNullOrWhiteSpace(ExportStatusMessage);
 
@@ -258,6 +305,29 @@ public partial class InventoryViewModel : ObservableObject
             _allLoadedDtoItems.AddRange(results);
 
             ApplyFilterAndDisplay();
+
+            // Load live monthly financial KPIs (Revenue, Cash Collection, Online Collection)
+            try
+            {
+                var financials = await _inventoryService.GetFinancialMetricsAsync();
+                RevenueThisMonth = financials.RevenueThisMonth;
+                MonthlyInvoicesCount = financials.MonthlyInvoicesCount;
+                CashCollectionThisMonth = financials.CashCollectionThisMonth;
+                CashInvoicesCount = financials.CashInvoicesCount;
+                OnlineCollectionThisMonth = financials.OnlineCollectionThisMonth;
+                OnlineInvoicesCount = financials.OnlineInvoicesCount;
+                AllTimeRevenue = financials.AllTimeRevenue;
+                AllTimeCash = financials.AllTimeCash;
+                AllTimeOnline = financials.AllTimeOnline;
+
+                OnPropertyChanged(nameof(RevenueThisMonthFormatted));
+                OnPropertyChanged(nameof(MonthlyInvoicesCountDisplay));
+                OnPropertyChanged(nameof(CashCollectionThisMonthFormatted));
+                OnPropertyChanged(nameof(CashCollectionCountDisplay));
+                OnPropertyChanged(nameof(OnlineCollectionThisMonthFormatted));
+                OnPropertyChanged(nameof(OnlineCollectionCountDisplay));
+            }
+            catch { }
         }
         finally
         {
@@ -285,9 +355,16 @@ public partial class InventoryViewModel : ObservableObject
         TotalStockValue = allViewModels.Sum(i => i.StockValueAtCost);
         TotalStockValueMrp = allViewModels.Sum(i => i.StockValueAtMrp);
 
+        // Calculate Estimated Profit across active stock batches
+        EstimatedProfit = allViewModels.Sum(i => Math.Max(0, ((i.SaleRate > 0 ? i.SaleRate : i.Mrp) - i.NetPurchaseRate) * i.AvailableQuantity));
+        var totalStockAtSale = allViewModels.Sum(i => (i.SaleRate > 0 ? i.SaleRate : i.Mrp) * i.AvailableQuantity);
+        EstimatedProfitMarginPercent = totalStockAtSale > 0 ? (EstimatedProfit / totalStockAtSale) * 100 : 0m;
+
         OnPropertyChanged(nameof(TotalBatchesCountDisplay));
         OnPropertyChanged(nameof(TotalStockValueFormatted));
         OnPropertyChanged(nameof(TotalStockValueMrpFormatted));
+        OnPropertyChanged(nameof(EstimatedProfitFormatted));
+        OnPropertyChanged(nameof(EstimatedProfitMarginDisplay));
 
         // Filter for display
         IEnumerable<StockItemViewModel> filtered = allViewModels;

@@ -1659,8 +1659,9 @@
                     BorderBrush="{ThemeResource AccentPrimary}"
                     BorderThickness="2"
                     CornerRadius="8"
-                    Width="880"
-                    MaxHeight="680"
+                    Width="1180"
+                    MaxHeight="860"
+                    MinHeight="720"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Padding="24"
@@ -1678,7 +1679,7 @@
                     </Grid>
 
                     <!-- Invoice Sheet Container: Unified Bill Template Live HTML Preview -->
-                    <Border Grid.Row="1" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Background="#ffffff" MinHeight="480">
+                    <Border Grid.Row="1" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Background="#ffffff" MinHeight="600">
                         <WebView2 x:Name="PosPreviewWebView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                     </Border>
 

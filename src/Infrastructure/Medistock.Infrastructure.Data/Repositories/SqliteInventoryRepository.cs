@@ -425,4 +425,115 @@ public class SqliteInventoryRepository : IInventoryRepository
             return new UpdateProductDetailsResult(false, ex.Message);
         }
     }
+
+    public async Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var targetMonth = string.IsNullOrWhiteSpace(monthPrefix)
+            ? DateTime.Now.ToString("yyyy-MM")
+            : monthPrefix;
+
+        // 1. Revenue this month & all-time revenue (excluding cancelled sales status = 3)
+        const string revenueSql = @"
+            SELECT
+                COALESCE(SUM(CASE WHEN substr(s.invoice_date, 1, 7) = @targetMonth THEN s.total ELSE 0 END), 0) AS RevenueThisMonth,
+                COUNT(DISTINCT CASE WHEN substr(s.invoice_date, 1, 7) = @targetMonth THEN s.id END) AS MonthlyInvoicesCount,
+                COALESCE(SUM(s.total), 0) AS AllTimeRevenue
+            FROM sales s
+            WHERE s.status != 3;
+        ";
+
+        var revResult = await connection.QueryFirstOrDefaultAsync<dynamic>(
+            new CommandDefinition(revenueSql, new { targetMonth }, cancellationToken: cancellationToken));
+
+        decimal revMonth = 0m;
+        int invCount = 0;
+        decimal revAllTime = 0m;
+
+        if (revResult != null)
+        {
+            revMonth = Convert.ToDecimal(revResult.RevenueThisMonth ?? 0.0);
+            invCount = Convert.ToInt32(revResult.MonthlyInvoicesCount ?? 0);
+            revAllTime = Convert.ToDecimal(revResult.AllTimeRevenue ?? 0.0);
+        }
+
+        // 2. Cash and Online Collections (Cash = 1, Card = 2, Upi = 3)
+        // If sale_payments has no entry for a sale, default to Cash for backward compatibility
+        const string paymentsSql = @"
+            SELECT
+                -- Monthly Cash Collection
+                COALESCE(SUM(CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth AND (sp.payment_mode = 1 OR sp.id IS NULL) 
+                    THEN COALESCE(sp.amount, s.total) 
+                    ELSE 0 
+                END), 0) AS CashCollectionThisMonth,
+                COUNT(DISTINCT CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth AND (sp.payment_mode = 1 OR sp.id IS NULL) 
+                    THEN s.id 
+                END) AS CashInvoicesCount,
+
+                -- Monthly Online Collection (Card = 2, UPI = 3)
+                COALESCE(SUM(CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth AND sp.payment_mode IN (2, 3) 
+                    THEN sp.amount 
+                    ELSE 0 
+                END), 0) AS OnlineCollectionThisMonth,
+                COUNT(DISTINCT CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth AND sp.payment_mode IN (2, 3) 
+                    THEN s.id 
+                END) AS OnlineInvoicesCount,
+
+                -- All-time Cash Collection
+                COALESCE(SUM(CASE 
+                    WHEN sp.payment_mode = 1 OR sp.id IS NULL 
+                    THEN COALESCE(sp.amount, s.total) 
+                    ELSE 0 
+                END), 0) AS AllTimeCash,
+
+                -- All-time Online Collection
+                COALESCE(SUM(CASE 
+                    WHEN sp.payment_mode IN (2, 3) 
+                    THEN sp.amount 
+                    ELSE 0 
+                END), 0) AS AllTimeOnline
+            FROM sales s
+            LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+            WHERE s.status != 3;
+        ";
+
+        var payResult = await connection.QueryFirstOrDefaultAsync<dynamic>(
+            new CommandDefinition(paymentsSql, new { targetMonth }, cancellationToken: cancellationToken));
+
+        decimal cashMonth = 0m;
+        int cashCount = 0;
+        decimal onlineMonth = 0m;
+        int onlineCount = 0;
+        decimal cashAllTime = 0m;
+        decimal onlineAllTime = 0m;
+
+        if (payResult != null)
+        {
+            cashMonth = Convert.ToDecimal(payResult.CashCollectionThisMonth ?? 0.0);
+            cashCount = Convert.ToInt32(payResult.CashInvoicesCount ?? 0);
+            onlineMonth = Convert.ToDecimal(payResult.OnlineCollectionThisMonth ?? 0.0);
+            onlineCount = Convert.ToInt32(payResult.OnlineInvoicesCount ?? 0);
+            cashAllTime = Convert.ToDecimal(payResult.AllTimeCash ?? 0.0);
+            onlineAllTime = Convert.ToDecimal(payResult.AllTimeOnline ?? 0.0);
+        }
+
+        return new InventoryFinancialMetricsDto(
+            RevenueThisMonth: revMonth,
+            MonthlyInvoicesCount: invCount,
+            CashCollectionThisMonth: cashMonth,
+            CashInvoicesCount: cashCount,
+            OnlineCollectionThisMonth: onlineMonth,
+            OnlineInvoicesCount: onlineCount,
+            AllTimeRevenue: revAllTime,
+            AllTimeCash: cashAllTime,
+            AllTimeOnline: onlineAllTime
+        );
+    }
 }

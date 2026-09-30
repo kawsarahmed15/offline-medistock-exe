@@ -28,6 +28,10 @@ public interface IInventoryRepository
     Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
         UpdateProductDetailsCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IScheduleDrugRepository

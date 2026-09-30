@@ -121,3 +121,15 @@ public record UpdateProductDetailsResult(
     bool Success,
     string? ErrorMessage = null
 );
+
+public record InventoryFinancialMetricsDto(
+    decimal RevenueThisMonth,
+    int MonthlyInvoicesCount,
+    decimal CashCollectionThisMonth,
+    int CashInvoicesCount,
+    decimal OnlineCollectionThisMonth,
+    int OnlineInvoicesCount,
+    decimal AllTimeRevenue = 0m,
+    decimal AllTimeCash = 0m,
+    decimal AllTimeOnline = 0m
+);

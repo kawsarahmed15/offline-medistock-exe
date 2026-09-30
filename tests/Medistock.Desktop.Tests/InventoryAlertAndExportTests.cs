@@ -48,6 +48,21 @@ public class FakeInventoryService : IInventoryService
     {
         return Task.FromResult(new UpdateProductDetailsResult(true));
     }
+
+    public Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(string? monthPrefix = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new InventoryFinancialMetricsDto(
+            RevenueThisMonth: 154200.50m,
+            MonthlyInvoicesCount: 42,
+            CashCollectionThisMonth: 95400.00m,
+            CashInvoicesCount: 28,
+            OnlineCollectionThisMonth: 58800.50m,
+            OnlineInvoicesCount: 14,
+            AllTimeRevenue: 520000m,
+            AllTimeCash: 350000m,
+            AllTimeOnline: 170000m
+        ));
+    }
 }
 
 public class InventoryAlertAndExportTests
@@ -407,5 +422,89 @@ public class InventoryAlertAndExportTests
         await vm.SaveProductDetailsCommand.ExecuteAsync(null);
 
         Assert.False(vm.IsEditProductModalOpen);
+    }
+
+    [Fact]
+    public async Task InventoryViewModel_CalculatesEstimatedProfit_AndLoadsMonthlyCollectionsCorrectly()
+    {
+        var fakeService = new FakeInventoryService();
+        // Item 1: Qty 10, SaleRate 100, NetPurchaseRate 70 -> Profit = (100 - 70) * 10 = 300
+        fakeService.Items.Add(new StockSummaryItemDto(
+            ProductId: "P-PROFIT-1",
+            ProductName: "Medicine A",
+            GenericName: "Generic A",
+            SaltComposition: "",
+            Manufacturer: "Pharma A",
+            CategoryName: "Tablet",
+            Schedule: DrugSchedule.OTC,
+            BatchId: "B-1",
+            BatchNumber: "BAT-1",
+            ExpiryDate: DateTime.UtcNow.AddMonths(12),
+            DaysUntilExpiry: 365,
+            ExpiryStatus: ExpiryBand.Good,
+            AvailableQuantity: 10,
+            ReservedQuantity: 0,
+            TotalQuantity: 10,
+            Mrp: 120m,
+            PurchaseRate: 60m,
+            SaleRate: 100m,
+            StockValueAtMrp: 1200m,
+            StockValueAtCost: 700m,
+            MinStockAlert: 5m,
+            GstRatePercent: 12m,
+            NetPurchaseRate: 70m,
+            HsnCode: "3004"
+        ));
+
+        // Item 2: Qty 20, SaleRate 0 (falls back to Mrp 50), NetPurchaseRate 35 -> Profit = (50 - 35) * 20 = 300
+        fakeService.Items.Add(new StockSummaryItemDto(
+            ProductId: "P-PROFIT-2",
+            ProductName: "Medicine B",
+            GenericName: "Generic B",
+            SaltComposition: "",
+            Manufacturer: "Pharma B",
+            CategoryName: "Syrup",
+            Schedule: DrugSchedule.OTC,
+            BatchId: "B-2",
+            BatchNumber: "BAT-2",
+            ExpiryDate: DateTime.UtcNow.AddMonths(6),
+            DaysUntilExpiry: 180,
+            ExpiryStatus: ExpiryBand.Good,
+            AvailableQuantity: 20,
+            ReservedQuantity: 0,
+            TotalQuantity: 20,
+            Mrp: 50m,
+            PurchaseRate: 30m,
+            SaleRate: 0m,
+            StockValueAtMrp: 1000m,
+            StockValueAtCost: 700m,
+            MinStockAlert: 5m,
+            GstRatePercent: 12m,
+            NetPurchaseRate: 35m,
+            HsnCode: "3004"
+        ));
+
+        var vm = new InventoryViewModel(fakeService);
+        await vm.LoadStocksCommand.ExecuteAsync(null);
+
+        // Verify Estimated Profit = 300 + 300 = 600
+        Assert.Equal(600m, vm.EstimatedProfit);
+        Assert.Equal("600.00", vm.EstimatedProfitFormatted);
+        Assert.Contains("Margin:", vm.EstimatedProfitMarginDisplay);
+
+        // Verify Monthly Revenue & Collections from fakeService
+        Assert.Equal(154200.50m, vm.RevenueThisMonth);
+        Assert.Equal("154,200.50", vm.RevenueThisMonthFormatted);
+        Assert.Equal("42 invoices finalized this month", vm.MonthlyInvoicesCountDisplay);
+
+        // Cash Collection
+        Assert.Equal(95400.00m, vm.CashCollectionThisMonth);
+        Assert.Equal("95,400.00", vm.CashCollectionThisMonthFormatted);
+        Assert.Equal("28 cash transactions this month", vm.CashCollectionCountDisplay);
+
+        // Online Collection
+        Assert.Equal(58800.50m, vm.OnlineCollectionThisMonth);
+        Assert.Equal("58,800.50", vm.OnlineCollectionThisMonthFormatted);
+        Assert.Equal("14 UPI / Card payments this month", vm.OnlineCollectionCountDisplay);
     }
 }

@@ -14,14 +14,16 @@
     DefaultButton="Primary"
     PrimaryButtonClick="PrintButton_Click"
     SecondaryButtonClick="DownloadPdfButton_Click"
-    MinWidth="850"
-    MinHeight="650"
+    MinWidth="1150"
+    MaxWidth="1400"
+    MinHeight="800"
+    MaxHeight="980"
     mc:Ignorable="d">
 
-    <Grid RowDefinitions="Auto,*,Auto" Width="820" Height="580">
+    <Grid RowDefinitions="Auto,*,Auto" Width="1180" Height="780">
         <!-- Top Toolbar -->
         <Border Grid.Row="0" Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,10">
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
                 <!-- Template Selector -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Text="Template:" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="12" />
@@ -34,8 +36,16 @@
                               Height="32" />
                 </StackPanel>
 
+                <!-- Zoom Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Zoom:" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="12" />
+                    <Button Content="−" Width="30" Height="30" Padding="0" Click="ZoomOut_Click" ToolTipService.ToolTip="Zoom Out" />
+                    <Button x:Name="ZoomPercentButton" Content="100%" Width="52" Height="30" Padding="0" Click="ZoomReset_Click" ToolTipService.ToolTip="Reset Zoom to 100%" />
+                    <Button Content="+" Width="30" Height="30" Padding="0" Click="ZoomIn_Click" ToolTipService.ToolTip="Zoom In" />
+                </StackPanel>
+
                 <!-- Target Printer -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Text="Target Printer:" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="12" />
                     <ComboBox x:Name="PrinterComboBox"
                               ItemsSource="{x:Bind ViewModel.InstalledPrinters, Mode=OneWay}"
@@ -48,7 +58,7 @@
         </Border>
 
         <!-- WebView2 Live HTML Rendering Container -->
-        <Border Grid.Row="1" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Background="#ffffff">
+        <Border Grid.Row="1" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="4" Background="#ffffff" MinHeight="660">
             <WebView2 x:Name="PreviewWebView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
         </Border>
 

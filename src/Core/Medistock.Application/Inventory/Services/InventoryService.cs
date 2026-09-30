@@ -42,6 +42,10 @@ public interface IInventoryService
     Task<UpdateProductDetailsResult> UpdateProductDetailsAsync(
         UpdateProductDetailsCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default);
 }
 
 public class InventoryService : IInventoryService
@@ -123,5 +127,12 @@ public class InventoryService : IInventoryService
         CancellationToken cancellationToken = default)
     {
         return _inventoryRepository.UpdateProductDetailsAsync(command, cancellationToken);
+    }
+
+    public Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _inventoryRepository.GetFinancialMetricsAsync(monthPrefix, cancellationToken);
     }
 }

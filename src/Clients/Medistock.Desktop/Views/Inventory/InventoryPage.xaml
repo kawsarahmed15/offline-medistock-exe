@@ -15,6 +15,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Page Title Bar -->
@@ -60,7 +61,7 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 4 KPI Metric Summary Cards -->
+            <!-- 4 Stock & Inventory KPI Metric Summary Cards -->
             <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
                 <!-- Card 1: Total Products Available -->
                 <Border Grid.Column="0"
@@ -131,6 +132,77 @@
                             <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                         </StackPanel>
                         <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost + GST %) × Available Quantity" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 4 Financial & Sales Collection KPI Cards -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="10" Margin="0,8,0,0">
+                <!-- Financial Card 1: Estimated Profit -->
+                <Border Grid.Column="0"
+                        Background="{ThemeResource SurfaceDefault}"
+                        BorderBrush="#8016A34A"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10">
+                    <StackPanel Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="ESTIMATED PROFIT" FontSize="9.5" FontWeight="Bold" Foreground="#16A34A" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#16A34A" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding EstimatedProfitFormatted}" FontSize="20" FontWeight="Bold" Foreground="#16A34A" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding EstimatedProfitMarginDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Estimated profit margin on active inventory stock (Sale Rate - Buying Cost)" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Financial Card 2: Revenue This Month -->
+                <Border Grid.Column="1"
+                        Background="{ThemeResource SurfaceDefault}"
+                        BorderBrush="{ThemeResource AccentPrimary}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10">
+                    <StackPanel Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="REVENUE THIS MONTH" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RevenueThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding MonthlyInvoicesCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Total sales revenue finalized in the current calendar month" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Financial Card 3: Cash Collection -->
+                <Border Grid.Column="2"
+                        Background="{ThemeResource SurfaceDefault}"
+                        BorderBrush="#800D9488"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10">
+                    <StackPanel Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="CASH COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#0D9488" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#0D9488" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CashCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#0D9488" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding CashCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Cash payments collected from invoices this month" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Financial Card 4: Online Collection -->
+                <Border Grid.Column="3"
+                        Background="{ThemeResource SurfaceDefault}"
+                        BorderBrush="#807C3AED"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10">
+                    <StackPanel Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="ONLINE COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#7C3AED" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#7C3AED" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding OnlineCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#7C3AED" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding OnlineCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Digital payments collected via UPI, QR code &amp; Card this month" />
                     </StackPanel>
                 </Border>
             </Grid>
