@@ -92,4 +92,60 @@ public class PosCreateProductModalTests
         Assert.Equal(200m, item.UnitPrice);
         Assert.Equal(220m, item.Mrp);
     }
+
+    [Fact]
+    public async Task SaveCreateProductAsync_FailsValidation_WhenSaleRateGreaterThanMrp()
+    {
+        var vm = CreateVm();
+        vm.OpenCreateProductModal();
+
+        vm.NewProductName = "Test Product";
+        vm.NewPackSizeText = "10x10";
+        vm.NewBatchNumber = "BATCH01";
+        vm.NewMrp = 100.0;
+        vm.NewPurchaseRate = 80.0;
+        vm.NewSaleRate = 120.0; // Greater than MRP!
+
+        var result = await vm.SaveCreateProductAsync();
+
+        Assert.False(result);
+        Assert.True(vm.IsCreateProductModalOpen);
+        Assert.Equal("Sale Rate cannot be greater than MRP.", vm.NewSaleRateError);
+    }
+
+    [Fact]
+    public void CartItemViewModel_UnitPrice_NeverExceedsMrp()
+    {
+        var item = new CartItemViewModel
+        {
+            ProductName = "Test Medicine",
+            Mrp = 100m,
+            UnitPrice = 80m
+        };
+
+        Assert.Equal(80m, item.UnitPrice);
+        Assert.Equal(80.0, item.UnitPriceDouble);
+
+        // Attempt to set UnitPrice above MRP
+        item.UnitPrice = 150m;
+        Assert.Equal(100m, item.UnitPrice);
+        Assert.Equal(100.0, item.UnitPriceDouble);
+
+        // Lower MRP below current UnitPrice -> UnitPrice should automatically clamp down
+        item.Mrp = 75m;
+        Assert.Equal(75m, item.UnitPrice);
+        Assert.Equal(75.0, item.UnitPriceDouble);
+
+        // Attempt to set UnitPriceDouble above MRP
+        item.UnitPriceDouble = 999.0;
+        Assert.Equal(75m, item.UnitPrice);
+        Assert.Equal(75.0, item.UnitPriceDouble);
+
+        // When MRP is 0, UnitPrice should not be restricted
+        item.Mrp = 0m;
+        Assert.Equal(double.MaxValue, item.MrpDouble);
+        item.UnitPrice = 250m;
+        Assert.Equal(250m, item.UnitPrice);
+        Assert.Equal(250.0, item.UnitPriceDouble);
+    }
 }
