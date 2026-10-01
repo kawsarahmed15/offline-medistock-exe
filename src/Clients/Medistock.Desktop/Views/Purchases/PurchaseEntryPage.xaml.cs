@@ -16,7 +16,7 @@ namespace Medistock.Desktop.Views.Purchases;
 public sealed partial class PurchaseEntryPage : Page
 {
     public PurchaseEntryViewModel ViewModel { get; }
-    private const int TotalColumns = 11; // 0=Product, 1=Batch, 2=Expiry, 3=Hsn, 4=Unit, 5=Qty, 6=Free, 7=Cost, 8=Mrp, 9=Disc, 10=Gst
+    private const int TotalColumns = 12; // 0=Product, 1=Batch, 2=Expiry, 3=Hsn, 4=Strip, 5=Piece, 6=Qty, 7=Free, 8=Cost, 9=Mrp, 10=Disc, 11=Gst
 
     private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
@@ -687,49 +687,7 @@ public sealed partial class PurchaseEntryPage : Page
             }
         }
 
-        // 2. Unit ComboBox (Tag = 4): Up/Down arrow changes the option in dropdown, without jumping rows!
-        if (sender is ComboBox cb)
-        {
-            var (rIdx, cIdx) = GetRowAndColIndex(sender);
-            if (e.Key == VirtualKey.Down)
-            {
-                if (cb.SelectedIndex < cb.Items.Count - 1)
-                {
-                    cb.SelectedIndex++;
-                }
-                e.Handled = true;
-                return;
-            }
-            if (e.Key == VirtualKey.Up)
-            {
-                if (cb.SelectedIndex > 0)
-                {
-                    cb.SelectedIndex--;
-                }
-                e.Handled = true;
-                return;
-            }
-            if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Right)
-            {
-                if (rIdx >= 0 && rIdx < ViewModel.LineItems.Count)
-                {
-                    FocusRowColumn(rIdx, cIdx + 1); // Move to Qty (col 5)
-                }
-                e.Handled = true;
-                return;
-            }
-            if (e.Key == VirtualKey.Left)
-            {
-                if (rIdx >= 0 && rIdx < ViewModel.LineItems.Count)
-                {
-                    FocusRowColumn(rIdx, cIdx - 1); // Move to HSN (col 3)
-                }
-                e.Handled = true;
-                return;
-            }
-        }
-
-        // 3. For all other controls (TextBox, NumberBox)
+        // 2. For all row controls (TextBox, NumberBox)
         if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Down || e.Key == VirtualKey.Up ||
             e.Key == VirtualKey.Right || e.Key == VirtualKey.Left)
         {

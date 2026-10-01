@@ -133,3 +133,15 @@ public record InventoryFinancialMetricsDto(
     decimal AllTimeCash = 0m,
     decimal AllTimeOnline = 0m
 );
+
+public record MetricDetailItemDto(
+    string Col1,
+    string Col2,
+    string Col3,
+    string Col4,
+    string Col5,
+    string Col6,
+    string Col7,
+    string BadgeText = "",
+    string BadgeColor = "#16A34A"
+);

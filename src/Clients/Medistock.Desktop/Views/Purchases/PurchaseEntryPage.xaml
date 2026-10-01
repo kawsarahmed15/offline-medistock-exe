@@ -383,23 +383,24 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="0,0,0,1"
                                 Padding="8,6">
-                            <Grid ColumnDefinitions="2.6*,1.2*,1*,0.8*,0.8*,0.7*,0.6*,0.9*,0.9*,0.7*,0.7*,0.9*,0.9*,0.8*,0.7*,Auto">
+                            <Grid ColumnDefinitions="2.4*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.85*,0.85*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto">
                                 <TextBlock Grid.Column="0" Text="MEDICINE / PRODUCT NAME" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="1" Text="BATCH NO." FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="2" Text="EXPIRY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="3" Text="HSN" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <TextBlock Grid.Column="4" Text="UNIT" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <TextBlock Grid.Column="5" Text="QTY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="6" Text="FREE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="7" Text="COST (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="8" Text="MRP (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="9" Text="DISC %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="10" Text="GST %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="11" Text="TAXABLE (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="12" Text="NET (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="13" Text="LANDED" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="14" Text="MARGIN" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="15" Text="" Width="28" />
+                                <TextBlock Grid.Column="4" Text="STRIP" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="5" Text="PIECE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="6" Text="QTY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="7" Text="FREE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Text="COST (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="9" Text="MRP (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="10" Text="DISC %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="11" Text="GST %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="12" Text="TAXABLE (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="13" Text="NET (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="14" Text="LANDED" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="15" Text="MARGIN" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="16" Text="" Width="28" />
                             </Grid>
                         </Border>
 
@@ -437,7 +438,7 @@
                                     <Border BorderBrush="{ThemeResource BorderDefault}"
                                             BorderThickness="0,0,0,1"
                                             Padding="8,4">
-                                        <Grid ColumnDefinitions="2.6*,1.2*,1*,0.8*,0.8*,0.7*,0.6*,0.9*,0.9*,0.7*,0.7*,0.9*,0.9*,0.8*,0.7*,Auto"
+                                        <Grid ColumnDefinitions="2.4*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.85*,0.85*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto"
                                               GotFocus="Row_GotFocus">
                                             <!-- Product Name Input -->
                                             <TextBox Grid.Column="0"
@@ -486,46 +487,42 @@
                                                      Margin="1"
                                                      FontSize="11" />
 
-                                            <!-- Unit (Strip, Tab, Box, etc.) -->
-                                            <ComboBox Grid.Column="4"
-                                                      SelectedItem="{Binding Unit, Mode=TwoWay}"
-                                                      PreviewKeyDown="RowCell_PreviewKeyDown"
-                                                      KeyDown="RowCell_KeyDown"
-                                                      Tag="4"
-                                                      Margin="1"
-                                                      FontSize="11"
-                                                      HorizontalAlignment="Stretch">
-                                                <x:String>STRIP</x:String>
-                                                <x:String>TAB</x:String>
-                                                <x:String>BOX</x:String>
-                                                <x:String>BOTTLE</x:String>
-                                                <x:String>VIAL</x:String>
-                                                <x:String>PCS</x:String>
-                                            </ComboBox>
+                                            <!-- Strip Count -->
+                                            <NumberBox Grid.Column="4"
+                                                       Value="{Binding StripCountDouble, Mode=TwoWay}"
+                                                       PreviewKeyDown="RowCell_PreviewKeyDown"
+                                                       KeyDown="RowCell_KeyDown"
+                                                       Tag="4"
+                                                       SpinButtonPlacementMode="Hidden"
+                                                       Margin="1"
+                                                       FontSize="11.5"
+                                                       ToolTipService.ToolTip="Number of strips" />
 
-                                            <!-- Quantity -->
+                                            <!-- Pieces per Strip -->
                                             <NumberBox Grid.Column="5"
-                                                       Value="{Binding QuantityDouble, Mode=TwoWay}"
+                                                       Value="{Binding PiecesPerStripDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="5"
                                                        SpinButtonPlacementMode="Hidden"
                                                        Margin="1"
-                                                       FontSize="11.5" />
+                                                       FontSize="11.5"
+                                                       ToolTipService.ToolTip="Pieces / Tablets per strip" />
 
-                                            <!-- Free Quantity -->
+                                            <!-- Total Quantity (Strip × Piece) -->
                                             <NumberBox Grid.Column="6"
-                                                       Value="{Binding FreeQuantityDouble, Mode=TwoWay}"
+                                                       Value="{Binding QuantityDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="6"
                                                        SpinButtonPlacementMode="Hidden"
                                                        Margin="1"
-                                                       FontSize="11.5" />
+                                                       FontSize="11.5"
+                                                       ToolTipService.ToolTip="{Binding PackCalculationDisplay}" />
 
-                                            <!-- Unit Price / Cost Rate -->
+                                            <!-- Free Quantity -->
                                             <NumberBox Grid.Column="7"
-                                                       Value="{Binding UnitPriceDouble, Mode=TwoWay}"
+                                                       Value="{Binding FreeQuantityDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="7"
@@ -533,9 +530,9 @@
                                                        Margin="1"
                                                        FontSize="11.5" />
 
-                                            <!-- MRP -->
+                                            <!-- Unit Price / Cost Rate -->
                                             <NumberBox Grid.Column="8"
-                                                       Value="{Binding MrpDouble, Mode=TwoWay}"
+                                                       Value="{Binding UnitPriceDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="8"
@@ -543,19 +540,19 @@
                                                        Margin="1"
                                                        FontSize="11.5" />
 
-                                            <!-- Discount % -->
+                                            <!-- MRP -->
                                             <NumberBox Grid.Column="9"
-                                                       Value="{Binding DiscountPctDouble, Mode=TwoWay}"
+                                                       Value="{Binding MrpDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="9"
                                                        SpinButtonPlacementMode="Hidden"
                                                        Margin="1"
-                                                       FontSize="11" />
+                                                       FontSize="11.5" />
 
-                                            <!-- GST % -->
+                                            <!-- Discount % -->
                                             <NumberBox Grid.Column="10"
-                                                       Value="{Binding GstRatePercentDouble, Mode=TwoWay}"
+                                                       Value="{Binding DiscountPctDouble, Mode=TwoWay}"
                                                        PreviewKeyDown="RowCell_PreviewKeyDown"
                                                        KeyDown="RowCell_KeyDown"
                                                        Tag="10"
@@ -563,8 +560,18 @@
                                                        Margin="1"
                                                        FontSize="11" />
 
+                                            <!-- GST % -->
+                                            <NumberBox Grid.Column="11"
+                                                       Value="{Binding GstRatePercentDouble, Mode=TwoWay}"
+                                                       PreviewKeyDown="RowCell_PreviewKeyDown"
+                                                       KeyDown="RowCell_KeyDown"
+                                                       Tag="11"
+                                                       SpinButtonPlacementMode="Hidden"
+                                                       Margin="1"
+                                                       FontSize="11" />
+
                                             <!-- Taxable (₹) -->
-                                            <TextBlock Grid.Column="11"
+                                            <TextBlock Grid.Column="12"
                                                        Text="{Binding TaxableAmountFormatted}"
                                                        FontSize="11.5"
                                                        VerticalAlignment="Center"
@@ -572,7 +579,7 @@
                                                        Margin="2,0" />
 
                                             <!-- Net (₹) -->
-                                            <TextBlock Grid.Column="12"
+                                            <TextBlock Grid.Column="13"
                                                        Text="{Binding NetAmountFormatted}"
                                                        FontSize="12"
                                                        FontWeight="Bold"
@@ -582,7 +589,7 @@
                                                        Margin="2,0" />
 
                                             <!-- Landed Cost (₹) -->
-                                            <TextBlock Grid.Column="13"
+                                            <TextBlock Grid.Column="14"
                                                        Text="{Binding LandedCostFormatted}"
                                                        FontSize="11"
                                                        Foreground="{ThemeResource TextSecondary}"
@@ -591,7 +598,7 @@
                                                        Margin="2,0" />
 
                                             <!-- Margin % -->
-                                            <TextBlock Grid.Column="14"
+                                            <TextBlock Grid.Column="15"
                                                        Text="{Binding MarginDisplay}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
@@ -601,13 +608,13 @@
                                                        Margin="2,0" />
 
                                             <!-- Remove Row Button -->
-                                            <Button Grid.Column="15"
-                                                     Content="✕"
-                                                     FontSize="10"
-                                                     Padding="4,2"
-                                                     Margin="2,0,0,0"
-                                                     Click="RowDeleteButton_Click"
-                                                     ToolTipService.ToolTip="Delete this row (Ctrl+Z to undo)" />
+                                            <Button Grid.Column="16"
+                                                    Content="✕"
+                                                    FontSize="10"
+                                                    Padding="4,2"
+                                                    Margin="2,0,0,0"
+                                                    Click="RowDeleteButton_Click"
+                                                    ToolTipService.ToolTip="Delete this row (Ctrl+Z to undo)" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

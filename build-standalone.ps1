@@ -20,6 +20,10 @@ if (-not (Get-Command "dotnet" -ErrorAction SilentlyContinue)) {
     }
 }
 
+# Stop any running Medistock instances before publishing so files are not locked
+Get-Process -Name "Medistock*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
+
 $projectPath = "src/Clients/Medistock.Desktop/Medistock.Desktop.csproj"
 
 & $dotnetCmd publish $projectPath `

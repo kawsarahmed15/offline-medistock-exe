@@ -483,7 +483,9 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal(string.Empty, row.BatchNumber);
         Assert.Equal(0m, row.UnitPrice);
         Assert.Equal(0m, row.Mrp);
-        Assert.Equal(1m, row.Quantity);
+        Assert.Equal(1m, row.StripCount);
+        Assert.Equal(10m, row.PiecesPerStrip);
+        Assert.Equal(10m, row.Quantity);
     }
 
     [Fact]
@@ -992,6 +994,34 @@ public class PurchaseViewModelAndExportTests
         vm.ClosePurchaseReturnBillModalCommand.Execute(null);
         Assert.False(vm.IsPurchaseReturnBillModalOpen);
         Assert.Null(vm.CurrentPurchaseReturnBill);
+    }
+
+    [Fact]
+    public void PurchaseItemRow_StripAndPieceCalculation_WorksCorrectly()
+    {
+        var row = new PurchaseItemRowViewModel
+        {
+            StripCount = 5,
+            PiecesPerStrip = 15
+        };
+
+        // 5 strips * 15 pieces = 75 total quantity
+        Assert.Equal(75m, row.Quantity);
+        Assert.Equal("5 Strip × 15 Pcs = 75 Qty", row.PackCalculationDisplay);
+
+        // Changing StripCount updates Quantity
+        row.StripCount = 10;
+        Assert.Equal(150m, row.Quantity);
+        Assert.Equal("10 Strip × 15 Pcs = 150 Qty", row.PackCalculationDisplay);
+
+        // Changing PiecesPerStrip updates Quantity and PackUnits
+        row.PiecesPerStrip = 10;
+        Assert.Equal(100m, row.Quantity);
+        Assert.Equal(10, row.PackUnits);
+
+        // Changing Quantity updates StripCount (50 / 10 = 5)
+        row.Quantity = 50;
+        Assert.Equal(5m, row.StripCount);
     }
 }
 

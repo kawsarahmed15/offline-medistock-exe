@@ -63,6 +63,11 @@ public class FakeInventoryService : IInventoryService
             AllTimeOnline: 170000m
         ));
     }
+
+    public Task<IReadOnlyList<MetricDetailItemDto>> GetFinancialMetricDetailsAsync(string metricType, string? monthPrefix = null, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyList<MetricDetailItemDto>>(new List<MetricDetailItemDto>());
+    }
 }
 
 public class InventoryAlertAndExportTests
@@ -487,9 +492,9 @@ public class InventoryAlertAndExportTests
         var vm = new InventoryViewModel(fakeService);
         await vm.LoadStocksCommand.ExecuteAsync(null);
 
-        // Verify Estimated Profit = 300 + 300 = 600
-        Assert.Equal(600m, vm.EstimatedProfit);
-        Assert.Equal("600.00", vm.EstimatedProfitFormatted);
+        // Verify Estimated Profit = (MRP 120 - Cost 70) * 10 + (MRP 50 - Cost 35) * 20 = 500 + 300 = 800
+        Assert.Equal(800m, vm.EstimatedProfit);
+        Assert.Equal("800.00", vm.EstimatedProfitFormatted);
         Assert.Contains("Margin:", vm.EstimatedProfitMarginDisplay);
 
         // Verify Monthly Revenue & Collections from fakeService

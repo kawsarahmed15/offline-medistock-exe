@@ -10,6 +10,7 @@ using Medistock.Application.Common.Interfaces;
 using Medistock.Application.Products.Queries;
 using Medistock.Application.Purchases.DTOs;
 using Medistock.Application.Purchases.Services;
+using Medistock.Domain.Products;
 using Medistock.Domain.Purchases;
 using Medistock.Infrastructure.Hardware.Export;
 
@@ -37,6 +38,14 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private int _packUnits = 10;
 
     [ObservableProperty]
+    private decimal _stripCount = 1;
+
+    [ObservableProperty]
+    private decimal _piecesPerStrip = 10;
+
+    private bool _isSyncingPackQty = false;
+
+    [ObservableProperty]
     private string _batchNumber = string.Empty;
 
     [ObservableProperty]
@@ -45,7 +54,7 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private decimal _previousMrp = 0;
 
     [ObservableProperty]
-    private decimal _quantity = 1;
+    private decimal _quantity = 10;
 
     [ObservableProperty]
     private decimal _freeQuantity = 0;
@@ -84,9 +93,67 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         }
     }
 
+    partial void OnStripCountChanged(decimal value)
+    {
+        if (!_isSyncingPackQty)
+        {
+            _isSyncingPackQty = true;
+            try
+            {
+                Quantity = Math.Max(0, value * PiecesPerStrip);
+                OnPropertyChanged(nameof(QuantityDouble));
+            }
+            finally
+            {
+                _isSyncingPackQty = false;
+            }
+        }
+        OnPropertyChanged(nameof(StripCountDouble));
+        OnPropertyChanged(nameof(PackCalculationDisplay));
+        Recalculate();
+    }
+
+    partial void OnPiecesPerStripChanged(decimal value)
+    {
+        if (!_isSyncingPackQty)
+        {
+            _isSyncingPackQty = true;
+            try
+            {
+                PackUnits = (int)Math.Max(1, value);
+                Quantity = Math.Max(0, StripCount * value);
+                OnPropertyChanged(nameof(QuantityDouble));
+            }
+            finally
+            {
+                _isSyncingPackQty = false;
+            }
+        }
+        OnPropertyChanged(nameof(PiecesPerStripDouble));
+        OnPropertyChanged(nameof(PackCalculationDisplay));
+        Recalculate();
+    }
+
     partial void OnQuantityChanged(decimal value)
     {
+        if (!_isSyncingPackQty)
+        {
+            _isSyncingPackQty = true;
+            try
+            {
+                if (PiecesPerStrip > 0)
+                {
+                    StripCount = Math.Round(value / PiecesPerStrip, 2);
+                    OnPropertyChanged(nameof(StripCountDouble));
+                }
+            }
+            finally
+            {
+                _isSyncingPackQty = false;
+            }
+        }
         OnPropertyChanged(nameof(QuantityDouble));
+        OnPropertyChanged(nameof(PackCalculationDisplay));
         Recalculate();
     }
 
@@ -166,6 +233,32 @@ public partial class PurchaseItemRowViewModel : ObservableObject
             }
         }
     }
+
+    public double StripCountDouble
+    {
+        get => (double)StripCount;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                StripCount = (decimal)value;
+            }
+        }
+    }
+
+    public double PiecesPerStripDouble
+    {
+        get => (double)PiecesPerStrip;
+        set
+        {
+            if (!double.IsNaN(value) && value > 0)
+            {
+                PiecesPerStrip = (decimal)value;
+            }
+        }
+    }
+
+    public string PackCalculationDisplay => $"{StripCount:0.##} Strip × {PiecesPerStrip:0.##} Pcs = {Quantity:0.##} Qty";
 
     public double QuantityDouble
     {
@@ -850,7 +943,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
         var defaultGst = SettingsViewModel.GetDefaultGstRate();
         var row = new PurchaseItemRowViewModel
         {
-            Quantity = 1,
+            StripCount = 1,
+            PiecesPerStrip = 10,
+            Quantity = 10,
             FreeQuantity = 0,
             UnitPrice = 0,
             Mrp = 0,
@@ -958,6 +1053,8 @@ public partial class PurchaseEntryViewModel : ObservableObject
             HsnCode = src.HsnCode,
             Unit = src.Unit,
             PackUnits = src.PackUnits,
+            StripCount = src.StripCount,
+            PiecesPerStrip = src.PiecesPerStrip,
             BatchNumber = src.BatchNumber,
             ExpiryDate = src.ExpiryDate,
             ExpiryText = src.ExpiryText,
@@ -1024,6 +1121,14 @@ public partial class PurchaseEntryViewModel : ObservableObject
         row.GstRatePercent = item.GstRatePercent > 0 ? item.GstRatePercent : SettingsViewModel.GetDefaultGstRate();
         row.Mrp = item.Mrp;
         row.SaleRate = item.Mrp; // MRP is the sale price
+
+        // Packaging breakdown: extract pieces per strip from pack size description (e.g. 10x10, 1x15)
+        var breakdown = PackagingHelper.Parse(item.PackSizeDescription);
+        var tabs = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
+        row.PiecesPerStrip = tabs;
+        row.PackUnits = tabs;
+        row.StripCount = 1;
+        row.Quantity = tabs;
 
         decimal defaultCost = 0m;
         if (item.Batches != null && item.Batches.Count > 0 && item.Batches[0].PurchaseRate > 0)
@@ -1439,7 +1544,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
                     BatchNumber = item.BatchNumber,
                     ExpiryDate = new DateTimeOffset(item.ExpiryDate),
                     ExpiryText = item.ExpiryDate.ToString("MM/yy"),
+                    PiecesPerStrip = 10,
                     Quantity = item.Quantity,
+                    StripCount = Math.Round(item.Quantity / 10m, 2),
                     FreeQuantity = item.FreeQuantity,
                     UnitPrice = item.UnitPrice,
                     Mrp = item.Mrp,

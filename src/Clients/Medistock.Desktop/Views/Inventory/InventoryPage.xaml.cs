@@ -20,10 +20,18 @@ public sealed partial class InventoryPage : Page
 
         this.KeyDown += (s, e) =>
         {
-            if (e.Key == Windows.System.VirtualKey.Escape && ViewModel.IsEditProductModalOpen)
+            if (e.Key == Windows.System.VirtualKey.Escape)
             {
-                ViewModel.CloseEditProduct();
-                e.Handled = true;
+                if (ViewModel.IsMetricDetailModalOpen)
+                {
+                    ViewModel.CloseMetricDetail();
+                    e.Handled = true;
+                }
+                else if (ViewModel.IsEditProductModalOpen)
+                {
+                    ViewModel.CloseEditProduct();
+                    e.Handled = true;
+                }
             }
         };
     }

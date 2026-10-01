@@ -536,4 +536,151 @@ public class SqliteInventoryRepository : IInventoryRepository
             AllTimeOnline: onlineAllTime
         );
     }
+
+    public async Task<IReadOnlyList<MetricDetailItemDto>> GetFinancialMetricDetailsAsync(
+        string metricType,
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var targetMonth = !string.IsNullOrWhiteSpace(monthPrefix)
+            ? monthPrefix
+            : DateTime.UtcNow.ToString("yyyy-MM");
+
+        var list = new List<MetricDetailItemDto>();
+
+        if (metricType == "RevenueThisMonth")
+        {
+            var sql = @"
+                SELECT 
+                    s.invoice_no AS InvoiceNo,
+                    s.invoice_date AS InvoiceDate,
+                    COALESCE(s.customer_name, 'Walk-in Customer') AS CustomerName,
+                    (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS ItemsCount,
+                    (SELECT GROUP_CONCAT(DISTINCT 
+                        CASE sp.payment_mode 
+                            WHEN 1 THEN 'Cash' 
+                            WHEN 2 THEN 'Card' 
+                            WHEN 3 THEN 'UPI' 
+                            ELSE 'Cash' 
+                        END) FROM sale_payments sp WHERE sp.sale_id = s.id) AS PaymentModes,
+                    s.subtotal AS Subtotal,
+                    s.total AS Total
+                FROM sales s
+                WHERE s.status != 3 AND substr(s.invoice_date, 1, 7) = @targetMonth
+                ORDER BY s.invoice_date DESC;
+            ";
+
+            var rows = await connection.QueryAsync<dynamic>(
+                new CommandDefinition(sql, new { targetMonth }, cancellationToken: cancellationToken));
+
+            foreach (var r in rows)
+            {
+                string invDate = r.InvoiceDate != null ? Convert.ToString(r.InvoiceDate) : "";
+                if (DateTime.TryParse(invDate, out var dt)) invDate = dt.ToString("dd-MM-yyyy HH:mm");
+                decimal subtotal = r.Subtotal != null ? Convert.ToDecimal(r.Subtotal) : 0m;
+                decimal total = r.Total != null ? Convert.ToDecimal(r.Total) : 0m;
+                string modes = r.PaymentModes != null ? Convert.ToString(r.PaymentModes) : "Cash";
+
+                list.Add(new MetricDetailItemDto(
+                    Col1: (string)r.InvoiceNo,
+                    Col2: invDate,
+                    Col3: (string)r.CustomerName,
+                    Col4: $"{Convert.ToInt32(r.ItemsCount ?? 0)} items",
+                    Col5: modes,
+                    Col6: $"₹{subtotal:N2}",
+                    Col7: $"₹{total:N2}",
+                    BadgeText: "PAID",
+                    BadgeColor: "#16A34A"
+                ));
+            }
+        }
+        else if (metricType == "CashCollection")
+        {
+            var sql = @"
+                SELECT 
+                    s.invoice_no AS InvoiceNo,
+                    COALESCE(sp.paid_at, s.invoice_date) AS PaymentDate,
+                    COALESCE(s.customer_name, 'Walk-in Customer') AS CustomerName,
+                    'CASH' AS Mode,
+                    s.total AS InvoiceTotal,
+                    COALESCE(sp.amount, s.total) AS PaidAmount,
+                    COALESCE(sp.reference, s.invoice_no) AS Reference
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.status != 3 
+                  AND substr(s.invoice_date, 1, 7) = @targetMonth
+                  AND (sp.payment_mode = 1 OR sp.id IS NULL)
+                ORDER BY s.invoice_date DESC;
+            ";
+
+            var rows = await connection.QueryAsync<dynamic>(
+                new CommandDefinition(sql, new { targetMonth }, cancellationToken: cancellationToken));
+
+            foreach (var r in rows)
+            {
+                string pDate = r.PaymentDate != null ? Convert.ToString(r.PaymentDate) : "";
+                if (DateTime.TryParse(pDate, out var dt)) pDate = dt.ToString("dd-MM-yyyy HH:mm");
+                decimal invTotal = r.InvoiceTotal != null ? Convert.ToDecimal(r.InvoiceTotal) : 0m;
+                decimal paidAmt = r.PaidAmount != null ? Convert.ToDecimal(r.PaidAmount) : 0m;
+
+                list.Add(new MetricDetailItemDto(
+                    Col1: (string)r.InvoiceNo,
+                    Col2: pDate,
+                    Col3: (string)r.CustomerName,
+                    Col4: "Cash Counter",
+                    Col5: "CASH",
+                    Col6: $"₹{invTotal:N2}",
+                    Col7: $"₹{paidAmt:N2}",
+                    BadgeText: "CASH",
+                    BadgeColor: "#0D9488"
+                ));
+            }
+        }
+        else if (metricType == "OnlineCollection")
+        {
+            var sql = @"
+                SELECT 
+                    s.invoice_no AS InvoiceNo,
+                    sp.paid_at AS PaymentDate,
+                    COALESCE(s.customer_name, 'Walk-in Customer') AS CustomerName,
+                    CASE sp.payment_mode WHEN 2 THEN 'Card' WHEN 3 THEN 'UPI' ELSE 'Digital' END AS Mode,
+                    s.total AS InvoiceTotal,
+                    sp.amount AS PaidAmount,
+                    COALESCE(sp.reference, 'Digital QR/Card') AS Reference
+                FROM sales s
+                INNER JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.status != 3 
+                  AND substr(s.invoice_date, 1, 7) = @targetMonth
+                  AND sp.payment_mode IN (2, 3)
+                ORDER BY sp.paid_at DESC;
+            ";
+
+            var rows = await connection.QueryAsync<dynamic>(
+                new CommandDefinition(sql, new { targetMonth }, cancellationToken: cancellationToken));
+
+            foreach (var r in rows)
+            {
+                string pDate = r.PaymentDate != null ? Convert.ToString(r.PaymentDate) : "";
+                if (DateTime.TryParse(pDate, out var dt)) pDate = dt.ToString("dd-MM-yyyy HH:mm");
+                decimal invTotal = r.InvoiceTotal != null ? Convert.ToDecimal(r.InvoiceTotal) : 0m;
+                decimal paidAmt = r.PaidAmount != null ? Convert.ToDecimal(r.PaidAmount) : 0m;
+                string mode = Convert.ToString(r.Mode);
+
+                list.Add(new MetricDetailItemDto(
+                    Col1: (string)r.InvoiceNo,
+                    Col2: pDate,
+                    Col3: (string)r.CustomerName,
+                    Col4: (string)r.Reference,
+                    Col5: mode.ToUpperInvariant(),
+                    Col6: $"₹{invTotal:N2}",
+                    Col7: $"₹{paidAmt:N2}",
+                    BadgeText: mode.ToUpperInvariant(),
+                    BadgeColor: "#7C3AED"
+                ));
+            }
+        }
+
+        return list;
+    }
 }

@@ -32,6 +32,11 @@ public interface IInventoryRepository
     Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
         string? monthPrefix = null,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MetricDetailItemDto>> GetFinancialMetricDetailsAsync(
+        string metricType,
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IScheduleDrugRepository

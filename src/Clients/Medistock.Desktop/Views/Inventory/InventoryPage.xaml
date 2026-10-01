@@ -9,6 +9,20 @@
     mc:Ignorable="d"
     Background="{ThemeResource AppBackground}">
 
+    <Page.Resources>
+        <Style x:Key="MetricCardButtonStyle" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+    </Page.Resources>
+
     <Grid RowDefinitions="Auto,Auto,*" Margin="20">
         <!-- 1. Top Section: Header & Executive KPI Summary Banner -->
         <Grid Grid.Row="0" Margin="0,0,0,12">
@@ -64,147 +78,211 @@
             <!-- 4 Stock & Inventory KPI Metric Summary Cards -->
             <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
                 <!-- Card 1: Total Products Available -->
-                <Border Grid.Column="0"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="{ThemeResource BorderDefault}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="TOTAL PRODUCTS AVAILABLE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding TotalProductsAvailable}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
-                            <TextBlock Text="{Binding TotalBatchesCountDisplay}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                <Button Grid.Column="0"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="TotalProducts"
+                        ToolTipService.ToolTip="Click to view all products and active stock batches">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="{ThemeResource BorderDefault}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="TOTAL PRODUCTS AVAILABLE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TotalProductsAvailable}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                                <TextBlock Text="{Binding TotalBatchesCountDisplay}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Unique active items in stock" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                         </StackPanel>
-                        <TextBlock Text="Unique active items in stock" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Card 2: Expiry Near / Expired -->
-                <Border Grid.Column="1"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#80DC2626"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="EXPIRY NEAR / EXPIRED" FontSize="9.5" FontWeight="Bold" Foreground="#DC2626" />
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding ExpiryNearProductsCount}" FontSize="20" FontWeight="Bold" Foreground="#DC2626" />
-                            <Border Background="#25DC2626" CornerRadius="3" Padding="4,1" VerticalAlignment="Center">
-                                <TextBlock Text="ATTENTION" FontSize="8.5" FontWeight="Bold" Foreground="#DC2626" />
-                            </Border>
+                <Button Grid.Column="1"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="ExpiryNear"
+                        ToolTipService.ToolTip="Click to view all near expiry and expired batch details">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="#80DC2626"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="EXPIRY NEAR / EXPIRED" FontSize="9.5" FontWeight="Bold" Foreground="#DC2626" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="#DC2626" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ExpiryNearProductsCount}" FontSize="20" FontWeight="Bold" Foreground="#DC2626" />
+                                <Border Background="#25DC2626" CornerRadius="3" Padding="4,1" VerticalAlignment="Center">
+                                    <TextBlock Text="ATTENTION" FontSize="8.5" FontWeight="Bold" Foreground="#DC2626" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="≤ threshold days or expired" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                         </StackPanel>
-                        <TextBlock Text="≤ threshold days or expired" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Card 3: Low Stock / OOS -->
-                <Border Grid.Column="2"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#80D97706"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="LOW STOCK / OUT OF STOCK" FontSize="9.5" FontWeight="Bold" Foreground="#D97706" />
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding LowStockProductsCount}" FontSize="20" FontWeight="Bold" Foreground="#D97706" />
-                            <Border Background="#25D97706" CornerRadius="3" Padding="4,1" VerticalAlignment="Center">
-                                <TextBlock Text="REORDER" FontSize="8.5" FontWeight="Bold" Foreground="#D97706" />
-                            </Border>
+                <Button Grid.Column="2"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="LowStock"
+                        ToolTipService.ToolTip="Click to view reorder list for low and out-of-stock items">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="#80D97706"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="LOW STOCK / OUT OF STOCK" FontSize="9.5" FontWeight="Bold" Foreground="#D97706" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="#D97706" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding LowStockProductsCount}" FontSize="20" FontWeight="Bold" Foreground="#D97706" />
+                                <Border Background="#25D97706" CornerRadius="3" Padding="4,1" VerticalAlignment="Center">
+                                    <TextBlock Text="REORDER" FontSize="8.5" FontWeight="Bold" Foreground="#D97706" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="At or below min alert level" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
                         </StackPanel>
-                        <TextBlock Text="At or below min alert level" FontSize="10" Foreground="{ThemeResource TextSecondary}" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Card 4: Total Stock Valuation -->
-                <Border Grid.Column="3"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="{ThemeResource AccentPrimary}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="TOTAL STOCK VALUATION (NET RATE)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                <Button Grid.Column="3"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="StockValuation"
+                        ToolTipService.ToolTip="Click to view complete stock valuation breakdown">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="{ThemeResource AccentPrimary}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="TOTAL STOCK VALUATION (NET RATE)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost + GST %) × Available Quantity" />
                         </StackPanel>
-                        <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost + GST %) × Available Quantity" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
             </Grid>
 
             <!-- 4 Financial & Sales Collection KPI Cards -->
             <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="10" Margin="0,8,0,0">
                 <!-- Financial Card 1: Estimated Profit -->
-                <Border Grid.Column="0"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#8016A34A"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="ESTIMATED PROFIT" FontSize="9.5" FontWeight="Bold" Foreground="#16A34A" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#16A34A" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding EstimatedProfitFormatted}" FontSize="20" FontWeight="Bold" Foreground="#16A34A" />
+                <Button Grid.Column="0"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="EstimatedProfit"
+                        ToolTipService.ToolTip="Click to view estimated profit breakdown (MRP - Product buying cost)">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="#8016A34A"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="ESTIMATED PROFIT" FontSize="9.5" FontWeight="Bold" Foreground="#16A34A" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="#16A34A" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#16A34A" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding EstimatedProfitFormatted}" FontSize="20" FontWeight="Bold" Foreground="#16A34A" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding EstimatedProfitMarginDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Estimated profit margin on active inventory stock (MRP - Buying Cost)" />
                         </StackPanel>
-                        <TextBlock Text="{Binding EstimatedProfitMarginDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Estimated profit margin on active inventory stock (Sale Rate - Buying Cost)" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Financial Card 2: Revenue This Month -->
-                <Border Grid.Column="1"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="{ThemeResource AccentPrimary}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="REVENUE THIS MONTH" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding RevenueThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                <Button Grid.Column="1"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="RevenueThisMonth"
+                        ToolTipService.ToolTip="Click to view finalized sales invoices this month">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="{ThemeResource AccentPrimary}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="REVENUE THIS MONTH" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding RevenueThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding MonthlyInvoicesCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Total sales revenue finalized in the current calendar month" />
                         </StackPanel>
-                        <TextBlock Text="{Binding MonthlyInvoicesCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Total sales revenue finalized in the current calendar month" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Financial Card 3: Cash Collection -->
-                <Border Grid.Column="2"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#800D9488"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="CASH COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#0D9488" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#0D9488" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding CashCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#0D9488" />
+                <Button Grid.Column="2"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="CashCollection"
+                        ToolTipService.ToolTip="Click to view cash payments collected this month">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="#800D9488"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="CASH COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#0D9488" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="#0D9488" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#0D9488" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding CashCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#0D9488" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding CashCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Cash payments collected from invoices this month" />
                         </StackPanel>
-                        <TextBlock Text="{Binding CashCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Cash payments collected from invoices this month" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
 
                 <!-- Financial Card 4: Online Collection -->
-                <Border Grid.Column="3"
-                        Background="{ThemeResource SurfaceDefault}"
-                        BorderBrush="#807C3AED"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,10">
-                    <StackPanel Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="ONLINE COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#7C3AED" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#7C3AED" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding OnlineCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#7C3AED" />
+                <Button Grid.Column="3"
+                        Style="{StaticResource MetricCardButtonStyle}"
+                        Command="{Binding ShowMetricDetailCommand}"
+                        CommandParameter="OnlineCollection"
+                        ToolTipService.ToolTip="Click to view UPI, QR &amp; Card digital payments this month">
+                    <Border Background="{ThemeResource SurfaceDefault}"
+                            BorderBrush="#807C3AED"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="ONLINE COLLECTION" FontSize="9.5" FontWeight="Bold" Foreground="#7C3AED" />
+                                <TextBlock Grid.Column="1" Text="Details ↗" FontSize="9" FontWeight="SemiBold" Foreground="#7C3AED" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#7C3AED" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding OnlineCollectionThisMonthFormatted}" FontSize="20" FontWeight="Bold" Foreground="#7C3AED" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding OnlineCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Digital payments collected via UPI, QR code &amp; Card this month" />
                         </StackPanel>
-                        <TextBlock Text="{Binding OnlineCollectionCountDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Digital payments collected via UPI, QR code &amp; Card this month" />
-                    </StackPanel>
-                </Border>
+                    </Border>
+                </Button>
             </Grid>
         </Grid>
 
@@ -594,6 +672,132 @@
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- 5. Metric Actual Details Breakdown Modal Popup -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Visibility="{Binding IsMetricDetailModalOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#90000000"
+              Margin="-20">
+            <Border Background="{ThemeResource SurfaceDefault}"
+                    BorderBrush="{ThemeResource BorderDefault}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Width="1100"
+                    MaxHeight="700"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="22,18"
+                    Shadow="{ThemeResource SharedShadow}">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Modal Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <TextBlock Text="{Binding MetricDetailTitle}" FontSize="17" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="{Binding MetricDetailSummary}" FontSize="12" Foreground="{ThemeResource AccentPrimary}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="✕"
+                                FontSize="13"
+                                FontWeight="Bold"
+                                Padding="8,4"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding CloseMetricDetailCommand}" />
+                    </Grid>
+
+                    <!-- Search Filter & Export inside Modal -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding MetricDetailSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="🔍 Search in actual details by product, batch, customer, date..."
+                                 Margin="0,0,10,0" />
+                        <Button Grid.Column="1"
+                                Command="{Binding ExportMetricDetailCsvCommand}"
+                                Padding="12,6"
+                                ToolTipService.ToolTip="Export these actual itemized details to CSV (.csv)">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="📥" FontSize="12" />
+                                <TextBlock Text="Export CSV" FontSize="12" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- Table Container -->
+                    <Border Grid.Row="2"
+                            BorderBrush="{ThemeResource BorderDefault}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Background="{ThemeResource SurfaceSubtle}">
+                        <Grid RowDefinitions="Auto,*">
+                            <!-- Table Header -->
+                            <Border Grid.Row="0"
+                                    Background="{ThemeResource SurfaceDefault}"
+                                    BorderBrush="{ThemeResource BorderDefault}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="10,8">
+                                <Grid ColumnDefinitions="2.6*,1.2*,1.2*,1*,1*,1*,1.1*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding MetricDetailCol1Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding MetricDetailCol2Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding MetricDetailCol3Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="3" Text="{Binding MetricDetailCol4Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="{Binding MetricDetailCol5Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="5" Text="{Binding MetricDetailCol6Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="6" Text="{Binding MetricDetailCol7Header}" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="7" Text="STATUS" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" Width="85" TextAlignment="Center" Margin="8,0,0,0" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Table Rows -->
+                            <ListView Grid.Row="1"
+                                      ItemsSource="{Binding MetricDetailRows}"
+                                      SelectionMode="None"
+                                      MaxHeight="430"
+                                      Padding="0">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{ThemeResource BorderDefault}"
+                                                BorderThickness="0,0,0,1"
+                                                Padding="10,6">
+                                            <Grid ColumnDefinitions="2.6*,1.2*,1.2*,1*,1*,1*,1.1*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding Col1}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Col2}" FontSize="10.5" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" FontFamily="Consolas, Fira Code, Segoe UI Mono" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Col3}" FontSize="10.5" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Col4}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                                <TextBlock Grid.Column="4" Text="{Binding Col5}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                                <TextBlock Grid.Column="5" Text="{Binding Col6}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                                <TextBlock Grid.Column="6" Text="{Binding Col7}" FontSize="11.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                                <Border Grid.Column="7"
+                                                        Width="85"
+                                                        Background="{Binding BadgeBackgroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                        CornerRadius="3"
+                                                        Padding="4,2"
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding BadgeText}"
+                                                               FontSize="9"
+                                                               FontWeight="Bold"
+                                                               Foreground="{Binding BadgeForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                               HorizontalAlignment="Center" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+
+                    <!-- Modal Footer -->
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                        <Button Content="Close [Esc]"
+                                Command="{Binding CloseMetricDetailCommand}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Padding="20,6" />
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>

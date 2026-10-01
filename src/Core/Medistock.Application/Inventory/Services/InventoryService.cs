@@ -46,6 +46,11 @@ public interface IInventoryService
     Task<InventoryFinancialMetricsDto> GetFinancialMetricsAsync(
         string? monthPrefix = null,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MetricDetailItemDto>> GetFinancialMetricDetailsAsync(
+        string metricType,
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default);
 }
 
 public class InventoryService : IInventoryService
@@ -134,5 +139,13 @@ public class InventoryService : IInventoryService
         CancellationToken cancellationToken = default)
     {
         return _inventoryRepository.GetFinancialMetricsAsync(monthPrefix, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<MetricDetailItemDto>> GetFinancialMetricDetailsAsync(
+        string metricType,
+        string? monthPrefix = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _inventoryRepository.GetFinancialMetricDetailsAsync(metricType, monthPrefix, cancellationToken);
     }
 }
