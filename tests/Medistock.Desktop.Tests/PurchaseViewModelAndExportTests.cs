@@ -679,19 +679,20 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("Unknown Medicine XYZ 100", vm.NewProductName);
 
         // Fill modal fields and save
-        vm.NewProductCategory = "Amoxicillin + Clavulanic Acid";
         vm.NewProductManufacturer = "Cipla Ltd";
         vm.NewProductStockType = "Tablet (Tab)";
-        vm.NewProductPackOptions = 10;
+        vm.NewProductStripCount = 2;
+        vm.NewProductPcsPerStrip = 10;
         vm.NewProductMrp = 120m;
         vm.NewProductBuyingPrice = 90m;
-        vm.NewProductSellingPrice = 115m;
-        vm.NewProductInitialStockQty = 20m;
         vm.NewProductBatch = "b991";
         vm.NewProductExpiryText = "12/28";
         vm.NewProductHsnCode = "30049099";
         vm.NewProductTaxPercent = 12m;
         vm.NewProductIsPrescriptionRequired = true;
+
+        // Auto-calculated stock qty is 2 strips * 10 pcs = 20
+        Assert.Equal(20m, vm.NewProductInitialStockQty);
 
         await vm.SaveNewProductAsync();
 
@@ -699,16 +700,123 @@ public class PurchaseViewModelAndExportTests
         Assert.False(vm.IsAddProductModalOpen);
         Assert.Equal("Unknown Medicine XYZ 100", row.ProductName);
         Assert.StartsWith("prod_", row.ProductId);
-        Assert.Equal("Amoxicillin + Clavulanic Acid", row.GenericName);
+        Assert.Equal(string.Empty, row.GenericName);
         Assert.Equal("30049099", row.HsnCode);
         Assert.Equal("B991", row.BatchNumber);
         Assert.Equal("12/28", row.ExpiryText);
         Assert.Equal(90m, row.UnitPrice);
         Assert.Equal(120m, row.Mrp);
-        Assert.Equal(115m, row.SaleRate);
+        // Selling price is considered as MRP
+        Assert.Equal(120m, row.SaleRate);
         Assert.Equal(20m, row.Quantity);
         Assert.Equal(2m, row.StripCount);
         Assert.Equal(12m, row.GstRatePercent);
+    }
+
+    [Fact]
+    public void AddProductModal_TabletCapsule_MultipliesStripAndPcs_CalculatesInitialStock()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Paracetamol 650", vm.LineItems[0]);
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.True(vm.IsTabletOrCapsule);
+
+        // If 2 strips and 15 pcs, calculate stock quantity as 30
+        vm.NewProductStripCount = 2;
+        vm.NewProductPcsPerStrip = 15;
+
+        Assert.Equal(30m, vm.NewProductInitialStockQty);
+        Assert.Equal("Available: 30 Pcs (2 Strips × 15 Pcs)", vm.NewProductStockBreakdownText);
+
+        // Change strips to 4 -> 4 * 15 = 60
+        vm.NewProductStripCount = 4;
+        Assert.Equal(60m, vm.NewProductInitialStockQty);
+        Assert.Equal("Available: 60 Pcs (4 Strips × 15 Pcs)", vm.NewProductStockBreakdownText);
+    }
+
+    [Fact]
+    public void AddProductModal_Syrup_PackSizeMl_InitialStockManual()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Cough Syrup", vm.LineItems[0]);
+        vm.NewProductStockType = "Syrup (Syp)";
+
+        Assert.False(vm.IsTabletOrCapsule);
+        Assert.True(vm.IsVolumeMlType);
+        Assert.Equal("100ml", vm.NewProductPackSizeText);
+
+        // Initial stock qty is not autofilled by system; it is filled by user
+        Assert.Equal(0m, vm.NewProductInitialStockQty);
+
+        vm.NewProductPackSizeText = "200ml";
+        vm.NewProductInitialStockQty = 5m; // 5 bottles entered by user
+        Assert.Equal("Available: 5 Bottles (200ml)", vm.NewProductStockBreakdownText);
+    }
+
+    [Fact]
+    public void AddProductModal_Injection_PackSizeMl_InitialStockManual()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Insulin Inj", vm.LineItems[0]);
+        vm.NewProductStockType = "Injection (Inj)";
+
+        Assert.True(vm.IsVolumeMlType);
+        Assert.Equal("2ml", vm.NewProductPackSizeText);
+        Assert.Equal(0m, vm.NewProductInitialStockQty);
+
+        vm.NewProductPackSizeText = "10ml";
+        vm.NewProductInitialStockQty = 12m; // 12 vials entered by user
+        Assert.Equal("Available: 12 Vials (10ml)", vm.NewProductStockBreakdownText);
+    }
+
+    [Fact]
+    public void AddProductModal_Cream_PackSizeGm_InitialStockManual()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Betnovate Cream", vm.LineItems[0]);
+        vm.NewProductStockType = "Cream";
+
+        Assert.True(vm.IsWeightGmType);
+        Assert.Equal("20gm", vm.NewProductPackSizeText);
+        Assert.Equal(0m, vm.NewProductInitialStockQty);
+
+        vm.NewProductPackSizeText = "30gm";
+        vm.NewProductInitialStockQty = 8m; // 8 tubes entered by user
+        Assert.Equal("Available: 8 Tubes (30gm)", vm.NewProductStockBreakdownText);
+    }
+
+    [Fact]
+    public async Task AddProductModal_SellingPrice_EqualsMrp()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Test Med", vm.LineItems[0]);
+        vm.NewProductMrp = 250m;
+
+        // Selling price automatically tracks MRP
+        Assert.Equal(250m, vm.NewProductSellingPrice);
+
+        vm.NewProductBuyingPrice = 180m;
+        await vm.SaveNewProductAsync();
+
+        var row = vm.LineItems[0];
+        Assert.Equal(250m, row.Mrp);
+        Assert.Equal(250m, row.SaleRate);
+        Assert.Equal(180m, row.UnitPrice);
     }
 
     [Fact]

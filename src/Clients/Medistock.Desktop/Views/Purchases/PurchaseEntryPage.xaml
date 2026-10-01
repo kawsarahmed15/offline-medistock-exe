@@ -1207,22 +1207,11 @@
                                  PreviewKeyDown="NewProductField_PreviewKeyDown"
                                  PlaceholderText="e.g. Augmentin 625 Duo Tablet" />
 
-                        <Grid ColumnDefinitions="*,*">
-                            <TextBox x:Name="NewProductCategoryBox"
-                                     Grid.Column="0"
-                                     Header="Category / Generic Name"
-                                     Text="{Binding NewProductCategory, Mode=TwoWay}"
-                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                     PlaceholderText="e.g. Amoxicillin + Clavulanic Acid"
-                                     Margin="0,0,6,0" />
-                            <TextBox x:Name="NewProductManufacturerBox"
-                                     Grid.Column="1"
-                                     Header="Manufacturer / Company"
-                                     Text="{Binding NewProductManufacturer, Mode=TwoWay}"
-                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                     PlaceholderText="e.g. GSK / Cipla / Sun Pharma"
-                                     Margin="6,0,0,0" />
-                        </Grid>
+                        <TextBox x:Name="NewProductManufacturerBox"
+                                 Header="Manufacturer / Company"
+                                 Text="{Binding NewProductManufacturer, Mode=TwoWay}"
+                                 PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                 PlaceholderText="e.g. GSK / Cipla / Sun Pharma" />
 
                         <!-- Section: Stock Type & Packaging -->
                         <TextBlock Text="Stock Classification &amp; Packaging" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
@@ -1236,14 +1225,58 @@
                                       HorizontalAlignment="Stretch"
                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
                                       Margin="0,0,6,0" />
-                            <NumberBox x:Name="NewProductPackOptionsBox"
-                                       Grid.Column="1"
-                                       Header="Pack Options (Units/Strip)"
-                                       Value="{Binding NewProductPackOptionsDouble, Mode=TwoWay}"
-                                       SpinButtonPlacementMode="Inline"
-                                       SmallChange="1"
-                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                       Margin="6,0,0,0" />
+
+                            <Grid Grid.Column="1" Margin="6,0,0,0">
+                                <!-- Option 1: Tablet / Capsule -> Strip and Pcs -->
+                                <Grid ColumnDefinitions="*,*"
+                                      Visibility="{Binding IsTabletOrCapsule, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <NumberBox x:Name="NewProductStripCountBox"
+                                               Grid.Column="0"
+                                               Header="Strip"
+                                               Value="{Binding NewProductStripCountDouble, Mode=TwoWay}"
+                                               SpinButtonPlacementMode="Inline"
+                                               SmallChange="1"
+                                               PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                               Margin="0,0,3,0" />
+                                    <NumberBox x:Name="NewProductPcsPerStripBox"
+                                               Grid.Column="1"
+                                               Header="Pcs / Strip"
+                                               Value="{Binding NewProductPcsPerStripDouble, Mode=TwoWay}"
+                                               SpinButtonPlacementMode="Inline"
+                                               SmallChange="1"
+                                               PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                               Margin="3,0,0,0" />
+                                </Grid>
+
+                                <!-- Option 2: Syrup / Injection / Drop -> Volume in ml (e.g. 100ml, 200ml) -->
+                                <ComboBox x:Name="NewProductVolumeMlComboBox"
+                                          Header="Pack Size (ml)"
+                                          IsEditable="True"
+                                          Text="{Binding NewProductPackSizeText, Mode=TwoWay}"
+                                          ItemsSource="{Binding VolumeMlOptions}"
+                                          HorizontalAlignment="Stretch"
+                                          PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                          Visibility="{Binding IsVolumeMlType, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                <!-- Option 3: Cream -> Weight in gm (e.g. 20gm, 10gm) -->
+                                <ComboBox x:Name="NewProductWeightGmComboBox"
+                                          Header="Pack Size (gm)"
+                                          IsEditable="True"
+                                          Text="{Binding NewProductPackSizeText, Mode=TwoWay}"
+                                          ItemsSource="{Binding WeightGmOptions}"
+                                          HorizontalAlignment="Stretch"
+                                          PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                          Visibility="{Binding IsWeightGmType, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                <!-- Option 4: General / Other -> Units -->
+                                <NumberBox x:Name="NewProductPackOptionsBox"
+                                           Header="Pack Units"
+                                           Value="{Binding NewProductPackOptionsDouble, Mode=TwoWay}"
+                                           SpinButtonPlacementMode="Inline"
+                                           SmallChange="1"
+                                           PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                           Visibility="{Binding IsGeneralType, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            </Grid>
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*">
@@ -1267,42 +1300,40 @@
                         <!-- Section: Pricing -->
                         <TextBlock Text="Pricing &amp; Valuation" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
 
-                        <Grid ColumnDefinitions="*,*,*">
+                        <Grid ColumnDefinitions="*,*">
                             <NumberBox x:Name="NewProductMrpBox"
                                        Grid.Column="0"
                                        Header="MRP (₹) *"
                                        Value="{Binding NewProductMrpDouble, Mode=TwoWay}"
                                        SpinButtonPlacementMode="Compact"
                                        PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                       Margin="0,0,4,0" />
+                                       Margin="0,0,6,0" />
                             <NumberBox x:Name="NewProductBuyingPriceBox"
                                        Grid.Column="1"
                                        Header="Buying Price (₹)"
                                        Value="{Binding NewProductBuyingPriceDouble, Mode=TwoWay}"
                                        SpinButtonPlacementMode="Compact"
                                        PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                       Margin="4,0,4,0" />
-                            <NumberBox x:Name="NewProductSellingPriceBox"
-                                       Grid.Column="2"
-                                       Header="Selling Price (₹)"
-                                       Value="{Binding NewProductSellingPriceDouble, Mode=TwoWay}"
-                                       SpinButtonPlacementMode="Compact"
-                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                       Margin="4,0,0,0" />
+                                       Margin="6,0,0,0" />
                         </Grid>
 
                         <!-- Section: Initial Stock & Batch Details -->
                         <TextBlock Text="Initial Stock &amp; Batch Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
 
                         <Grid ColumnDefinitions="*,*,*">
-                            <NumberBox x:Name="NewProductInitialStockQtyBox"
-                                       Grid.Column="0"
-                                       Header="Initial Stock Qty"
-                                       Value="{Binding NewProductInitialStockQtyDouble, Mode=TwoWay}"
-                                       SpinButtonPlacementMode="Inline"
-                                       SmallChange="1"
-                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                       Margin="0,0,4,0" />
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0" Spacing="2">
+                                <NumberBox x:Name="NewProductInitialStockQtyBox"
+                                           Header="Initial Stock Qty"
+                                           Value="{Binding NewProductInitialStockQtyDouble, Mode=TwoWay}"
+                                           SpinButtonPlacementMode="Inline"
+                                           SmallChange="1"
+                                           PreviewKeyDown="NewProductField_PreviewKeyDown" />
+                                <TextBlock Text="{Binding NewProductStockBreakdownText}"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="{ThemeResource AccentPrimary}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
                             <TextBox x:Name="NewProductBatchBox"
                                      Grid.Column="1"
                                      Header="Batch"

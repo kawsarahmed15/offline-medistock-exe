@@ -672,7 +672,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
     private string _newProductManufacturer = string.Empty;
 
     [ObservableProperty]
-    private decimal _newProductInitialStockQty = 0;
+    private decimal _newProductInitialStockQty = 10;
 
     [ObservableProperty]
     private decimal _newProductBuyingPrice = 0;
@@ -688,6 +688,15 @@ public partial class PurchaseEntryViewModel : ObservableObject
 
     [ObservableProperty]
     private int _newProductPackOptions = 10;
+
+    [ObservableProperty]
+    private int _newProductStripCount = 1;
+
+    [ObservableProperty]
+    private int _newProductPcsPerStrip = 10;
+
+    [ObservableProperty]
+    private string _newProductPackSizeText = "100ml";
 
     [ObservableProperty]
     private string _newProductExpiryText = string.Empty;
@@ -731,6 +740,71 @@ public partial class PurchaseEntryViewModel : ObservableObject
         18m,
         28m
     };
+
+    public ObservableCollection<string> VolumeMlOptions { get; } = new()
+    {
+        "2ml",
+        "5ml",
+        "10ml",
+        "15ml",
+        "30ml",
+        "60ml",
+        "100ml",
+        "200ml",
+        "450ml"
+    };
+
+    public ObservableCollection<string> WeightGmOptions { get; } = new()
+    {
+        "5gm",
+        "10gm",
+        "15gm",
+        "20gm",
+        "25gm",
+        "30gm",
+        "50gm",
+        "100gm"
+    };
+
+    public bool IsTabletOrCapsule => NewProductStockType is "Tablet (Tab)" or "Capsule (Cap)";
+    public bool IsVolumeMlType => NewProductStockType is "Syrup (Syp)" or "Injection (Inj)" or "Drop";
+    public bool IsWeightGmType => NewProductStockType == "Cream";
+    public bool IsGeneralType => NewProductStockType == "General / Other";
+
+    public string NewProductStockBreakdownText
+    {
+        get
+        {
+            if (IsTabletOrCapsule)
+            {
+                var strips = NewProductStripCount;
+                var totalUnits = (int)NewProductInitialStockQty;
+                return $"Available: {totalUnits} Pcs ({strips} {(strips == 1 ? "Strip" : "Strips")} × {NewProductPcsPerStrip} Pcs)";
+            }
+            else if (IsVolumeMlType)
+            {
+                var unitName = NewProductStockType == "Injection (Inj)" ? "Vials" : "Bottles";
+                return $"Available: {(int)NewProductInitialStockQty} {unitName} ({NewProductPackSizeText})";
+            }
+            else if (IsWeightGmType)
+            {
+                return $"Available: {(int)NewProductInitialStockQty} Tubes ({NewProductPackSizeText})";
+            }
+            return $"Available: {(int)NewProductInitialStockQty} Units";
+        }
+    }
+
+    public double NewProductStripCountDouble
+    {
+        get => NewProductStripCount;
+        set { NewProductStripCount = double.IsNaN(value) ? 0 : (int)Math.Max(0, value); OnPropertyChanged(); }
+    }
+
+    public double NewProductPcsPerStripDouble
+    {
+        get => NewProductPcsPerStrip;
+        set { NewProductPcsPerStrip = double.IsNaN(value) ? 10 : (int)Math.Max(1, value); OnPropertyChanged(); }
+    }
 
     public double NewProductPackOptionsDouble
     {
@@ -776,24 +850,100 @@ public partial class PurchaseEntryViewModel : ObservableObject
         }
     }
 
+    partial void OnNewProductStripCountChanged(int value)
+    {
+        if (IsTabletOrCapsule)
+        {
+            NewProductInitialStockQty = Math.Max(0, value) * Math.Max(0, NewProductPcsPerStrip);
+            OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+            OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        }
+    }
+
+    partial void OnNewProductPcsPerStripChanged(int value)
+    {
+        if (IsTabletOrCapsule)
+        {
+            NewProductPackOptions = Math.Max(1, value);
+            NewProductInitialStockQty = Math.Max(0, NewProductStripCount) * Math.Max(0, value);
+            OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+            OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+            OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        }
+    }
+
+    partial void OnNewProductPackSizeTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
+    }
+
+    partial void OnNewProductInitialStockQtyChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
+    }
+
+    partial void OnNewProductMrpChanged(decimal value)
+    {
+        NewProductSellingPrice = value;
+        OnPropertyChanged(nameof(NewProductSellingPriceDouble));
+    }
+
     partial void OnNewProductStockTypeChanged(string value)
     {
-        if (value == "Tablet (Tab)" || value == "Capsule (Cap)")
+        OnPropertyChanged(nameof(IsTabletOrCapsule));
+        OnPropertyChanged(nameof(IsVolumeMlType));
+        OnPropertyChanged(nameof(IsWeightGmType));
+        OnPropertyChanged(nameof(IsGeneralType));
+
+        if (value is "Tablet (Tab)" or "Capsule (Cap)")
         {
-            if (NewProductPackOptions <= 1)
+            if (NewProductPcsPerStrip <= 1)
             {
-                NewProductPackOptions = 10;
-                OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+                NewProductPcsPerStrip = 10;
             }
+            if (NewProductStripCount <= 0)
+            {
+                NewProductStripCount = 1;
+            }
+            NewProductPackOptions = NewProductPcsPerStrip;
+            NewProductInitialStockQty = NewProductStripCount * NewProductPcsPerStrip;
+        }
+        else if (value is "Syrup (Syp)")
+        {
+            NewProductPackOptions = 1;
+            NewProductPackSizeText = "100ml";
+            NewProductInitialStockQty = 0;
+        }
+        else if (value is "Injection (Inj)")
+        {
+            NewProductPackOptions = 1;
+            NewProductPackSizeText = "2ml";
+            NewProductInitialStockQty = 0;
+        }
+        else if (value is "Drop")
+        {
+            NewProductPackOptions = 1;
+            NewProductPackSizeText = "10ml";
+            NewProductInitialStockQty = 0;
+        }
+        else if (value is "Cream")
+        {
+            NewProductPackOptions = 1;
+            NewProductPackSizeText = "20gm";
+            NewProductInitialStockQty = 0;
         }
         else
         {
-            if (NewProductPackOptions == 10)
-            {
-                NewProductPackOptions = 1;
-                OnPropertyChanged(nameof(NewProductPackOptionsDouble));
-            }
+            NewProductPackOptions = 1;
+            NewProductPackSizeText = "1 Unit";
+            NewProductInitialStockQty = 0;
         }
+
+        OnPropertyChanged(nameof(NewProductStripCountDouble));
+        OnPropertyChanged(nameof(NewProductPcsPerStripDouble));
+        OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+        OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
     }
 
     partial void OnNewProductValidationMessageChanged(string value)
@@ -2131,12 +2281,15 @@ public partial class PurchaseEntryViewModel : ObservableObject
         NewProductName = initialName?.Trim() ?? string.Empty;
         NewProductCategory = string.Empty;
         NewProductManufacturer = string.Empty;
-        NewProductInitialStockQty = 0;
+        NewProductStockType = "Tablet (Tab)";
+        NewProductStripCount = 1;
+        NewProductPcsPerStrip = 10;
+        NewProductPackOptions = 10;
+        NewProductInitialStockQty = 10;
         NewProductBuyingPrice = 0;
         NewProductSellingPrice = 0;
         NewProductMrp = 0;
-        NewProductStockType = "Tablet (Tab)";
-        NewProductPackOptions = 10;
+        NewProductPackSizeText = "100ml";
         NewProductExpiryText = string.Empty;
         NewProductExpiryDate = default;
         NewProductTaxPercent = SettingsViewModel.GetDefaultGstRate();
@@ -2145,11 +2298,18 @@ public partial class PurchaseEntryViewModel : ObservableObject
         NewProductIsPrescriptionRequired = false;
         NewProductValidationMessage = string.Empty;
 
+        OnPropertyChanged(nameof(IsTabletOrCapsule));
+        OnPropertyChanged(nameof(IsVolumeMlType));
+        OnPropertyChanged(nameof(IsWeightGmType));
+        OnPropertyChanged(nameof(IsGeneralType));
+        OnPropertyChanged(nameof(NewProductStripCountDouble));
+        OnPropertyChanged(nameof(NewProductPcsPerStripDouble));
         OnPropertyChanged(nameof(NewProductPackOptionsDouble));
         OnPropertyChanged(nameof(NewProductMrpDouble));
         OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
         OnPropertyChanged(nameof(NewProductSellingPriceDouble));
         OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
         OnPropertyChanged(nameof(HasNewProductValidationMessage));
 
         IsProductSearchOpen = false;
@@ -2229,8 +2389,16 @@ public partial class PurchaseEntryViewModel : ObservableObject
                 break;
         }
 
-        int packUnits = NewProductPackOptions > 0 ? NewProductPackOptions : (dosageForm == DosageForm.Tablet || dosageForm == DosageForm.Capsule ? 10 : 1);
+        int packUnits = IsTabletOrCapsule
+            ? (NewProductPcsPerStrip > 0 ? NewProductPcsPerStrip : 10)
+            : (NewProductPackOptions > 0 ? NewProductPackOptions : 1);
+
+        string strengthSpec = IsTabletOrCapsule
+            ? $"{NewProductPcsPerStrip} Tabs/Strip"
+            : (string.IsNullOrWhiteSpace(NewProductPackSizeText) ? string.Empty : NewProductPackSizeText.Trim());
+
         var schedule = NewProductIsPrescriptionRequired ? DrugSchedule.ScheduleH : DrugSchedule.OTC;
+        var sellingPriceToUse = NewProductMrp; // Selling price is considered as MRP
 
         string productId;
         try
@@ -2242,9 +2410,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
                     WarehouseId: _warehouseId,
                     Name: NewProductName.Trim(),
                     BrandName: NewProductName.Trim(),
-                    GenericName: string.IsNullOrWhiteSpace(NewProductCategory) ? string.Empty : NewProductCategory.Trim(),
-                    Composition: string.IsNullOrWhiteSpace(NewProductCategory) ? string.Empty : NewProductCategory.Trim(),
-                    Strength: string.Empty,
+                    GenericName: string.Empty,
+                    Composition: string.Empty,
+                    Strength: strengthSpec,
                     DosageForm: dosageForm,
                     PackUnits: packUnits,
                     BaseUnit: baseUnit,
@@ -2258,7 +2426,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
                     ExpiryDate: expiryToUse,
                     Mrp: NewProductMrp,
                     PurchaseRate: NewProductBuyingPrice,
-                    SaleRate: NewProductSellingPrice > 0 ? NewProductSellingPrice : NewProductMrp,
+                    SaleRate: sellingPriceToUse,
                     OpeningQuantity: NewProductInitialStockQty
                 );
 
@@ -2284,7 +2452,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
 
             row.ProductId = productId;
             row.ProductName = NewProductName.Trim();
-            row.GenericName = string.IsNullOrWhiteSpace(NewProductCategory) ? string.Empty : NewProductCategory.Trim();
+            row.GenericName = string.Empty;
             row.HsnCode = string.IsNullOrWhiteSpace(NewProductHsnCode) ? "3004" : NewProductHsnCode.Trim();
             row.GstRatePercent = NewProductTaxPercent;
             row.PiecesPerStrip = packUnits;
@@ -2294,20 +2462,25 @@ public partial class PurchaseEntryViewModel : ObservableObject
             row.ExpiryText = NewProductExpiryText?.Trim() ?? string.Empty;
             row.UnitPrice = NewProductBuyingPrice;
             row.Mrp = NewProductMrp;
-            row.SaleRate = NewProductSellingPrice > 0 ? NewProductSellingPrice : NewProductMrp;
+            row.SaleRate = sellingPriceToUse;
 
-            if (NewProductInitialStockQty > 0)
+            if (IsTabletOrCapsule)
+            {
+                row.StripCount = NewProductStripCount;
+                row.PiecesPerStrip = NewProductPcsPerStrip;
+                row.Quantity = NewProductInitialStockQty;
+            }
+            else if (NewProductInitialStockQty > 0)
             {
                 row.Quantity = NewProductInitialStockQty;
-                if (packUnits > 0)
-                {
-                    row.StripCount = Math.Round(NewProductInitialStockQty / packUnits, 2);
-                }
+                row.StripCount = NewProductInitialStockQty;
+                row.PiecesPerStrip = 1;
             }
             else
             {
-                row.Quantity = packUnits > 0 ? packUnits : 10;
+                row.Quantity = 1;
                 row.StripCount = 1;
+                row.PiecesPerStrip = 1;
             }
 
             row.Recalculate();

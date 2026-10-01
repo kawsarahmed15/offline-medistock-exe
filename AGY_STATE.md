@@ -391,6 +391,14 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
   - Automatically populated the active purchase row and recalculated line totals and invoice summaries upon saving.
   - Added unit test suite in `PurchaseViewModelAndExportTests.cs`. All 189 tests passing across the solution.
   - Built fresh standalone single-file `dist/Medistock.exe` (322 MB) and updated `dist/Medistock-Release-win-x64`.
+- **Add Product Modal Dynamic Packaging, Strip × Pcs Auto-Calculation & Setup Installer:**
+  - Enhanced "Add New Product to Inventory" modal on Purchase Inward screen (`PurchaseEntryPage.xaml` & `PurchaseEntryViewModel.cs`).
+  - Tablet / Capsule: Displays two dedicated pack fields (`Strip` and `Pcs / Strip`). Automatically multiplies `Strip × Pcs` to calculate and autofill `Initial Stock Qty`, with a live breakdown badge (e.g. `30 Pcs (2 Strips × 15 Pcs)`).
+  - Syrup / Injection: Displays volume in `ml` (`100ml`, `200ml`, `2ml`, `5ml`, etc.) with manual user-entered container count.
+  - Cream: Displays weight in `gm` (`20gm`, `10gm`, `30gm`, `50gm`) with manual user-entered tube count.
+  - Removed `Category / Generic Name` and `Selling Price` fields from modal. Selling price is automatically treated as MRP (`SaleRate = MRP`).
+  - Added dedicated unit tests in `PurchaseViewModelAndExportTests.cs`. All 194 solution tests passing.
+  - Generated fresh `dist/Medistock.exe` (322 MB) and native GUI setup installer `dist/Medistock-Setup.exe` (157 MB).
 
 ---
 
