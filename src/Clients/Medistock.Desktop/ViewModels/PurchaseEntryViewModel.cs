@@ -44,7 +44,14 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     [ObservableProperty]
     private decimal _piecesPerStrip = 10;
 
+    [ObservableProperty]
+    private decimal _stripPrice = 0;
+
+    [ObservableProperty]
+    private decimal _stripMrp = 0;
+
     private bool _isSyncingPackQty = false;
+    private bool _isSyncingRates = false;
 
     [ObservableProperty]
     private string _batchNumber = string.Empty;
@@ -130,8 +137,98 @@ public partial class PurchaseItemRowViewModel : ObservableObject
                 _isSyncingPackQty = false;
             }
         }
+
+        if (!_isSyncingRates && value > 0)
+        {
+            _isSyncingRates = true;
+            try
+            {
+                // Inward pricing is based on strip price; calculate piece rate = strip price / pieces in strip
+                if (StripPrice > 0)
+                {
+                    UnitPrice = Math.Round(StripPrice / value, 4);
+                    OnPropertyChanged(nameof(UnitPriceDouble));
+                }
+                else if (UnitPrice > 0)
+                {
+                    StripPrice = Math.Round(UnitPrice * value, 2);
+                    OnPropertyChanged(nameof(StripPriceDouble));
+                }
+
+                if (StripMrp > 0)
+                {
+                    Mrp = Math.Round(StripMrp / value, 4);
+                    SaleRate = Mrp;
+                    OnPropertyChanged(nameof(MrpDouble));
+                    OnPropertyChanged(nameof(SaleRateDouble));
+                }
+                else if (Mrp > 0)
+                {
+                    StripMrp = Math.Round(Mrp * value, 2);
+                    OnPropertyChanged(nameof(StripMrpDouble));
+                }
+            }
+            finally
+            {
+                _isSyncingRates = false;
+            }
+        }
+
         OnPropertyChanged(nameof(PiecesPerStripDouble));
         OnPropertyChanged(nameof(PackCalculationDisplay));
+        OnPropertyChanged(nameof(UnitPricePieceDisplay));
+        OnPropertyChanged(nameof(MrpPieceDisplay));
+        OnPropertyChanged(nameof(StripPriceBreakdownDisplay));
+        OnPropertyChanged(nameof(StripMrpBreakdownDisplay));
+        Recalculate();
+    }
+
+    partial void OnStripPriceChanged(decimal value)
+    {
+        if (!_isSyncingRates)
+        {
+            _isSyncingRates = true;
+            try
+            {
+                var pcs = PiecesPerStrip > 0 ? PiecesPerStrip : 1;
+                UnitPrice = Math.Round(value / pcs, 4);
+                OnPropertyChanged(nameof(UnitPriceDouble));
+            }
+            finally
+            {
+                _isSyncingRates = false;
+            }
+        }
+        OnPropertyChanged(nameof(StripPriceDouble));
+        OnPropertyChanged(nameof(UnitPricePieceDisplay));
+        OnPropertyChanged(nameof(StripPriceBreakdownDisplay));
+        Recalculate();
+    }
+
+    partial void OnStripMrpChanged(decimal value)
+    {
+        if (!_isSyncingRates)
+        {
+            _isSyncingRates = true;
+            try
+            {
+                var pcs = PiecesPerStrip > 0 ? PiecesPerStrip : 1;
+                var perPiece = Math.Round(value / pcs, 4);
+                Mrp = perPiece;
+                SaleRate = perPiece; // Selling price considered as MRP
+                _previousMrp = perPiece;
+                OnPropertyChanged(nameof(MrpDouble));
+                OnPropertyChanged(nameof(SaleRateDouble));
+                OnPropertyChanged(nameof(SaleRate));
+            }
+            finally
+            {
+                _isSyncingRates = false;
+            }
+        }
+        OnPropertyChanged(nameof(StripMrpDouble));
+        OnPropertyChanged(nameof(MrpPieceDisplay));
+        OnPropertyChanged(nameof(StripMrpBreakdownDisplay));
         Recalculate();
     }
 
@@ -166,17 +263,56 @@ public partial class PurchaseItemRowViewModel : ObservableObject
 
     partial void OnUnitPriceChanged(decimal value)
     {
+        if (!_isSyncingRates)
+        {
+            _isSyncingRates = true;
+            try
+            {
+                var pcs = PiecesPerStrip > 0 ? PiecesPerStrip : 1;
+                StripPrice = Math.Round(value * pcs, 2);
+                OnPropertyChanged(nameof(StripPriceDouble));
+            }
+            finally
+            {
+                _isSyncingRates = false;
+            }
+        }
         OnPropertyChanged(nameof(UnitPriceDouble));
+        OnPropertyChanged(nameof(UnitPricePieceDisplay));
+        OnPropertyChanged(nameof(StripPriceBreakdownDisplay));
         Recalculate();
     }
 
     partial void OnMrpChanged(decimal value)
     {
-        SaleRate = value; // MRP is the sale price
-        _previousMrp = value;
+        if (!_isSyncingRates)
+        {
+            _isSyncingRates = true;
+            try
+            {
+                var pcs = PiecesPerStrip > 0 ? PiecesPerStrip : 1;
+                StripMrp = Math.Round(value * pcs, 2);
+                SaleRate = value; // MRP is the sale price
+                _previousMrp = value;
+                OnPropertyChanged(nameof(StripMrpDouble));
+                OnPropertyChanged(nameof(SaleRateDouble));
+                OnPropertyChanged(nameof(SaleRate));
+            }
+            finally
+            {
+                _isSyncingRates = false;
+            }
+        }
+        else
+        {
+            SaleRate = value;
+            _previousMrp = value;
+            OnPropertyChanged(nameof(SaleRateDouble));
+            OnPropertyChanged(nameof(SaleRate));
+        }
         OnPropertyChanged(nameof(MrpDouble));
-        OnPropertyChanged(nameof(SaleRate));
-        OnPropertyChanged(nameof(SaleRateDouble));
+        OnPropertyChanged(nameof(MrpPieceDisplay));
+        OnPropertyChanged(nameof(StripMrpBreakdownDisplay));
         Recalculate();
     }
 
@@ -348,6 +484,46 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         }
     }
 
+    public double StripPriceDouble
+    {
+        get => (double)StripPrice;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                StripPrice = (decimal)value;
+            }
+        }
+    }
+
+    public double StripMrpDouble
+    {
+        get => (double)StripMrp;
+        set
+        {
+            if (!double.IsNaN(value) && value >= 0)
+            {
+                StripMrp = (decimal)value;
+            }
+        }
+    }
+
+    public string UnitPricePieceDisplay => PiecesPerStrip > 1
+        ? $"₹{UnitPrice:0.00}/pc"
+        : $"₹{UnitPrice:0.00}";
+
+    public string MrpPieceDisplay => PiecesPerStrip > 1
+        ? $"₹{Mrp:0.00}/pc"
+        : $"₹{Mrp:0.00}";
+
+    public string StripPriceBreakdownDisplay => PiecesPerStrip > 1
+        ? $"Strip Buying Rate: ₹{StripPrice:0.##} ÷ {PiecesPerStrip:0.##} Pcs = ₹{UnitPrice:0.####}/Pc"
+        : $"Buying Rate: ₹{UnitPrice:0.##}";
+
+    public string StripMrpBreakdownDisplay => PiecesPerStrip > 1
+        ? $"Strip MRP: ₹{StripMrp:0.##} ÷ {PiecesPerStrip:0.##} Pcs = ₹{Mrp:0.####}/Pc"
+        : $"MRP: ₹{Mrp:0.##}";
+
     public decimal GrossAmount => Math.Round(Quantity * UnitPrice, 2);
     public decimal DiscountAmount => Math.Round(GrossAmount * (DiscountPct / 100m), 2);
     public decimal TaxableAmount => GrossAmount - DiscountAmount;
@@ -378,6 +554,12 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         OnPropertyChanged(nameof(NetAmountFormatted));
         OnPropertyChanged(nameof(LandedCostFormatted));
         OnPropertyChanged(nameof(MarginDisplay));
+        OnPropertyChanged(nameof(UnitPricePieceDisplay));
+        OnPropertyChanged(nameof(MrpPieceDisplay));
+        OnPropertyChanged(nameof(StripPriceBreakdownDisplay));
+        OnPropertyChanged(nameof(StripMrpBreakdownDisplay));
+        OnPropertyChanged(nameof(StripPriceDouble));
+        OnPropertyChanged(nameof(StripMrpDouble));
         OnRowChanged?.Invoke();
     }
 }
@@ -771,6 +953,31 @@ public partial class PurchaseEntryViewModel : ObservableObject
     public bool IsWeightGmType => NewProductStockType == "Cream";
     public bool IsGeneralType => NewProductStockType == "General / Other";
 
+    public decimal NewProductPieceBuyingPrice =>
+        IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductBuyingPrice / NewProductPcsPerStrip, 2)
+            : NewProductBuyingPrice;
+
+    public decimal NewProductPieceMrp =>
+        IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductMrp / NewProductPcsPerStrip, 2)
+            : NewProductMrp;
+
+    public string NewProductMrpHeader => IsTabletOrCapsule ? "Strip MRP (₹) *" : "MRP (₹) *";
+    public string NewProductBuyingPriceHeader => IsTabletOrCapsule ? "Strip Buying Price (₹)" : "Buying Price (₹)";
+
+    public string NewProductPriceBreakdownText
+    {
+        get
+        {
+            if (IsTabletOrCapsule && NewProductPcsPerStrip > 0)
+            {
+                return $"1 Pc MRP = ₹{NewProductPieceMrp:0.00} (₹{NewProductMrp:0.##} ÷ {NewProductPcsPerStrip}) | 1 Pc Buying = ₹{NewProductPieceBuyingPrice:0.00} (₹{NewProductBuyingPrice:0.##} ÷ {NewProductPcsPerStrip})";
+            }
+            return $"Per Unit: MRP = ₹{NewProductMrp:0.00} | Buying = ₹{NewProductBuyingPrice:0.00}";
+        }
+    }
+
     public string NewProductStockBreakdownText
     {
         get
@@ -870,6 +1077,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
             OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
             OnPropertyChanged(nameof(NewProductStockBreakdownText));
         }
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
     }
 
     partial void OnNewProductPackSizeTextChanged(string value)
@@ -882,10 +1092,19 @@ public partial class PurchaseEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(NewProductStockBreakdownText));
     }
 
+    partial void OnNewProductBuyingPriceChanged(decimal value)
+    {
+        OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+    }
+
     partial void OnNewProductMrpChanged(decimal value)
     {
         NewProductSellingPrice = value;
         OnPropertyChanged(nameof(NewProductSellingPriceDouble));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
     }
 
     partial void OnNewProductStockTypeChanged(string value)
@@ -944,6 +1163,11 @@ public partial class PurchaseEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(NewProductPackOptionsDouble));
         OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
         OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+        OnPropertyChanged(nameof(NewProductMrpHeader));
+        OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
     }
 
     partial void OnNewProductValidationMessageChanged(string value)
@@ -1459,9 +1683,6 @@ public partial class PurchaseEntryViewModel : ObservableObject
         // If product is already in stock, enter the HSN code by default
         row.HsnCode = !string.IsNullOrWhiteSpace(item.HsnCode) ? item.HsnCode : "30049099";
         row.GstRatePercent = item.GstRatePercent > 0 ? item.GstRatePercent : SettingsViewModel.GetDefaultGstRate();
-        row.Mrp = item.Mrp;
-        row.SaleRate = item.Mrp; // MRP is the sale price
-
         // Packaging breakdown: extract pieces per strip from pack size description (e.g. 10x10, 1x15)
         var breakdown = PackagingHelper.Parse(item.PackSizeDescription);
         var tabs = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
@@ -1469,6 +1690,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
         row.PackUnits = tabs;
         row.StripCount = 1;
         row.Quantity = tabs;
+
+        row.Mrp = item.Mrp;
+        row.SaleRate = item.Mrp; // MRP is the sale price
 
         decimal defaultCost = 0m;
         if (item.Batches != null && item.Batches.Count > 0 && item.Batches[0].PurchaseRate > 0)
@@ -2310,6 +2534,11 @@ public partial class PurchaseEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(NewProductSellingPriceDouble));
         OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
         OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+        OnPropertyChanged(nameof(NewProductMrpHeader));
+        OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
         OnPropertyChanged(nameof(HasNewProductValidationMessage));
 
         IsProductSearchOpen = false;
@@ -2398,7 +2627,15 @@ public partial class PurchaseEntryViewModel : ObservableObject
             : (string.IsNullOrWhiteSpace(NewProductPackSizeText) ? string.Empty : NewProductPackSizeText.Trim());
 
         var schedule = NewProductIsPrescriptionRequired ? DrugSchedule.ScheduleH : DrugSchedule.OTC;
-        var sellingPriceToUse = NewProductMrp; // Selling price is considered as MRP
+
+        // Strip price to piece rate calculation: Piece Price = Strip Price / Pieces in strip
+        var pieceMrp = IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductMrp / NewProductPcsPerStrip, 4)
+            : NewProductMrp;
+        var piecePurchaseRate = IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductBuyingPrice / NewProductPcsPerStrip, 4)
+            : NewProductBuyingPrice;
+        var pieceSaleRate = pieceMrp; // Selling price is considered as MRP
 
         string productId;
         try
@@ -2424,9 +2661,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
                     IsColdChain: false,
                     BatchNumber: batchNo,
                     ExpiryDate: expiryToUse,
-                    Mrp: NewProductMrp,
-                    PurchaseRate: NewProductBuyingPrice,
-                    SaleRate: sellingPriceToUse,
+                    Mrp: pieceMrp,
+                    PurchaseRate: piecePurchaseRate,
+                    SaleRate: pieceSaleRate,
                     OpeningQuantity: NewProductInitialStockQty
                 );
 
@@ -2460,27 +2697,39 @@ public partial class PurchaseEntryViewModel : ObservableObject
             row.BatchNumber = batchNo;
             row.ExpiryDate = expiryDate;
             row.ExpiryText = NewProductExpiryText?.Trim() ?? string.Empty;
-            row.UnitPrice = NewProductBuyingPrice;
-            row.Mrp = NewProductMrp;
-            row.SaleRate = sellingPriceToUse;
 
             if (IsTabletOrCapsule)
             {
                 row.StripCount = NewProductStripCount;
                 row.PiecesPerStrip = NewProductPcsPerStrip;
                 row.Quantity = NewProductInitialStockQty;
+                row.StripPrice = NewProductBuyingPrice;
+                row.StripMrp = NewProductMrp;
+                row.UnitPrice = piecePurchaseRate;
+                row.Mrp = pieceMrp;
+                row.SaleRate = pieceMrp;
             }
             else if (NewProductInitialStockQty > 0)
             {
                 row.Quantity = NewProductInitialStockQty;
                 row.StripCount = NewProductInitialStockQty;
                 row.PiecesPerStrip = 1;
+                row.StripPrice = NewProductBuyingPrice;
+                row.StripMrp = NewProductMrp;
+                row.UnitPrice = NewProductBuyingPrice;
+                row.Mrp = NewProductMrp;
+                row.SaleRate = NewProductMrp;
             }
             else
             {
                 row.Quantity = 1;
                 row.StripCount = 1;
                 row.PiecesPerStrip = 1;
+                row.StripPrice = NewProductBuyingPrice;
+                row.StripMrp = NewProductMrp;
+                row.UnitPrice = NewProductBuyingPrice;
+                row.Mrp = NewProductMrp;
+                row.SaleRate = NewProductMrp;
             }
 
             row.Recalculate();

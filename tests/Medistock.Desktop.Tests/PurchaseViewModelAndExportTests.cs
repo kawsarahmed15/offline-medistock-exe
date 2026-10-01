@@ -704,10 +704,12 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("30049099", row.HsnCode);
         Assert.Equal("B991", row.BatchNumber);
         Assert.Equal("12/28", row.ExpiryText);
-        Assert.Equal(90m, row.UnitPrice);
-        Assert.Equal(120m, row.Mrp);
+        Assert.Equal(90m, row.StripPrice);
+        Assert.Equal(120m, row.StripMrp);
+        Assert.Equal(9m, row.UnitPrice);
+        Assert.Equal(12m, row.Mrp);
         // Selling price is considered as MRP
-        Assert.Equal(120m, row.SaleRate);
+        Assert.Equal(12m, row.SaleRate);
         Assert.Equal(20m, row.Quantity);
         Assert.Equal(2m, row.StripCount);
         Assert.Equal(12m, row.GstRatePercent);
@@ -814,9 +816,86 @@ public class PurchaseViewModelAndExportTests
         await vm.SaveNewProductAsync();
 
         var row = vm.LineItems[0];
-        Assert.Equal(250m, row.Mrp);
-        Assert.Equal(250m, row.SaleRate);
-        Assert.Equal(180m, row.UnitPrice);
+        Assert.Equal(250m, row.StripMrp);
+        Assert.Equal(180m, row.StripPrice);
+        // Default is Tablet with 10 pcs/strip, so piece price is 250 / 10 = 25, 180 / 10 = 18
+        Assert.Equal(25m, row.Mrp);
+        Assert.Equal(25m, row.SaleRate);
+        Assert.Equal(18m, row.UnitPrice);
+    }
+
+    [Fact]
+    public async Task AddProductModal_TabletCapsule_StripPriceCalculatesPiecePrice_Accurately()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Test Strip Tablet", vm.LineItems[0]);
+        vm.NewProductStockType = "Tablet (Tab)";
+        vm.NewProductStripCount = 2;
+        vm.NewProductPcsPerStrip = 10;
+        vm.NewProductBuyingPrice = 10m; // Strip buying price = ₹10
+        vm.NewProductMrp = 10m;         // Strip MRP = ₹10
+
+        // Calculated piece price = 10 / 10 = 1
+        Assert.Equal(1m, vm.NewProductPieceBuyingPrice);
+        Assert.Equal(1m, vm.NewProductPieceMrp);
+        Assert.Equal("Strip MRP (₹) *", vm.NewProductMrpHeader);
+        Assert.Equal("Strip Buying Price (₹)", vm.NewProductBuyingPriceHeader);
+        Assert.Contains("1 Pc MRP = ₹1.00", vm.NewProductPriceBreakdownText);
+        Assert.Contains("1 Pc Buying = ₹1.00", vm.NewProductPriceBreakdownText);
+
+        await vm.SaveNewProductAsync();
+
+        var row = vm.LineItems[0];
+        Assert.Equal(10m, row.StripPrice);
+        Assert.Equal(10m, row.StripMrp);
+        Assert.Equal(1m, row.UnitPrice);
+        Assert.Equal(1m, row.Mrp);
+        Assert.Equal(1m, row.SaleRate);
+        Assert.Equal(20m, row.Quantity); // 2 strips * 10 pcs = 20
+        Assert.Equal(20m, row.GrossAmount); // 20 * 1 = 20 (or 2 strips * 10 = 20)
+    }
+
+    [Fact]
+    public void PurchaseItemRow_StripPriceCalculatesPiecePrice_Accurately()
+    {
+        var row = new PurchaseItemRowViewModel
+        {
+            StripCount = 2,
+            PiecesPerStrip = 10,
+            StripPrice = 10m,
+            StripMrp = 10m
+        };
+
+        // If strip price is 10 and every strip has 10 tablets, then piece price is 1
+        Assert.Equal(1m, row.UnitPrice);
+        Assert.Equal(1m, row.Mrp);
+        Assert.Equal(1m, row.SaleRate);
+        Assert.Equal(20m, row.Quantity); // 2 strips * 10 = 20 pcs
+        Assert.Equal(20m, row.GrossAmount); // 20 pcs * 1 = ₹20
+        Assert.Equal("₹1.00/pc", row.UnitPricePieceDisplay);
+        Assert.Equal("₹1.00/pc", row.MrpPieceDisplay);
+
+        // If strip price changes to 20
+        row.StripPrice = 20m;
+        Assert.Equal(2m, row.UnitPrice); // 20 / 10 = 2
+        Assert.Equal(40m, row.GrossAmount); // 20 * 2 = 40
+        Assert.Equal("₹2.00/pc", row.UnitPricePieceDisplay);
+
+        // If strip MRP changes to 25
+        row.StripMrp = 25m;
+        Assert.Equal(2.5m, row.Mrp); // 25 / 10 = 2.5
+        Assert.Equal(2.5m, row.SaleRate);
+        Assert.Equal("₹2.50/pc", row.MrpPieceDisplay);
+
+        // If pieces per strip changes to 5 (with StripPrice 20 and StripMrp 25)
+        row.PiecesPerStrip = 5;
+        Assert.Equal(4m, row.UnitPrice); // 20 / 5 = 4
+        Assert.Equal(5m, row.Mrp); // 25 / 5 = 5
+        Assert.Equal(10m, row.Quantity); // 2 strips * 5 = 10 pcs
+        Assert.Equal(40m, row.GrossAmount); // 10 * 4 = 40 (2 strips * 20 = 40)
     }
 
     [Fact]

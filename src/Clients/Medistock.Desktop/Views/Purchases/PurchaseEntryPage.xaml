@@ -387,7 +387,7 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="0,0,0,1"
                                 Padding="8,6">
-                            <Grid ColumnDefinitions="2.4*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.85*,0.85*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto">
+                            <Grid ColumnDefinitions="2.2*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.95*,0.95*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto">
                                 <TextBlock Grid.Column="0" Text="MEDICINE / PRODUCT NAME" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="1" Text="BATCH NO." FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="2" Text="EXPIRY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
@@ -396,8 +396,8 @@
                                 <TextBlock Grid.Column="5" Text="PIECE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="6" Text="QTY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="7" Text="FREE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="8" Text="COST (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
-                                <TextBlock Grid.Column="9" Text="MRP (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Text="STRIP RATE (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="9" Text="STRIP MRP (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="10" Text="DISC %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="11" Text="GST %" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="12" Text="TAXABLE (₹)" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
@@ -442,7 +442,7 @@
                                     <Border BorderBrush="{ThemeResource BorderDefault}"
                                             BorderThickness="0,0,0,1"
                                             Padding="8,4">
-                                        <Grid ColumnDefinitions="2.4*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.85*,0.85*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto"
+                                        <Grid ColumnDefinitions="2.2*,1.1*,0.9*,0.7*,0.7*,0.7*,0.75*,0.6*,0.95*,0.95*,0.65*,0.65*,0.85*,0.85*,0.75*,0.65*,Auto"
                                               GotFocus="Row_GotFocus">
                                             <!-- Product Name Input -->
                                             <TextBox Grid.Column="0"
@@ -534,25 +534,49 @@
                                                        Margin="1"
                                                        FontSize="11.5" />
 
-                                            <!-- Unit Price / Cost Rate -->
-                                            <NumberBox Grid.Column="8"
-                                                       Value="{Binding UnitPriceDouble, Mode=TwoWay}"
-                                                       PreviewKeyDown="RowCell_PreviewKeyDown"
-                                                       KeyDown="RowCell_KeyDown"
-                                                       Tag="8"
-                                                       SpinButtonPlacementMode="Hidden"
-                                                       Margin="1"
-                                                       FontSize="11.5" />
+                                            <!-- Strip Buying Price / Cost Rate -->
+                                            <Grid Grid.Column="8" Margin="1">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <NumberBox Grid.Row="0"
+                                                           Value="{Binding StripPriceDouble, Mode=TwoWay}"
+                                                           PreviewKeyDown="RowCell_PreviewKeyDown"
+                                                           KeyDown="RowCell_KeyDown"
+                                                           Tag="8"
+                                                           SpinButtonPlacementMode="Hidden"
+                                                           FontSize="11.5"
+                                                           ToolTipService.ToolTip="{Binding StripPriceBreakdownDisplay}" />
+                                                <TextBlock Grid.Row="1"
+                                                           Text="{Binding UnitPricePieceDisplay}"
+                                                           FontSize="9"
+                                                           Foreground="{ThemeResource TextMuted}"
+                                                           HorizontalAlignment="Right"
+                                                           Margin="0,-3,2,0" />
+                                            </Grid>
 
-                                            <!-- MRP -->
-                                            <NumberBox Grid.Column="9"
-                                                       Value="{Binding MrpDouble, Mode=TwoWay}"
-                                                       PreviewKeyDown="RowCell_PreviewKeyDown"
-                                                       KeyDown="RowCell_KeyDown"
-                                                       Tag="9"
-                                                       SpinButtonPlacementMode="Hidden"
-                                                       Margin="1"
-                                                       FontSize="11.5" />
+                                            <!-- Strip MRP -->
+                                            <Grid Grid.Column="9" Margin="1">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <NumberBox Grid.Row="0"
+                                                           Value="{Binding StripMrpDouble, Mode=TwoWay}"
+                                                           PreviewKeyDown="RowCell_PreviewKeyDown"
+                                                           KeyDown="RowCell_KeyDown"
+                                                           Tag="9"
+                                                           SpinButtonPlacementMode="Hidden"
+                                                           FontSize="11.5"
+                                                           ToolTipService.ToolTip="{Binding StripMrpBreakdownDisplay}" />
+                                                <TextBlock Grid.Row="1"
+                                                           Text="{Binding MrpPieceDisplay}"
+                                                           FontSize="9"
+                                                           Foreground="{ThemeResource TextMuted}"
+                                                           HorizontalAlignment="Right"
+                                                           Margin="0,-3,2,0" />
+                                            </Grid>
 
                                             <!-- Discount % -->
                                             <NumberBox Grid.Column="10"
@@ -1303,19 +1327,26 @@
                         <Grid ColumnDefinitions="*,*">
                             <NumberBox x:Name="NewProductMrpBox"
                                        Grid.Column="0"
-                                       Header="MRP (₹) *"
+                                       Header="{Binding NewProductMrpHeader}"
                                        Value="{Binding NewProductMrpDouble, Mode=TwoWay}"
                                        SpinButtonPlacementMode="Compact"
                                        PreviewKeyDown="NewProductField_PreviewKeyDown"
                                        Margin="0,0,6,0" />
                             <NumberBox x:Name="NewProductBuyingPriceBox"
                                        Grid.Column="1"
-                                       Header="Buying Price (₹)"
+                                       Header="{Binding NewProductBuyingPriceHeader}"
                                        Value="{Binding NewProductBuyingPriceDouble, Mode=TwoWay}"
                                        SpinButtonPlacementMode="Compact"
                                        PreviewKeyDown="NewProductField_PreviewKeyDown"
                                        Margin="6,0,0,0" />
                         </Grid>
+
+                        <!-- Strip to Piece Price Breakdown Helper -->
+                        <TextBlock Text="{Binding NewProductPriceBreakdownText}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource AccentPrimary}"
+                                   Margin="0,-4,0,0" />
 
                         <!-- Section: Initial Stock & Batch Details -->
                         <TextBlock Text="Initial Stock &amp; Batch Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
