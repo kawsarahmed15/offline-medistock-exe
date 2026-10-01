@@ -74,9 +74,9 @@ public sealed partial class PurchaseEntryPage : Page
         var targetRow = ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[0] : null);
         if (targetRow != null)
         {
-            ViewModel.CreateOrApplyCustomProduct(_pendingInitialProductName, targetRow);
-            ViewModel.StatusMessage = $"Adding new product '{_pendingInitialProductName}' via Purchase Inward.";
+            ViewModel.OpenAddProductModal(_pendingInitialProductName, targetRow);
         }
+        _pendingInitialProductName = null;
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
@@ -129,6 +129,11 @@ public sealed partial class PurchaseEntryPage : Page
             case VirtualKey.F2 when ViewModel.SelectedTab == "Entry":
                 ViewModel.AddBlankRowCommand.Execute(null);
                 FocusRowColumn(ViewModel.LineItems.Count - 1, 0);
+                e.Handled = true;
+                break;
+
+            case VirtualKey.F3 when ViewModel.SelectedTab == "Entry":
+                ViewModel.OpenAddProductModal(null, ViewModel.ActiveRow);
                 e.Handled = true;
                 break;
 
@@ -402,14 +407,29 @@ public sealed partial class PurchaseEntryPage : Page
                     if (ViewModel.SelectedProductSearchIndex >= 0 && ViewModel.SelectedProductSearchIndex < ViewModel.ProductSearchResults.Count)
                     {
                         ViewModel.SelectHighlightedProduct(targetRow);
+                        ViewModel.IsProductSearchOpen = false;
+                        FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1); // Move to Batch No
                     }
                     else if (tb != null && !string.IsNullOrWhiteSpace(tb.Text) && targetRow != null)
                     {
-                        ViewModel.CreateOrApplyCustomProduct(tb.Text, targetRow);
+                        var matching = ViewModel.ProductSearchResults.FirstOrDefault(p => string.Equals(p.Name.Trim(), tb.Text.Trim(), StringComparison.OrdinalIgnoreCase));
+                        if (matching != null)
+                        {
+                            ViewModel.SelectProductSearch(matching, targetRow);
+                            ViewModel.IsProductSearchOpen = false;
+                            FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
+                        }
+                        else
+                        {
+                            ViewModel.OpenAddProductModal(tb.Text, targetRow);
+                        }
+                    }
+                    else
+                    {
+                        ViewModel.IsProductSearchOpen = false;
+                        FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
                     }
 
-                    ViewModel.IsProductSearchOpen = false;
-                    FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1); // Move to Batch No
                     e.Handled = true;
                     return;
                 }
@@ -462,14 +482,29 @@ public sealed partial class PurchaseEntryPage : Page
                 if (ViewModel.SelectedProductSearchIndex >= 0 && ViewModel.SelectedProductSearchIndex < ViewModel.ProductSearchResults.Count)
                 {
                     ViewModel.SelectHighlightedProduct(targetRow);
+                    ViewModel.IsProductSearchOpen = false;
+                    FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
                 }
                 else if (tb != null && !string.IsNullOrWhiteSpace(tb.Text) && targetRow != null)
                 {
-                    ViewModel.CreateOrApplyCustomProduct(tb.Text, targetRow);
+                    var matching = ViewModel.ProductSearchResults.FirstOrDefault(p => string.Equals(p.Name.Trim(), tb.Text.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (matching != null)
+                    {
+                        ViewModel.SelectProductSearch(matching, targetRow);
+                        ViewModel.IsProductSearchOpen = false;
+                        FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
+                    }
+                    else
+                    {
+                        ViewModel.OpenAddProductModal(tb.Text, targetRow);
+                    }
+                }
+                else
+                {
+                    ViewModel.IsProductSearchOpen = false;
+                    FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
                 }
 
-                ViewModel.IsProductSearchOpen = false;
-                FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
                 e.Handled = true;
                 return;
             }
@@ -505,7 +540,10 @@ public sealed partial class PurchaseEntryPage : Page
                 }
             }
             ViewModel.IsProductSearchOpen = false;
-            FocusRowColumn(rowIndex, 1); // Move to Batch No
+            if (!ViewModel.IsAddProductModalOpen)
+            {
+                FocusRowColumn(rowIndex, 1); // Move to Batch No
+            }
             e.Handled = true;
         }
         else if (e.Key == VirtualKey.Down)
@@ -1251,6 +1289,56 @@ public sealed partial class PurchaseEntryPage : Page
             }
             e.Handled = true;
             return;
+        }
+    }
+
+    // Add Product Modal Event Handlers
+    private void NewProductNameBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            tb.Focus(FocusState.Programmatic);
+            if (!string.IsNullOrWhiteSpace(tb.Text))
+            {
+                tb.SelectAll();
+            }
+        }
+    }
+
+    private void NewProductExpiryBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            var raw = tb.Text;
+            if (raw.Length == 2 && !raw.Contains('/') && char.IsDigit(raw[0]) && char.IsDigit(raw[1]))
+            {
+                tb.Text = raw + "/";
+                tb.SelectionStart = 3;
+            }
+        }
+    }
+
+    private async void NewProductField_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseAddProductModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, CancelNewProductBtn) || ReferenceEquals(sender, SaveNewProductBtn))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ViewModel.NewProductName) && ViewModel.NewProductMrp > 0)
+            {
+                await ViewModel.SaveNewProductAsync();
+                e.Handled = true;
+            }
         }
     }
 }

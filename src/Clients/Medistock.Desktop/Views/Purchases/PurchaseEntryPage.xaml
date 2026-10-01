@@ -333,10 +333,14 @@
                             </StackPanel>
 
                             <!-- Interstate Flag & Add Item Button -->
-                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
                                 <CheckBox Content="Interstate (IGST)"
                                           IsChecked="{Binding IsInterstate, Mode=TwoWay}"
                                           Margin="0,0,0,2" />
+                                <Button Command="{Binding OpenAddProductModalCommand}"
+                                        Content="💊 Add Product [F3]"
+                                        ToolTipService.ToolTip="Register a new medicine into database catalog &amp; invoice [F3]"
+                                        Padding="10,6" />
                                 <Button Command="{Binding AddBlankRowCommand}"
                                         Content="➕ Add Row [F2]"
                                         Style="{StaticResource AccentButtonStyle}"
@@ -634,7 +638,7 @@
                                     BorderThickness="1.5"
                                     CornerRadius="6"
                                     Shadow="{ThemeResource SharedShadow}">
-                                <Grid RowDefinitions="Auto,*">
+                                <Grid RowDefinitions="Auto,*,Auto">
                                     <Grid Grid.Row="0" ColumnDefinitions="2.8*,2*,0.8*,0.8*,0.9*,0.9*,0.8*,1*" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
                                         <TextBlock Grid.Column="0" Text="MEDICINE / PRODUCT NAME" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                         <TextBlock Grid.Column="1" Text="GENERIC / SALT" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
@@ -693,6 +697,18 @@
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
                                     </ListView>
+                                    <Border Grid.Row="2" Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0" Padding="8,4">
+                                        <Button Command="{Binding OpenAddProductModalCommand}"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="8,3"
+                                                HorizontalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="➕" FontSize="11" />
+                                                <TextBlock Text="Can't find medicine? Register New Product [F3]" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Border>
                                 </Grid>
                             </Border>
                         </Popup>
@@ -1145,6 +1161,200 @@
                                 Padding="20,6" />
                     </StackPanel>
                 </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 7. Add New Product to Inventory Modal -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Visibility="{Binding IsAddProductModalOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#80000000"
+              Margin="-20">
+            <Border Background="{ThemeResource SurfaceDefault}"
+                    BorderBrush="{ThemeResource BorderDefault}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Width="680"
+                    MaxHeight="700"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="24"
+                    Shadow="{ThemeResource SharedShadow}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="12">
+                        <!-- Header -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="💊 Add New Product to Inventory" FontSize="17" FontWeight="Bold" />
+                                <TextBlock Text="Product not found in system. Register it with pricing, packaging &amp; batch details."
+                                           FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="✕" Command="{Binding CloseAddProductModalCommand}" Padding="8,4" VerticalAlignment="Top" />
+                        </Grid>
+
+                        <!-- Validation Message -->
+                        <Border Background="#20DC2626" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="4" Padding="10,6"
+                                Visibility="{Binding HasNewProductValidationMessage, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding NewProductValidationMessage}" Foreground="#EF4444" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- Section: Basic Information -->
+                        <TextBlock Text="Product Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+
+                        <TextBox x:Name="NewProductNameBox"
+                                 Header="Product Name *"
+                                 Text="{Binding NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Loaded="NewProductNameBox_Loaded"
+                                 PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                 PlaceholderText="e.g. Augmentin 625 Duo Tablet" />
+
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox x:Name="NewProductCategoryBox"
+                                     Grid.Column="0"
+                                     Header="Category / Generic Name"
+                                     Text="{Binding NewProductCategory, Mode=TwoWay}"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="e.g. Amoxicillin + Clavulanic Acid"
+                                     Margin="0,0,6,0" />
+                            <TextBox x:Name="NewProductManufacturerBox"
+                                     Grid.Column="1"
+                                     Header="Manufacturer / Company"
+                                     Text="{Binding NewProductManufacturer, Mode=TwoWay}"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="e.g. GSK / Cipla / Sun Pharma"
+                                     Margin="6,0,0,0" />
+                        </Grid>
+
+                        <!-- Section: Stock Type & Packaging -->
+                        <TextBlock Text="Stock Classification &amp; Packaging" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+
+                        <Grid ColumnDefinitions="*,*">
+                            <ComboBox x:Name="NewProductStockTypeComboBox"
+                                      Grid.Column="0"
+                                      Header="Stock Type"
+                                      ItemsSource="{Binding StockTypeOptions}"
+                                      SelectedItem="{Binding NewProductStockType, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                      Margin="0,0,6,0" />
+                            <NumberBox x:Name="NewProductPackOptionsBox"
+                                       Grid.Column="1"
+                                       Header="Pack Options (Units/Strip)"
+                                       Value="{Binding NewProductPackOptionsDouble, Mode=TwoWay}"
+                                       SpinButtonPlacementMode="Inline"
+                                       SmallChange="1"
+                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                       Margin="6,0,0,0" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox x:Name="NewProductHsnBox"
+                                     Grid.Column="0"
+                                     Header="HSN Code"
+                                     Text="{Binding NewProductHsnCode, Mode=TwoWay}"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="3004"
+                                     Margin="0,0,6,0" />
+                            <ComboBox x:Name="NewProductTaxComboBox"
+                                      Grid.Column="1"
+                                      Header="Tax % (GST)"
+                                      ItemsSource="{Binding TaxRateOptions}"
+                                      SelectedItem="{Binding NewProductTaxPercent, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                      Margin="6,0,0,0" />
+                        </Grid>
+
+                        <!-- Section: Pricing -->
+                        <TextBlock Text="Pricing &amp; Valuation" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+
+                        <Grid ColumnDefinitions="*,*,*">
+                            <NumberBox x:Name="NewProductMrpBox"
+                                       Grid.Column="0"
+                                       Header="MRP (₹) *"
+                                       Value="{Binding NewProductMrpDouble, Mode=TwoWay}"
+                                       SpinButtonPlacementMode="Compact"
+                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                       Margin="0,0,4,0" />
+                            <NumberBox x:Name="NewProductBuyingPriceBox"
+                                       Grid.Column="1"
+                                       Header="Buying Price (₹)"
+                                       Value="{Binding NewProductBuyingPriceDouble, Mode=TwoWay}"
+                                       SpinButtonPlacementMode="Compact"
+                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                       Margin="4,0,4,0" />
+                            <NumberBox x:Name="NewProductSellingPriceBox"
+                                       Grid.Column="2"
+                                       Header="Selling Price (₹)"
+                                       Value="{Binding NewProductSellingPriceDouble, Mode=TwoWay}"
+                                       SpinButtonPlacementMode="Compact"
+                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                       Margin="4,0,0,0" />
+                        </Grid>
+
+                        <!-- Section: Initial Stock & Batch Details -->
+                        <TextBlock Text="Initial Stock &amp; Batch Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+
+                        <Grid ColumnDefinitions="*,*,*">
+                            <NumberBox x:Name="NewProductInitialStockQtyBox"
+                                       Grid.Column="0"
+                                       Header="Initial Stock Qty"
+                                       Value="{Binding NewProductInitialStockQtyDouble, Mode=TwoWay}"
+                                       SpinButtonPlacementMode="Inline"
+                                       SmallChange="1"
+                                       PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                       Margin="0,0,4,0" />
+                            <TextBox x:Name="NewProductBatchBox"
+                                     Grid.Column="1"
+                                     Header="Batch"
+                                     Text="{Binding NewProductBatch, Mode=TwoWay}"
+                                     CharacterCasing="Upper"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="e.g. B101"
+                                     Margin="4,0,4,0" />
+                            <TextBox x:Name="NewProductExpiryBox"
+                                     Grid.Column="2"
+                                     Header="Expiry (MM/YY)"
+                                     Text="{Binding NewProductExpiryText, Mode=TwoWay}"
+                                     TextChanged="NewProductExpiryBox_TextChanged"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="MM/YY"
+                                     Margin="4,0,0,0" />
+                        </Grid>
+
+                        <!-- Section: Regulatory & Rx Checkbox -->
+                        <Border Background="{ThemeResource SurfaceSubtle}"
+                                BorderBrush="{ThemeResource BorderDefault}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12,8"
+                                Margin="0,4,0,0">
+                            <CheckBox x:Name="NewProductRxCheckBox"
+                                      IsChecked="{Binding NewProductIsPrescriptionRequired, Mode=TwoWay}"
+                                      PreviewKeyDown="NewProductField_PreviewKeyDown">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="Prescription required" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Text="Mark this product as Rx-only (Schedule H / H1 safeguard required at POS)"
+                                               FontSize="11.5" Foreground="{ThemeResource TextSecondary}" />
+                                </StackPanel>
+                            </CheckBox>
+                        </Border>
+
+                        <!-- Actions -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
+                            <Button x:Name="CancelNewProductBtn"
+                                    Content="Cancel [Esc]"
+                                    Command="{Binding CloseAddProductModalCommand}"
+                                    PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                    Padding="16,6" />
+                            <Button x:Name="SaveNewProductBtn"
+                                    Content="Save &amp; Add to Invoice [Enter]"
+                                    Command="{Binding SaveNewProductCommand}"
+                                    PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Padding="20,6" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 

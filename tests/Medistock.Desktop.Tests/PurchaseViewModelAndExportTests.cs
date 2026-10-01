@@ -665,7 +665,7 @@ public class PurchaseViewModelAndExportTests
     }
 
     [Fact]
-    public async Task SearchRowProductAsync_WhenNoMatchFound_AutoCreatesCustomProduct_WithoutHsn()
+    public async Task SearchRowProductAsync_WhenNoMatchFound_OpensAddProductModal_AndSavesProduct()
     {
         var purchaseService = new MockPurchaseService();
         var searchRepo = new MockProductSearchRepository();
@@ -674,12 +674,101 @@ public class PurchaseViewModelAndExportTests
         var row = vm.LineItems[0];
         await vm.SearchRowProductAsync("Unknown Medicine XYZ 100", row);
 
+        // When product is not available in system/db, automatically opens Add Product modal
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Equal("Unknown Medicine XYZ 100", vm.NewProductName);
+
+        // Fill modal fields and save
+        vm.NewProductCategory = "Amoxicillin + Clavulanic Acid";
+        vm.NewProductManufacturer = "Cipla Ltd";
+        vm.NewProductStockType = "Tablet (Tab)";
+        vm.NewProductPackOptions = 10;
+        vm.NewProductMrp = 120m;
+        vm.NewProductBuyingPrice = 90m;
+        vm.NewProductSellingPrice = 115m;
+        vm.NewProductInitialStockQty = 20m;
+        vm.NewProductBatch = "b991";
+        vm.NewProductExpiryText = "12/28";
+        vm.NewProductHsnCode = "30049099";
+        vm.NewProductTaxPercent = 12m;
+        vm.NewProductIsPrescriptionRequired = true;
+
+        await vm.SaveNewProductAsync();
+
+        // Modal closes and populates the line item row
+        Assert.False(vm.IsAddProductModalOpen);
         Assert.Equal("Unknown Medicine XYZ 100", row.ProductName);
         Assert.StartsWith("prod_", row.ProductId);
-        // New product does NOT have HSN code added by default
-        Assert.Equal(string.Empty, row.HsnCode);
-        Assert.Equal(string.Empty, row.ExpiryText);
-        Assert.Equal(default, row.ExpiryDate);
+        Assert.Equal("Amoxicillin + Clavulanic Acid", row.GenericName);
+        Assert.Equal("30049099", row.HsnCode);
+        Assert.Equal("B991", row.BatchNumber);
+        Assert.Equal("12/28", row.ExpiryText);
+        Assert.Equal(90m, row.UnitPrice);
+        Assert.Equal(120m, row.Mrp);
+        Assert.Equal(115m, row.SaleRate);
+        Assert.Equal(20m, row.Quantity);
+        Assert.Equal(2m, row.StripCount);
+        Assert.Equal(12m, row.GstRatePercent);
+    }
+
+    [Fact]
+    public void AddProductModal_StockType_UpdatesPackOptionsDefaults()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal("Syrup Test", vm.LineItems[0]);
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Equal("Tablet (Tab)", vm.NewProductStockType);
+        Assert.Equal(10, vm.NewProductPackOptions);
+
+        // Switch to Syrup (Syp) -> pack options becomes 1
+        vm.NewProductStockType = "Syrup (Syp)";
+        Assert.Equal(1, vm.NewProductPackOptions);
+
+        // Switch to Capsule (Cap) -> pack options becomes 10
+        vm.NewProductStockType = "Capsule (Cap)";
+        Assert.Equal(10, vm.NewProductPackOptions);
+
+        // Switch to Drop -> pack options becomes 1
+        vm.NewProductStockType = "Drop";
+        Assert.Equal(1, vm.NewProductPackOptions);
+    }
+
+    [Fact]
+    public async Task AddProductModal_Validation_EnforcesMandatoryFields()
+    {
+        var purchaseService = new MockPurchaseService();
+        var searchRepo = new MockProductSearchRepository();
+        var vm = new PurchaseEntryViewModel(purchaseService, searchRepo);
+
+        vm.OpenAddProductModal(string.Empty, vm.LineItems[0]);
+
+        // Attempting to save with empty name fails
+        await vm.SaveNewProductAsync();
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Contains("Product Name is required", vm.NewProductValidationMessage);
+
+        // Attempting to save with MRP <= 0 fails
+        vm.NewProductName = "Valid Medicine";
+        vm.NewProductMrp = 0;
+        await vm.SaveNewProductAsync();
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Contains("MRP must be greater than zero", vm.NewProductValidationMessage);
+
+        // Attempting to save with Buying Price > MRP fails
+        vm.NewProductMrp = 100m;
+        vm.NewProductBuyingPrice = 120m;
+        await vm.SaveNewProductAsync();
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Contains("Buying price cannot exceed MRP", vm.NewProductValidationMessage);
+
+        // Valid values succeed
+        vm.NewProductBuyingPrice = 80m;
+        await vm.SaveNewProductAsync();
+        Assert.False(vm.IsAddProductModalOpen);
+        Assert.Empty(vm.NewProductValidationMessage);
     }
 
     [Fact]

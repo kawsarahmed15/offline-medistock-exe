@@ -384,6 +384,13 @@ Created: `PRD.md` — 26 sections, 50+ NFRs, priority ratings P1-P4, acceptance 
   - Wired `HandlePosPreviewPdfDownloadAsync` and settlement flow in [`PosPage.xaml.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/POS/PosPage.xaml.cs) so downloading a generated PDF bill immediately finalizes and saves the invoice.
   - Hooked `Loaded` event in [`SalesHistoryPage.xaml.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/Views/Sales/SalesHistoryPage.xaml.cs) and auto-selection in [`SalesHistoryViewModel.cs`](file:///E:/medistock/src/Clients/Medistock.Desktop/ViewModels/SalesHistoryViewModel.cs) so every visit to Sale History reloads and highlights the newest invoice.
   - All 153 unit and integration tests passing; release published and launched.
+- **Purchase Inward Auto-Add Product Modal & Pharma Metadata Integration:**
+  - Designed and implemented modal popup on the Purchase Entry screen (`PurchaseEntryPage.xaml` & `PurchaseEntryViewModel.cs`) that triggers automatically when a typed product is not found in the DB, via `F3`, or via the dropdown search footer button.
+  - Added all 14 requested pharmaceutical fields: Name *, Category / Generic Name, Manufacturer, Initial Stock Qty, Buying price, Selling price, MRP, Stock Type (*General / Other*, *Tablet (Tab)*, *Capsule (Cap)*, *Syrup (Syp)*, *Injection (Inj)*, *Cream*, *Drop*), Pack Options, Expiry (MM/YY) with auto-slash & end-of-month validation, Tax % (0%, 5%, 12%, 18%, 28%), Batch (auto-uppercase), HSN Code (defaults to 3004), and Prescription required (Rx-only).
+  - Wired product creation via `IProductService.CreateProductWithBatchAsync` into SQLite tables `products`, `batches`, and `stock_balances` with automatic FTS5 index update.
+  - Automatically populated the active purchase row and recalculated line totals and invoice summaries upon saving.
+  - Added unit test suite in `PurchaseViewModelAndExportTests.cs`. All 189 tests passing across the solution.
+  - Built fresh standalone single-file `dist/Medistock.exe` (322 MB) and updated `dist/Medistock-Release-win-x64`.
 
 ---
 
