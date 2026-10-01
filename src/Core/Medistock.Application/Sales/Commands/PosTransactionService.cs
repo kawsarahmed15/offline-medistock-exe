@@ -56,6 +56,7 @@ public class PosTransactionService : IPosTransactionService
 
         foreach (var item in command.Items)
         {
+            var unitPrice = (item.Mrp > 0 && item.UnitPrice > item.Mrp) ? item.Mrp : item.UnitPrice;
             var itemId = Ulid.NewUlid().ToString();
             var saleItem = SaleItem.Create(
                 itemId,
@@ -66,7 +67,7 @@ public class PosTransactionService : IPosTransactionService
                 item.BatchNumber,
                 item.ExpiryDate,
                 item.Quantity,
-                item.UnitPrice,
+                unitPrice,
                 item.Mrp,
                 item.GstRatePercent,
                 command.IsInterstate,
@@ -86,7 +87,7 @@ public class PosTransactionService : IPosTransactionService
                 -item.Quantity,
                 "SALE",
                 invoiceNo,
-                item.UnitPrice,
+                saleItem.UnitPrice,
                 command.UserId,
                 command.DeviceId);
 

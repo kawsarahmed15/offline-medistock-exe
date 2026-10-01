@@ -178,6 +178,10 @@ public class SaleItem : Entity<string>
         decimal discountPct = 0)
     {
         if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (mrp > 0 && unitPrice > mrp)
+        {
+            unitPrice = mrp;
+        }
 
         var grossAmount = quantity * unitPrice;
         var discountAmt = Math.Round(grossAmount * (discountPct / 100m), 2, MidpointRounding.AwayFromZero);

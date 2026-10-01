@@ -195,7 +195,24 @@ public partial class CartItemViewModel : ObservableObject
     public string BatchId { get; set; } = string.Empty;
     public string BatchNumber { get; set; } = string.Empty;
     public DateTime ExpiryDate { get; set; }
-    public decimal Mrp { get; set; }
+    private decimal _mrp;
+    public decimal Mrp
+    {
+        get => _mrp;
+        set
+        {
+            if (SetProperty(ref _mrp, value))
+            {
+                OnPropertyChanged(nameof(MrpDouble));
+                if (_mrp > 0 && _unitPrice > _mrp)
+                {
+                    UnitPrice = _mrp;
+                }
+            }
+        }
+    }
+
+    public double MrpDouble => Mrp > 0 ? (double)Mrp : double.MaxValue;
     public decimal GstRatePercent { get; set; }
     public bool IsColdChain { get; set; }
     public DrugSchedule Schedule { get; set; }
@@ -360,14 +377,27 @@ public partial class CartItemViewModel : ObservableObject
         }
     }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GrossAmount))]
-    [NotifyPropertyChangedFor(nameof(TaxableAmount))]
-    [NotifyPropertyChangedFor(nameof(DiscountAmount))]
-    [NotifyPropertyChangedFor(nameof(GstAmount))]
-    [NotifyPropertyChangedFor(nameof(NetAmount))]
-    [NotifyPropertyChangedFor(nameof(UnitPriceDouble))]
     private decimal _unitPrice;
+    public decimal UnitPrice
+    {
+        get => _unitPrice;
+        set
+        {
+            if (Mrp > 0 && value > Mrp)
+            {
+                value = Mrp;
+            }
+            if (SetProperty(ref _unitPrice, value))
+            {
+                OnPropertyChanged(nameof(UnitPriceDouble));
+                OnPropertyChanged(nameof(GrossAmount));
+                OnPropertyChanged(nameof(DiscountAmount));
+                OnPropertyChanged(nameof(TaxableAmount));
+                OnPropertyChanged(nameof(GstAmount));
+                OnPropertyChanged(nameof(NetAmount));
+            }
+        }
+    }
 
     public double UnitPriceDouble
     {
@@ -376,7 +406,12 @@ public partial class CartItemViewModel : ObservableObject
         {
             if (value >= 0)
             {
-                UnitPrice = (decimal)value;
+                var val = (decimal)value;
+                if (Mrp > 0 && val > Mrp)
+                {
+                    val = Mrp;
+                }
+                UnitPrice = val;
             }
         }
     }
@@ -1062,6 +1097,18 @@ public partial class PosViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PendingGstAmount))]
     [NotifyPropertyChangedFor(nameof(PendingNetAmount))]
     private double _pendingRate = 0;
+
+    partial void OnPendingRateChanged(double value)
+    {
+        if (PendingSelectedItem != null)
+        {
+            var effectiveMrp = PendingSelectedBatch?.Mrp > 0 ? PendingSelectedBatch.Mrp : PendingSelectedItem.Mrp;
+            if (effectiveMrp > 0 && (decimal)value > effectiveMrp)
+            {
+                PendingRate = (double)effectiveMrp;
+            }
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PendingDiscountAmount))]
@@ -1762,6 +1809,11 @@ public partial class PosViewModel : ObservableObject
             NewSaleRateError = "Sale Rate must be greater than ₹0.00.";
             hasError = true;
         }
+        else if (NewMrp > 0 && NewSaleRate > NewMrp)
+        {
+            NewSaleRateError = "Sale Rate cannot be greater than MRP.";
+            hasError = true;
+        }
 
         if (hasError)
         {
@@ -1793,7 +1845,7 @@ public partial class PosViewModel : ObservableObject
             ExpiryDate: NewExpiryDate.DateTime,
             Mrp: (decimal)NewMrp,
             PurchaseRate: (decimal)NewPurchaseRate,
-            SaleRate: (decimal)(NewSaleRate > 0 ? NewSaleRate : NewMrp),
+            SaleRate: (decimal)(NewSaleRate > 0 ? Math.Min(NewSaleRate, NewMrp) : NewMrp),
             OpeningQuantity: (decimal)NewOpeningQty,
             MinStockAlert: (decimal)(NewMinStockAlert > 0 ? NewMinStockAlert : 10.0)
         );
