@@ -325,7 +325,7 @@
                         Shadow="{StaticResource SharedShadow}">
                     <Grid RowDefinitions="Auto,*,Auto">
                         <!-- Table Header -->
-                        <Grid Grid.Row="0" ColumnDefinitions="2*,1.5*,85,95,85,75,80,80,75" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                        <Grid Grid.Row="0" ColumnDefinitions="2*,1.5*,85,95,85,75,90,75" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
                             <TextBlock Grid.Column="0" Text="Medicine / Product Name" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                             <TextBlock Grid.Column="1" Text="Generic / Salt" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                             <TextBlock Grid.Column="2" Text="Pack" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
@@ -333,8 +333,7 @@
                             <TextBlock Grid.Column="4" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                             <TextBlock Grid.Column="5" Text="Stock" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                             <TextBlock Grid.Column="6" Text="MRP (₹)" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="7" Text="Rate (₹)" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="8" Text="Schedule" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Column="7" Text="Schedule" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Center" />
                         </Grid>
 
                         <!-- Live Items -->
@@ -352,7 +351,7 @@
                                             BorderThickness="1"
                                             CornerRadius="4"
                                             Margin="1,1">
-                                        <Grid ColumnDefinitions="2*,1.5*,85,95,85,75,80,80,75" Padding="8,5">
+                                        <Grid ColumnDefinitions="2*,1.5*,85,95,85,75,90,75" Padding="8,5">
                                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                 <ItemsControl ItemsSource="{x:Bind NameSegments, Mode=OneWay}">
                                                     <ItemsControl.ItemsPanel>
@@ -410,8 +409,7 @@
                                             <TextBlock Grid.Column="4" Text="{x:Bind ExpiryDisplay}" FontSize="12" FontWeight="SemiBold" Foreground="{x:Bind ExpiryForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="5" Text="{x:Bind StockDisplay}" FontWeight="Bold" FontSize="12.5" Foreground="{x:Bind StockForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="6" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="7" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <Border Grid.Column="8" Background="{ThemeResource SurfaceSubtle}" CornerRadius="2" Padding="4,1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Border Grid.Column="7" Background="{ThemeResource SurfaceSubtle}" CornerRadius="2" Padding="4,1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <TextBlock Text="{x:Bind Schedule}" FontSize="11" FontWeight="SemiBold" />
                                             </Border>
                                         </Grid>
@@ -432,8 +430,8 @@
         <!-- 4. Main Marg ERP Billing Data Grid (Rows & Columns) -->
         <Border Grid.Row="3" Background="{ThemeResource SurfaceBackground}" BorderBrush="{ThemeResource BorderStrong}" BorderThickness="1" Margin="12,4,12,4">
             <Grid RowDefinitions="Auto,*">
-                <!-- Grid Table Header (Marg Style) - 13 Columns without GST% and Del -->
-                <Grid Grid.Row="0" ColumnDefinitions="40,2.5*,85,100,80,70,70,65,85,85,90,70,110"
+                <!-- Grid Table Header (Marg Style) - 12 Columns without Rate -->
+                <Grid Grid.Row="0" ColumnDefinitions="40,2.5*,85,100,80,70,70,65,95,95,75,115"
                       Background="{ThemeResource SurfaceSubtle}"
                       Padding="8,8"
                       BorderBrush="{ThemeResource BorderStrong}"
@@ -447,10 +445,9 @@
                     <TextBlock Grid.Column="6" Text="Tab/Qty" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="7" Text="Free" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="8" Text="MRP (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="9" Text="Rate (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="10" Text="Gross (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="11" Text="Disc %" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="12" Text="Net Amount (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="9" Text="Gross (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="10" Text="Disc %" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="11" Text="Net Amount (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" />
                 </Grid>
 
                 <!-- Billing Grid Rows (Marg ERP DataGrid) -->
@@ -462,7 +459,7 @@
                           KeyDown="CartListView_KeyDown">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:CartItemViewModel">
-                            <Grid ColumnDefinitions="40,2.5*,85,100,80,70,70,65,85,85,90,70,110"
+                            <Grid ColumnDefinitions="40,2.5*,85,100,80,70,70,65,95,95,75,115"
                                   Padding="8,0"
                                   Height="40"
                                   BorderBrush="{ThemeResource BorderDefault}"
@@ -559,37 +556,12 @@
                                 <!-- MRP -->
                                 <TextBlock Grid.Column="8" Text="{x:Bind Mrp, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
 
-                                <!-- Rate Edit Box -->
-                                <NumberBox x:Name="RowRateBox"
-                                           Grid.Column="9"
-                                           Value="{x:Bind UnitPriceDouble, Mode=TwoWay}"
-                                           Minimum="0"
-                                           Maximum="{x:Bind MrpDouble, Mode=OneWay}"
-                                           SmallChange="1"
-                                           SpinButtonPlacementMode="Hidden"
-                                           Height="40"
-                                           FontSize="14"
-                                           FontWeight="SemiBold"
-                                           HorizontalAlignment="Stretch"
-                                           HorizontalContentAlignment="Right"
-                                           VerticalAlignment="Stretch"
-                                           VerticalContentAlignment="Center"
-                                           Margin="0"
-                                           Padding="6,0"
-                                           CornerRadius="0"
-                                           BorderThickness="0.5"
-                                           BorderBrush="{ThemeResource BorderDefault}"
-                                           GotFocus="CartCell_GotFocus"
-                                           LostFocus="CartCell_LostFocus"
-                                           PreviewKeyDown="CartRow_Cell_PreviewKeyDown"
-                                           KeyDown="CartRow_Rate_KeyDown" />
-
                                 <!-- Gross Amount -->
-                                <TextBlock Grid.Column="10" Text="{x:Bind GrossAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Grid.Column="9" Text="{x:Bind GrossAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
 
                                 <!-- Discount % Edit Box -->
                                 <NumberBox x:Name="RowDiscBox"
-                                           Grid.Column="11"
+                                           Grid.Column="10"
                                            Value="{x:Bind DiscountPercentDouble, Mode=TwoWay}"
                                            Minimum="0"
                                            Maximum="100"
@@ -613,7 +585,7 @@
                                            KeyDown="CartRow_Disc_KeyDown" />
 
                                 <!-- Net Amount Column -->
-                                <TextBlock Grid.Column="12" Text="{x:Bind NetAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="14.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Grid.Column="11" Text="{x:Bind NetAmount, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="14.5" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
@@ -1279,13 +1251,12 @@
                     </Grid>
 
                     <!-- Table Header -->
-                    <Grid Grid.Row="1" ColumnDefinitions="1.5*,1.2*,1*,1*,1*,1*" Background="{ThemeResource SurfaceSubtle}" Padding="12,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                    <Grid Grid.Row="1" ColumnDefinitions="1.5*,1.2*,1*,1*,1.1*" Background="{ThemeResource SurfaceSubtle}" Padding="12,8" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
                         <TextBlock Grid.Column="0" Text="Batch Number" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                         <TextBlock Grid.Column="1" Text="Expiry Date" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
                         <TextBlock Grid.Column="2" Text="Stock Qty" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                         <TextBlock Grid.Column="3" Text="MRP (₹)" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="4" Text="Rate (₹)" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="5" Text="Status" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="Status" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Center" />
                     </Grid>
 
                     <!-- Batch Items ListView -->
@@ -1306,13 +1277,12 @@
                                         BorderThickness="1"
                                         CornerRadius="4"
                                         Margin="1,1">
-                                    <Grid ColumnDefinitions="1.5*,1.2*,1*,1*,1*,1.1*" Padding="10,6">
+                                    <Grid ColumnDefinitions="1.5*,1.2*,1*,1*,1.1*" Padding="10,6">
                                         <TextBlock Grid.Column="0" Text="{x:Bind BatchNumber}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{x:Bind ExpiryDate, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0:MM/yy}'}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind ExpiryForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" Text="{x:Bind StockDisplay}" FontWeight="Bold" FontSize="13" Foreground="{x:Bind StockForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="3" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="4" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="13" Foreground="{ThemeResource AccentPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <Border Grid.Column="5" Background="{x:Bind StatusBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" CornerRadius="3" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Border Grid.Column="4" Background="{x:Bind StatusBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" CornerRadius="3" Padding="6,2" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind StatusText}" FontSize="10.5" FontWeight="Bold" Foreground="{x:Bind StatusForegroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}" />
                                         </Border>
                                     </Grid>

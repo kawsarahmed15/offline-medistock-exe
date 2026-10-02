@@ -40,11 +40,13 @@ public sealed partial class PosPage : Page
 
         this.ActualThemeChanged += (s, ev) =>
         {
+            SyncPopupThemes();
             if (ViewModel.IsSaleTypePromptOpen)
             {
                 UpdateSaleTypeVisuals(ViewModel.SelectedSaleTypeIndex);
             }
         };
+        SyncPopupThemes();
 
         ViewModel.PropertyChanged += (s, ev) =>
         {
@@ -1953,8 +1955,8 @@ public sealed partial class PosPage : Page
         {
             if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
             {
-                var rateBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 9);
-                rateBox?.Focus(FocusState.Programmatic);
+                var discBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 10);
+                discBox?.Focus(FocusState.Programmatic);
                 e.Handled = true;
             }
         }
@@ -1964,52 +1966,6 @@ public sealed partial class PosPage : Page
             {
                 var tabBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 6);
                 tabBox?.Focus(FocusState.Programmatic);
-                e.Handled = true;
-            }
-        }
-        else if (e.Key == VirtualKey.Escape)
-        {
-            SearchBox.Focus(FocusState.Programmatic);
-            e.Handled = true;
-        }
-    }
-
-    private void CartRow_Rate_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.E)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == VirtualKey.Up)
-        {
-            NavigateCartRow(-1, 9);
-            e.Handled = true;
-            return;
-        }
-        else if (e.Key == VirtualKey.Down)
-        {
-            NavigateCartRow(1, 9);
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Right)
-        {
-            if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
-            {
-                var discBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 11);
-                discBox?.Focus(FocusState.Programmatic);
-                e.Handled = true;
-            }
-        }
-        else if (e.Key == VirtualKey.Left)
-        {
-            if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
-            {
-                var freeBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 7);
-                freeBox?.Focus(FocusState.Programmatic);
                 e.Handled = true;
             }
         }
@@ -2030,13 +1986,13 @@ public sealed partial class PosPage : Page
 
         if (e.Key == VirtualKey.Up)
         {
-            NavigateCartRow(-1, 11);
+            NavigateCartRow(-1, 10);
             e.Handled = true;
             return;
         }
         else if (e.Key == VirtualKey.Down)
         {
-            NavigateCartRow(1, 11);
+            NavigateCartRow(1, 10);
             e.Handled = true;
             return;
         }
@@ -2068,8 +2024,8 @@ public sealed partial class PosPage : Page
         {
             if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
             {
-                var rateBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 9);
-                rateBox?.Focus(FocusState.Programmatic);
+                var freeBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 7);
+                freeBox?.Focus(FocusState.Programmatic);
                 e.Handled = true;
             }
         }
@@ -2474,6 +2430,13 @@ public sealed partial class PosPage : Page
                 _ => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 22, 27, 34))
             };
         }
+    }
+
+    private void SyncPopupThemes()
+    {
+        var theme = this.ActualTheme;
+        if (SearchResultsPopup?.Child is FrameworkElement sBorder) sBorder.RequestedTheme = theme;
+        if (CustomerQuickPickPopup?.Child is FrameworkElement cBorder) cBorder.RequestedTheme = theme;
     }
 
     private void UpdateSaleTypeVisuals(int index)
@@ -3061,7 +3024,7 @@ public sealed partial class PosPage : Page
                 c.BatchNumber,
                 c.ExpiryDate,
                 c.Quantity,
-                c.UnitPrice,
+                c.Mrp > 0 ? c.Mrp : c.UnitPrice,
                 net,
                 c.GstRatePercent,
                 c.FreeQuantity,

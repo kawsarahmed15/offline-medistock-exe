@@ -99,7 +99,7 @@ public class PosTwoStageSearchTests
         Assert.NotNull(vm.ActiveTab);
         Assert.Single(vm.ActiveTab.CartItems);
         Assert.Equal("AUG-2", vm.ActiveTab.CartItems[0].BatchNumber);
-        Assert.Equal(190m, vm.ActiveTab.CartItems[0].UnitPrice);
+        Assert.Equal(210m, vm.ActiveTab.CartItems[0].UnitPrice);
         Assert.Equal(3m, vm.ActiveTab.CartItems[0].StripQuantity);
         Assert.Equal(30m, vm.ActiveTab.CartItems[0].Quantity);
     }

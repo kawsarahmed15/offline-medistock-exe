@@ -243,6 +243,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyTheme(ElementTheme theme)
     {
+        Services.ThemeService.CurrentTheme = theme;
         if (RootGrid != null)
         {
             RootGrid.RequestedTheme = theme;

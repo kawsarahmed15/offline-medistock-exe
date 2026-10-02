@@ -74,6 +74,12 @@ public class InverseBoolToVisibilityConverter : IValueConverter
 
 public class HexToSolidColorBrushConverter : IValueConverter
 {
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush LightTextPrimary = new(Windows.UI.Color.FromArgb(255, 15, 23, 42));     // #0F172A
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush DarkTextPrimary = new(Windows.UI.Color.FromArgb(255, 230, 237, 243));   // #E6EDF3
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush LightTextSecondary = new(Windows.UI.Color.FromArgb(255, 71, 85, 105));   // #475569
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush DarkTextSecondary = new(Windows.UI.Color.FromArgb(255, 139, 148, 158)); // #8B949E
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush TransparentBrush = new(Microsoft.UI.Colors.Transparent);
+
     public object Convert(object value, Type targetType, object parameter, string language)
     {
         if (value is string hex && !string.IsNullOrWhiteSpace(hex))
@@ -81,15 +87,11 @@ public class HexToSolidColorBrushConverter : IValueConverter
             var trimmed = hex.Trim();
             if (trimmed.Equals("TEXT_PRIMARY", StringComparison.OrdinalIgnoreCase))
             {
-                if (Microsoft.UI.Xaml.Application.Current?.Resources.TryGetValue("TextPrimary", out var tp) == true && tp is Microsoft.UI.Xaml.Media.Brush b)
-                    return b;
-                return Microsoft.UI.Xaml.DependencyProperty.UnsetValue;
+                return Medistock.Desktop.Services.ThemeService.IsLightTheme ? LightTextPrimary : DarkTextPrimary;
             }
             if (trimmed.Equals("TEXT_SECONDARY", StringComparison.OrdinalIgnoreCase))
             {
-                if (Microsoft.UI.Xaml.Application.Current?.Resources.TryGetValue("TextSecondary", out var ts) == true && ts is Microsoft.UI.Xaml.Media.Brush b)
-                    return b;
-                return Microsoft.UI.Xaml.DependencyProperty.UnsetValue;
+                return Medistock.Desktop.Services.ThemeService.IsLightTheme ? LightTextSecondary : DarkTextSecondary;
             }
 
             try
@@ -115,7 +117,7 @@ public class HexToSolidColorBrushConverter : IValueConverter
             {
             }
         }
-        return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        return TransparentBrush;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)

@@ -33,6 +33,9 @@ public sealed partial class PurchaseEntryPage : Page
         this.InitializeComponent();
         this.AddHandler(UIElement.PreviewKeyDownEvent, new KeyEventHandler(Page_PreviewKeyDown), handledEventsToo: true);
         this.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(Page_KeyDown), handledEventsToo: true);
+        this.ActualThemeChanged += (s, e) => SyncPopupThemes();
+        this.Loaded += (s, e) => SyncPopupThemes();
+        SyncPopupThemes();
 
         ViewModel.PropertyChanged += (s, e) =>
         {
@@ -137,6 +140,13 @@ public sealed partial class PurchaseEntryPage : Page
                 }
             }
         };
+    }
+
+    private void SyncPopupThemes()
+    {
+        var theme = this.ActualTheme;
+        if (PurchaseProductSearchResultsPopup?.Child is FrameworkElement p1) p1.RequestedTheme = theme;
+        if (ProductSearchPopup?.Child is FrameworkElement p2) p2.RequestedTheme = theme;
     }
 
     private void Page_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
