@@ -36,6 +36,9 @@ public partial class PurchaseItemRowViewModel : ObservableObject
     private string _unit = "STRIP";
 
     [ObservableProperty]
+    private string _stockType = "Tablet (Tab)";
+
+    [ObservableProperty]
     private int _packUnits = 10;
 
     [ObservableProperty]
@@ -395,7 +398,44 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         }
     }
 
-    public string PackCalculationDisplay => $"{StripCount:0.##} Strip × {PiecesPerStrip:0.##} Pcs = {Quantity:0.##} Qty";
+    public string UnitPackagingHoverText
+    {
+        get
+        {
+            if (PiecesPerStrip > 1 || Unit == "STRIP")
+            {
+                return $"{StripCount:0.##} Strip{(StripCount == 1 ? "" : "s")} ({PiecesPerStrip:0.##} Pcs/Strip) — Total {Quantity:0.##} Pcs";
+            }
+            if (!string.IsNullOrWhiteSpace(StockType))
+            {
+                if (StockType.Contains("Syrup") || StockType.Contains("Drop") || StockType.Contains("Inj"))
+                {
+                    return $"{Quantity:0.##} Unit{(Quantity == 1 ? "" : "s")} ({PackUnits}ml)";
+                }
+                if (StockType.Contains("Cream"))
+                {
+                    return $"{Quantity:0.##} Tube{(Quantity == 1 ? "" : "s")} ({PackUnits}gm)";
+                }
+            }
+            return $"{Quantity:0.##} {Unit}";
+        }
+    }
+
+    public string PackCalculationDisplay
+    {
+        get
+        {
+            if (PiecesPerStrip > 1 || Unit == "STRIP")
+            {
+                return $"{StripCount:0.##} Strip × {PiecesPerStrip:0.##} Pcs = {Quantity:0.##} Total Qty";
+            }
+            if (!string.IsNullOrWhiteSpace(StockType) && (StockType.Contains("Syrup") || StockType.Contains("Drop") || StockType.Contains("Inj") || StockType.Contains("Cream")))
+            {
+                return $"{Quantity:0.##} Units ({PackUnits}{(StockType.Contains("Cream") ? "gm" : "ml")})";
+            }
+            return $"{Quantity:0.##} {Unit}";
+        }
+    }
 
     public double QuantityDouble
     {
@@ -560,6 +600,7 @@ public partial class PurchaseItemRowViewModel : ObservableObject
         OnPropertyChanged(nameof(StripMrpBreakdownDisplay));
         OnPropertyChanged(nameof(StripPriceDouble));
         OnPropertyChanged(nameof(StripMrpDouble));
+        OnPropertyChanged(nameof(UnitPackagingHoverText));
         OnRowChanged?.Invoke();
     }
 }
@@ -657,7 +698,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
 
 #pragma warning disable MVVMTK0045
     [ObservableProperty]
-    private string _selectedTab = "Entry"; // "Entry", "History", "Suppliers"
+    private string _selectedTab = "History"; // "History", "Suppliers", "Entry"
 
     // Executive KPI Metrics
     [ObservableProperty]
@@ -716,10 +757,19 @@ public partial class PurchaseEntryViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(FormHeaderTitle))]
     private string _editingInvoicePurchaseNo = string.Empty;
 
-    public string SaveButtonText => IsEditingInvoice ? "UPDATE PURCHASE BILL [Ctrl+S]" : "POST INVOICE [Ctrl+S]";
+    public string SaveButtonText => IsEditingInvoice ? "Save Changes [Ctrl+S]" : "Save [Ctrl+S]";
     public string FormHeaderTitle => IsEditingInvoice 
         ? $"✏️ EDITING PURCHASE BILL ({EditingInvoicePurchaseNo})" 
         : "New Purchase Inward Entry";
+
+    [ObservableProperty]
+    private bool _isPurchaseEntryScreenOpen = false;
+
+    [ObservableProperty]
+    private bool _isExitConfirmDialogOpen = false;
+
+    [ObservableProperty]
+    private bool _isSaveSummaryModalOpen = false;
 
     // Purchase Return (Debit Note) State
     [ObservableProperty]
@@ -758,6 +808,26 @@ public partial class PurchaseEntryViewModel : ObservableObject
     private DateTimeOffset _supplierInvoiceDate = DateTimeOffset.UtcNow;
 
     [ObservableProperty]
+    private string _supplierInvoiceDateText = DateTime.UtcNow.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+    partial void OnSupplierInvoiceDateChanged(DateTimeOffset value)
+    {
+        _supplierInvoiceDateText = value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        OnPropertyChanged(nameof(SupplierInvoiceDateText));
+    }
+
+    partial void OnSupplierInvoiceDateTextChanged(string value)
+    {
+        if (DateTime.TryParseExact(value?.Trim(), new[] { "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "yyyy-MM-dd" },
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dt))
+        {
+            _supplierInvoiceDate = new DateTimeOffset(dt, TimeSpan.Zero);
+            OnPropertyChanged(nameof(SupplierInvoiceDate));
+        }
+    }
+
+    [ObservableProperty]
     private bool _isInterstate = false;
 
     [ObservableProperty]
@@ -790,6 +860,10 @@ public partial class PurchaseEntryViewModel : ObservableObject
 
     [ObservableProperty]
     private decimal _grandTotal;
+
+    public decimal TotalTax => Math.Round(CgstTotal + SgstTotal + IgstTotal, 2, MidpointRounding.AwayFromZero);
+    public IEnumerable<PurchaseItemRowViewModel> ValidLineItems => LineItems.Where(i => !string.IsNullOrWhiteSpace(i.ProductName));
+    public ObservableCollection<PurchaseItemRowViewModel> PreviewLineItems { get; } = new();
 
     // Active Row Tracker
     [ObservableProperty]
@@ -1224,6 +1298,211 @@ public partial class PurchaseEntryViewModel : ObservableObject
     private bool _isProductSearchOpen = false;
 
     [ObservableProperty]
+    private string _productSearchQuery = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasProductSearchResults = false;
+
+    public string AddNewProductButtonText => string.IsNullOrWhiteSpace(ProductSearchQuery)
+        ? "➕ Add New Product [F3]"
+        : $"➕ Add \"{ProductSearchQuery.Trim()}\" [F3]";
+
+    partial void OnProductSearchQueryChanged(string value)
+    {
+        OnPropertyChanged(nameof(AddNewProductButtonText));
+        _ = SearchProductsTopAsync(value);
+    }
+
+    public async Task SearchProductsTopAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            ProductSearchResults.Clear();
+            HasProductSearchResults = false;
+            SelectedProductSearchIndex = -1;
+            return;
+        }
+
+        try
+        {
+            var results = await _productSearchRepository.SearchProductsAsync(query.Trim(), _warehouseId, limit: 15);
+            ProductSearchResults.Clear();
+            foreach (var item in results)
+            {
+                ProductSearchResults.Add(ProductSearchItemViewModel.FromDto(item, query: query));
+            }
+
+            HasProductSearchResults = true;
+            SelectedProductSearchIndex = ProductSearchResults.Count > 0 ? 0 : -1;
+        }
+        catch
+        {
+            HasProductSearchResults = !string.IsNullOrWhiteSpace(query);
+        }
+    }
+
+    [RelayCommand]
+    public void AddSearchedProductModal()
+    {
+        var q = ProductSearchQuery;
+        HasProductSearchResults = false;
+        OpenAddProductModal(q, null);
+    }
+
+    [RelayCommand]
+    public void OpenPurchaseEntry()
+    {
+        IsPurchaseEntryScreenOpen = true;
+        SelectedTab = "Entry";
+        StatusMessage = "🚚 Purchase Entry workspace ready.";
+    }
+
+    public bool HasUnsavedData =>
+        SelectedSupplier != null ||
+        !string.IsNullOrWhiteSpace(SupplierInvoiceNo) ||
+        LineItems.Any(r => !string.IsNullOrWhiteSpace(r.ProductName) || r.UnitPrice > 0 || r.StripPrice > 0 || r.Mrp > 0);
+
+    [RelayCommand]
+    public void RequestClosePurchaseEntry()
+    {
+        if (HasUnsavedData)
+        {
+            IsExitConfirmDialogOpen = true;
+        }
+        else
+        {
+            DiscardAndExit();
+        }
+    }
+
+    [RelayCommand]
+    public void DiscardAndExit()
+    {
+        IsExitConfirmDialogOpen = false;
+        IsPurchaseEntryScreenOpen = false;
+        SelectedTab = "History";
+        if (IsEditingInvoice)
+        {
+            CancelEditInvoice();
+        }
+        else
+        {
+            ResetForm();
+        }
+        StatusMessage = "Invoices Recorded Ledger.";
+    }
+
+    [RelayCommand]
+    public void SaveDraftAndExit()
+    {
+        IsExitConfirmDialogOpen = false;
+        IsPurchaseEntryScreenOpen = false;
+        SelectedTab = "History";
+        StatusMessage = "💾 Purchase draft preserved. Open Purchase Entry anytime to resume.";
+    }
+
+    [RelayCommand]
+    public void CancelExitDialog()
+    {
+        IsExitConfirmDialogOpen = false;
+    }
+
+    [RelayCommand]
+    public void RequestSaveSummary()
+    {
+        var validItems = LineItems.Where(i => !string.IsNullOrWhiteSpace(i.ProductName)).ToList();
+        if (validItems.Count == 0)
+        {
+            StatusMessage = "⚠️ Please add at least one medicine before saving.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SupplierInvoiceNo))
+        {
+            SupplierInvoiceNo = $"INV-{DateTime.Now:yyyyMMdd-HHmm}";
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedSupplierName))
+        {
+            SelectedSupplierName = SelectedSupplier?.Name ?? "Direct / Cash Supplier";
+        }
+
+        RecalculateTotals();
+
+        PreviewLineItems.Clear();
+        foreach (var item in validItems)
+        {
+            PreviewLineItems.Add(item);
+        }
+
+        OnPropertyChanged(nameof(PreviewLineItems));
+        OnPropertyChanged(nameof(ValidLineItems));
+        OnPropertyChanged(nameof(TotalTax));
+        OnPropertyChanged(nameof(GrandTotal));
+        OnPropertyChanged(nameof(TaxableSubtotal));
+        OnPropertyChanged(nameof(SupplierInvoiceNo));
+        OnPropertyChanged(nameof(SelectedSupplierName));
+        OnPropertyChanged(nameof(SupplierInvoiceDateText));
+
+        IsSaveSummaryModalOpen = true;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmAndSavePurchaseAsync()
+    {
+        IsSaveSummaryModalOpen = false;
+        await PostPurchaseInvoiceAsync();
+    }
+
+    [RelayCommand]
+    public void CancelSaveSummary()
+    {
+        IsSaveSummaryModalOpen = false;
+    }
+
+    public void SelectNextStockType()
+    {
+        var idx = StockTypeOptions.IndexOf(NewProductStockType);
+        if (idx >= 0 && idx < StockTypeOptions.Count - 1)
+        {
+            NewProductStockType = StockTypeOptions[idx + 1];
+        }
+        else
+        {
+            NewProductStockType = StockTypeOptions[0];
+        }
+    }
+
+    public void SelectPreviousStockType()
+    {
+        var idx = StockTypeOptions.IndexOf(NewProductStockType);
+        if (idx > 0)
+        {
+            NewProductStockType = StockTypeOptions[idx - 1];
+        }
+        else
+        {
+            NewProductStockType = StockTypeOptions[^1];
+        }
+    }
+
+    public PurchaseItemRowViewModel SelectTopProductSearch(ProductSearchItemViewModel item)
+    {
+        PurchaseItemRowViewModel? targetRow = LineItems.FirstOrDefault(IsBlankRow);
+        if (targetRow == null)
+        {
+            AddBlankRow();
+            targetRow = LineItems[^1];
+        }
+
+        SelectProductSearch(item, targetRow);
+        ProductSearchQuery = string.Empty;
+        HasProductSearchResults = false;
+        SelectedProductSearchIndex = -1;
+        return targetRow;
+    }
+
+    [ObservableProperty]
     private int _selectedProductSearchIndex = -1;
 
     partial void OnSupplierInvoiceNoChanged(string value)
@@ -1629,7 +1908,8 @@ public partial class PurchaseEntryViewModel : ObservableObject
             SaleRate = src.SaleRate,
             DiscountPct = src.DiscountPct,
             GstRatePercent = src.GstRatePercent,
-            IsInterstate = src.IsInterstate
+            IsInterstate = src.IsInterstate,
+            StockType = src.StockType
         };
     }
 
@@ -1649,7 +1929,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
             ProductSearchResults.Clear();
             foreach (var item in results)
             {
-                ProductSearchResults.Add(ProductSearchItemViewModel.FromDto(item));
+                ProductSearchResults.Add(ProductSearchItemViewModel.FromDto(item, query: query));
             }
 
             if (ProductSearchResults.Count > 0)
@@ -1690,6 +1970,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
         row.PackUnits = tabs;
         row.StripCount = 1;
         row.Quantity = tabs;
+        row.StockType = item.DosageForm.ToString();
 
         row.Mrp = item.Mrp;
         row.SaleRate = item.Mrp; // MRP is the sale price
@@ -1852,14 +2133,16 @@ public partial class PurchaseEntryViewModel : ObservableObject
         var rounded = Math.Round(raw, MidpointRounding.AwayFromZero);
         RoundOff = rounded - raw;
         GrandTotal = rounded;
+        OnPropertyChanged(nameof(TotalTax));
+        OnPropertyChanged(nameof(ValidLineItems));
     }
 
     public void ResetForm()
     {
         LineItems.Clear();
-        AddBlankRow();
         SupplierInvoiceNo = string.Empty;
         SupplierInvoiceDate = DateTimeOffset.UtcNow;
+        SupplierInvoiceDateText = DateTime.UtcNow.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
         Notes = string.Empty;
         SelectedSupplier = null;
         SelectedSupplierId = string.Empty;
@@ -1968,6 +2251,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
                     EditingInvoicePurchaseNo = string.Empty;
                     ResetForm();
 
+                    IsPurchaseEntryScreenOpen = false;
+                    SelectedTab = "History";
+
                     await LoadKpisAsync();
                     await LoadRecentPurchasesAsync();
                     await LoadSuppliersAsync();
@@ -2043,6 +2329,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
             {
                 StatusMessage = $"✅ Purchase Bill {SupplierInvoiceNo} saved & posted to Invoices Recorded section! Inwarded {result.TotalStockAdded} units across {result.BatchesCreatedOrUpdated} batches.";
                 ResetForm();
+
+                IsPurchaseEntryScreenOpen = false;
+                SelectedTab = "History";
 
                 await LoadKpisAsync();
                 await LoadRecentPurchasesAsync();
@@ -2130,6 +2419,7 @@ public partial class PurchaseEntryViewModel : ObservableObject
             }
 
             RecalculateTotals();
+            IsPurchaseEntryScreenOpen = true;
             SelectedTab = "Entry";
             StatusMessage = $"✏️ Loaded Bill {details.SupplierInvoiceNo} ({EditingInvoicePurchaseNo}) for editing. You can add new medicines, adjust quantities/rates, and save changes.";
         }
@@ -2496,12 +2786,12 @@ public partial class PurchaseEntryViewModel : ObservableObject
     public void OpenAddProductModal(object? parameter = null)
     {
         string? initialName = parameter as string;
-        OpenAddProductModal(initialName, ActiveRow);
+        OpenAddProductModal(initialName, null);
     }
 
     public void OpenAddProductModal(string? initialName, PurchaseItemRowViewModel? targetRow)
     {
-        PendingProductRow = targetRow ?? ActiveRow;
+        PendingProductRow = (targetRow != null && IsBlankRow(targetRow)) ? targetRow : null;
         NewProductName = initialName?.Trim() ?? string.Empty;
         NewProductCategory = string.Empty;
         NewProductManufacturer = string.Empty;
@@ -2545,12 +2835,129 @@ public partial class PurchaseEntryViewModel : ObservableObject
         IsAddProductModalOpen = true;
     }
 
+    public void SelectNextTaxRate()
+    {
+        if (TaxRateOptions.Count == 0) return;
+        int idx = TaxRateOptions.IndexOf(NewProductTaxPercent);
+        if (idx == -1) idx = 0;
+        else idx = (idx + 1) % TaxRateOptions.Count;
+        NewProductTaxPercent = TaxRateOptions[idx];
+    }
+
+    public void SelectPreviousTaxRate()
+    {
+        if (TaxRateOptions.Count == 0) return;
+        int idx = TaxRateOptions.IndexOf(NewProductTaxPercent);
+        if (idx == -1 || idx == 0) idx = TaxRateOptions.Count - 1;
+        else idx--;
+        NewProductTaxPercent = TaxRateOptions[idx];
+    }
+
+    public void SelectNextPackSize()
+    {
+        if (IsVolumeMlType)
+        {
+            if (VolumeMlOptions.Count == 0) return;
+            int idx = VolumeMlOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1) idx = 0;
+            else idx = (idx + 1) % VolumeMlOptions.Count;
+            NewProductPackSizeText = VolumeMlOptions[idx];
+        }
+        else if (IsWeightGmType)
+        {
+            if (WeightGmOptions.Count == 0) return;
+            int idx = WeightGmOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1) idx = 0;
+            else idx = (idx + 1) % WeightGmOptions.Count;
+            NewProductPackSizeText = WeightGmOptions[idx];
+        }
+        else if (IsGeneralType)
+        {
+            NewProductPackOptionsDouble = Math.Max(1, NewProductPackOptionsDouble + 1);
+        }
+        else if (IsTabletOrCapsule)
+        {
+            NewProductPcsPerStripDouble = Math.Max(1, NewProductPcsPerStripDouble + 1);
+        }
+    }
+
+    public void SelectPreviousPackSize()
+    {
+        if (IsVolumeMlType)
+        {
+            if (VolumeMlOptions.Count == 0) return;
+            int idx = VolumeMlOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1 || idx == 0) idx = VolumeMlOptions.Count - 1;
+            else idx--;
+            NewProductPackSizeText = VolumeMlOptions[idx];
+        }
+        else if (IsWeightGmType)
+        {
+            if (WeightGmOptions.Count == 0) return;
+            int idx = WeightGmOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1 || idx == 0) idx = WeightGmOptions.Count - 1;
+            else idx--;
+            NewProductPackSizeText = WeightGmOptions[idx];
+        }
+        else if (IsGeneralType)
+        {
+            NewProductPackOptionsDouble = Math.Max(1, NewProductPackOptionsDouble - 1);
+        }
+        else if (IsTabletOrCapsule)
+        {
+            NewProductPcsPerStripDouble = Math.Max(1, NewProductPcsPerStripDouble - 1);
+        }
+    }
+
     [RelayCommand]
     public void CloseAddProductModal()
     {
         IsAddProductModalOpen = false;
         NewProductValidationMessage = string.Empty;
         PendingProductRow = null;
+        ResetNewProductForm();
+    }
+
+    public void ResetNewProductForm()
+    {
+        NewProductName = string.Empty;
+        NewProductCategory = string.Empty;
+        NewProductManufacturer = string.Empty;
+        NewProductStockType = "Tablet (Tab)";
+        NewProductStripCount = 1;
+        NewProductPcsPerStrip = 10;
+        NewProductPackOptions = 10;
+        NewProductInitialStockQty = 10;
+        NewProductBuyingPrice = 0;
+        NewProductSellingPrice = 0;
+        NewProductMrp = 0;
+        NewProductPackSizeText = "100ml";
+        NewProductExpiryText = string.Empty;
+        NewProductExpiryDate = default;
+        NewProductTaxPercent = SettingsViewModel.GetDefaultGstRate();
+        NewProductBatch = string.Empty;
+        NewProductHsnCode = "3004";
+        NewProductIsPrescriptionRequired = false;
+        NewProductValidationMessage = string.Empty;
+
+        OnPropertyChanged(nameof(IsTabletOrCapsule));
+        OnPropertyChanged(nameof(IsVolumeMlType));
+        OnPropertyChanged(nameof(IsWeightGmType));
+        OnPropertyChanged(nameof(IsGeneralType));
+        OnPropertyChanged(nameof(NewProductStripCountDouble));
+        OnPropertyChanged(nameof(NewProductPcsPerStripDouble));
+        OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+        OnPropertyChanged(nameof(NewProductMrpDouble));
+        OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
+        OnPropertyChanged(nameof(NewProductSellingPriceDouble));
+        OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+        OnPropertyChanged(nameof(NewProductMrpHeader));
+        OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
+        OnPropertyChanged(nameof(HasNewProductValidationMessage));
     }
 
     [RelayCommand]
@@ -2640,13 +3047,14 @@ public partial class PurchaseEntryViewModel : ObservableObject
         string productId;
         try
         {
+            var savedProductName = NewProductName.Trim();
             if (_productService != null)
             {
                 var cmd = new Medistock.Application.Products.Commands.CreateProductWithBatchCommand(
                     OrgId: _orgId,
                     WarehouseId: _warehouseId,
-                    Name: NewProductName.Trim(),
-                    BrandName: NewProductName.Trim(),
+                    Name: savedProductName,
+                    BrandName: savedProductName,
                     GenericName: string.Empty,
                     Composition: string.Empty,
                     Strength: strengthSpec,
@@ -2680,7 +3088,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
                 productId = $"prod_{Guid.NewGuid():N}";
             }
 
-            var row = PendingProductRow ?? ActiveRow;
+            var row = (PendingProductRow != null && IsBlankRow(PendingProductRow))
+                ? PendingProductRow
+                : LineItems.FirstOrDefault(IsBlankRow);
             if (row == null)
             {
                 AddBlankRow();
@@ -2688,10 +3098,11 @@ public partial class PurchaseEntryViewModel : ObservableObject
             }
 
             row.ProductId = productId;
-            row.ProductName = NewProductName.Trim();
+            row.ProductName = savedProductName;
             row.GenericName = string.Empty;
             row.HsnCode = string.IsNullOrWhiteSpace(NewProductHsnCode) ? "3004" : NewProductHsnCode.Trim();
             row.GstRatePercent = NewProductTaxPercent;
+            row.StockType = NewProductStockType;
             row.PiecesPerStrip = packUnits;
             row.PackUnits = packUnits;
             row.BatchNumber = batchNo;
@@ -2735,10 +3146,13 @@ public partial class PurchaseEntryViewModel : ObservableObject
             row.Recalculate();
             RecalculateTotals();
 
+            // Clear the form data and top search after successful save
+            ResetNewProductForm();
+            ProductSearchQuery = string.Empty;
+            HasProductSearchResults = false;
             IsAddProductModalOpen = false;
-            NewProductValidationMessage = string.Empty;
             PendingProductRow = null;
-            StatusMessage = $"✅ Product '{NewProductName.Trim()}' added to database and invoice.";
+            StatusMessage = $"✅ Product '{savedProductName}' added to database and invoice.";
         }
         catch (Exception ex)
         {

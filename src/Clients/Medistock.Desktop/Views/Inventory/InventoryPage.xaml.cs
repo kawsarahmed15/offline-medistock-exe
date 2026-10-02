@@ -1,5 +1,10 @@
+using System;
+using System.Threading.Tasks;
 using Medistock.Desktop.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 
 namespace Medistock.Desktop.Views.Inventory;
 
@@ -20,111 +25,201 @@ public sealed partial class InventoryPage : Page
 
         this.KeyDown += (s, e) =>
         {
-            if (e.Key == Windows.System.VirtualKey.Escape)
+            if (e.Key == VirtualKey.Escape)
             {
                 if (ViewModel.IsMetricDetailModalOpen)
                 {
                     ViewModel.CloseMetricDetail();
                     e.Handled = true;
                 }
-                else if (ViewModel.IsEditProductModalOpen)
+                else if (ViewModel.IsAddProductModalOpen)
                 {
-                    ViewModel.CloseEditProduct();
+                    ViewModel.CloseAddProductModal();
                     e.Handled = true;
                 }
+            }
+            else if (e.Key == VirtualKey.F2 && !ViewModel.IsAddProductModalOpen && !ViewModel.IsMetricDetailModalOpen)
+            {
+                ViewModel.OpenAddProductModal();
+                e.Handled = true;
             }
         };
     }
 
-    private void EditProductInput_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    private void NewProductNameBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsAddProductModalOpen)
+        {
+            FocusAddProductModal();
+        }
+    }
+
+    private async void FocusAddProductModal()
+    {
+        NewProductNameBox?.Focus(FocusState.Programmatic);
+        NewProductNameBox?.SelectAll();
+
+        for (int i = 0; i < 4; i++)
+        {
+            await Task.Delay(25 * (i + 1));
+            if (!ViewModel.IsAddProductModalOpen) return;
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        }
+    }
+
+    private void NewProductExpiryBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            var raw = tb.Text?.Trim() ?? string.Empty;
+            if (raw.Length == 2 && !raw.Contains('/') && int.TryParse(raw, out int m) && m >= 1 && m <= 12)
+            {
+                tb.Text = raw + "/";
+                tb.SelectionStart = tb.Text.Length;
+            }
+            else if (raw.Length == 4 && !raw.Contains('/') && int.TryParse(raw.Substring(0, 2), out int mm) && mm >= 1 && mm <= 12)
+            {
+                tb.Text = raw.Substring(0, 2) + "/" + raw.Substring(2, 2);
+                tb.SelectionStart = tb.Text.Length;
+            }
+        }
+    }
+
+    private async void NewProductField_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Handled) return;
         if (sender is not Control currentControl) return;
 
-        var shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+        var shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        var ctrlDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+        var ctrlDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
-        if (e.Key == Windows.System.VirtualKey.Escape)
+        // Escape: close modal
+        if (e.Key == VirtualKey.Escape)
         {
-            ViewModel.CloseEditProduct();
+            ViewModel.CloseAddProductModal();
             e.Handled = true;
             return;
         }
 
-        if (e.Key == Windows.System.VirtualKey.F2 || (e.Key == Windows.System.VirtualKey.Enter && ctrlDown))
+        // F2 or Ctrl+Enter: instant Save from any field
+        if (e.Key == VirtualKey.F2 || (e.Key == VirtualKey.Enter && ctrlDown))
         {
-            ViewModel.SaveProductDetailsCommand.Execute(null);
+            await ViewModel.SaveNewProductAsync();
             e.Handled = true;
             return;
         }
 
-        if (e.Key == Windows.System.VirtualKey.Enter)
+        // Enter: move to next field, or trigger action on buttons
+        if (e.Key == VirtualKey.Enter)
         {
-            if (ReferenceEquals(currentControl, SaveEditProductButton))
+            if (ReferenceEquals(currentControl, SaveNewProductBtn))
             {
-                ViewModel.SaveProductDetailsCommand.Execute(null);
+                await ViewModel.SaveNewProductAsync();
                 e.Handled = true;
                 return;
             }
-            if (ReferenceEquals(currentControl, CancelEditProductButton))
+            if (ReferenceEquals(currentControl, CancelNewProductBtn))
             {
-                ViewModel.CloseEditProduct();
+                ViewModel.CloseAddProductModal();
                 e.Handled = true;
                 return;
             }
 
             if (shiftDown)
             {
-                var prev = GetPrevEditProductField(currentControl);
+                var prev = GetPrevProductField(currentControl);
                 if (prev != null)
                 {
-                    FocusEditProductField(prev);
+                    FocusProductField(prev);
                     e.Handled = true;
                     return;
                 }
             }
             else
             {
-                var next = GetNextEditProductField(currentControl);
+                var next = GetNextProductField(currentControl);
                 if (next != null)
                 {
-                    FocusEditProductField(next);
+                    FocusProductField(next);
                     e.Handled = true;
                     return;
                 }
             }
         }
 
-        if (e.Key == Windows.System.VirtualKey.Down)
+        // Arrow Down: move focus to field below or drop down ComboBox
+        if (e.Key == VirtualKey.Down)
         {
-            // For ComboBox, allow normal dropdown option selection unless user presses Alt
             if (currentControl is ComboBox cb && !cb.IsDropDownOpen)
             {
-                // Can drop down or navigate
+                if (ReferenceEquals(currentControl, NewProductStockTypeComboBox))
+                {
+                    ViewModel.SelectNextStockType();
+                    e.Handled = true;
+                    return;
+                }
+                if (ReferenceEquals(currentControl, NewProductTaxComboBox))
+                {
+                    ViewModel.SelectNextTaxRate();
+                    e.Handled = true;
+                    return;
+                }
+                if (ReferenceEquals(currentControl, NewProductVolumeMlComboBox) || ReferenceEquals(currentControl, NewProductWeightGmComboBox))
+                {
+                    ViewModel.SelectNextPackSize();
+                    e.Handled = true;
+                    return;
+                }
             }
-            var down = GetDownEditProductField(currentControl);
+
+            var down = GetDownProductField(currentControl);
             if (down != null)
             {
-                FocusEditProductField(down);
+                FocusProductField(down);
                 e.Handled = true;
                 return;
             }
         }
 
-        if (e.Key == Windows.System.VirtualKey.Up)
+        // Arrow Up: move focus to field above
+        if (e.Key == VirtualKey.Up)
         {
-            var up = GetUpEditProductField(currentControl);
+            if (currentControl is ComboBox cb && !cb.IsDropDownOpen)
+            {
+                if (ReferenceEquals(currentControl, NewProductStockTypeComboBox))
+                {
+                    ViewModel.SelectPreviousStockType();
+                    e.Handled = true;
+                    return;
+                }
+                if (ReferenceEquals(currentControl, NewProductTaxComboBox))
+                {
+                    ViewModel.SelectPreviousTaxRate();
+                    e.Handled = true;
+                    return;
+                }
+                if (ReferenceEquals(currentControl, NewProductVolumeMlComboBox) || ReferenceEquals(currentControl, NewProductWeightGmComboBox))
+                {
+                    ViewModel.SelectPreviousPackSize();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            var up = GetUpProductField(currentControl);
             if (up != null)
             {
-                FocusEditProductField(up);
+                FocusProductField(up);
                 e.Handled = true;
                 return;
             }
         }
 
-        if (e.Key == Windows.System.VirtualKey.Right)
+        // Arrow Right
+        if (e.Key == VirtualKey.Right)
         {
             bool canNavigate = true;
             if (currentControl is TextBox tb)
@@ -136,17 +231,18 @@ public sealed partial class InventoryPage : Page
 
             if (canNavigate)
             {
-                var right = GetRightEditProductField(currentControl);
+                var right = GetRightProductField(currentControl);
                 if (right != null)
                 {
-                    FocusEditProductField(right);
+                    FocusProductField(right);
                     e.Handled = true;
                     return;
                 }
             }
         }
 
-        if (e.Key == Windows.System.VirtualKey.Left)
+        // Arrow Left
+        if (e.Key == VirtualKey.Left)
         {
             bool canNavigate = true;
             if (currentControl is TextBox tb)
@@ -158,10 +254,10 @@ public sealed partial class InventoryPage : Page
 
             if (canNavigate)
             {
-                var left = GetLeftEditProductField(currentControl);
+                var left = GetLeftProductField(currentControl);
                 if (left != null)
                 {
-                    FocusEditProductField(left);
+                    FocusProductField(left);
                     e.Handled = true;
                     return;
                 }
@@ -169,138 +265,143 @@ public sealed partial class InventoryPage : Page
         }
     }
 
-    private void FocusEditProductField(Control target)
+    private void FocusProductField(Control target)
     {
         if (target == null) return;
-        target.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+        target.Focus(FocusState.Programmatic);
         if (target is TextBox tb)
         {
             tb.SelectAll();
         }
     }
 
-    private Control? GetRightEditProductField(Control current)
+    private Control? GetRightProductField(Control current)
     {
-        if (ReferenceEquals(current, CancelEditProductButton)) return SaveEditProductButton;
-        if (ReferenceEquals(current, SaveEditProductButton)) return CancelEditProductButton;
-        return GetNextEditProductField(current);
+        if (ReferenceEquals(current, CancelNewProductBtn)) return SaveNewProductBtn;
+        if (ReferenceEquals(current, SaveNewProductBtn)) return CancelNewProductBtn;
+        return GetNextProductField(current);
     }
 
-    private Control? GetLeftEditProductField(Control current)
+    private Control? GetLeftProductField(Control current)
     {
-        if (ReferenceEquals(current, SaveEditProductButton)) return CancelEditProductButton;
-        if (ReferenceEquals(current, CancelEditProductButton)) return SaveEditProductButton;
-        return GetPrevEditProductField(current);
+        if (ReferenceEquals(current, SaveNewProductBtn)) return CancelNewProductBtn;
+        if (ReferenceEquals(current, CancelNewProductBtn)) return SaveNewProductBtn;
+        return GetPrevProductField(current);
     }
 
-    private Control? GetNextEditProductField(Control current)
+    private Control? GetNextProductField(Control current)
     {
-        if (ReferenceEquals(current, EditProductNameBox)) return EditGenericNameBox;
-        if (ReferenceEquals(current, EditGenericNameBox)) return EditSaltCompositionBox;
-        if (ReferenceEquals(current, EditSaltCompositionBox)) return EditManufacturerBox;
-        if (ReferenceEquals(current, EditManufacturerBox)) return EditCategoryNameBox;
-        if (ReferenceEquals(current, EditCategoryNameBox)) return EditHsnCodeBox;
-        if (ReferenceEquals(current, EditHsnCodeBox)) return EditGstRatePercentBox;
-        if (ReferenceEquals(current, EditGstRatePercentBox)) return EditScheduleComboBox;
-        if (ReferenceEquals(current, EditScheduleComboBox)) return EditMinStockAlertBox;
-        if (ReferenceEquals(current, EditMinStockAlertBox)) return EditBatchNumberBox;
-        if (ReferenceEquals(current, EditBatchNumberBox)) return EditExpiryDatePicker;
-        if (ReferenceEquals(current, EditExpiryDatePicker)) return EditMrpBox;
-        if (ReferenceEquals(current, EditMrpBox)) return EditPurchaseRateBox;
-        if (ReferenceEquals(current, EditPurchaseRateBox)) return EditSaleRateBox;
-        if (ReferenceEquals(current, EditSaleRateBox)) return SaveEditProductButton;
-        if (ReferenceEquals(current, CancelEditProductButton)) return SaveEditProductButton;
-        if (ReferenceEquals(current, SaveEditProductButton)) return EditProductNameBox;
+        if (ReferenceEquals(current, NewProductNameBox)) return NewProductManufacturerBox;
+        if (ReferenceEquals(current, NewProductManufacturerBox)) return NewProductStockTypeComboBox;
+        if (ReferenceEquals(current, NewProductStockTypeComboBox))
+        {
+            if (ViewModel.IsTabletOrCapsule) return NewProductStripCountBox;
+            if (ViewModel.IsVolumeMlType) return NewProductVolumeMlComboBox;
+            if (ViewModel.IsWeightGmType) return NewProductWeightGmComboBox;
+            return NewProductPackOptionsBox;
+        }
+        if (ReferenceEquals(current, NewProductStripCountBox)) return NewProductPcsPerStripBox;
+        if (ReferenceEquals(current, NewProductPcsPerStripBox) ||
+            ReferenceEquals(current, NewProductVolumeMlComboBox) ||
+            ReferenceEquals(current, NewProductWeightGmComboBox) ||
+            ReferenceEquals(current, NewProductPackOptionsBox)) return NewProductHsnBox;
+
+        if (ReferenceEquals(current, NewProductHsnBox)) return NewProductTaxComboBox;
+        if (ReferenceEquals(current, NewProductTaxComboBox)) return NewProductMrpBox;
+        if (ReferenceEquals(current, NewProductMrpBox)) return NewProductBuyingPriceBox;
+        if (ReferenceEquals(current, NewProductBuyingPriceBox)) return NewProductInitialStockQtyBox;
+        if (ReferenceEquals(current, NewProductInitialStockQtyBox)) return NewProductBatchBox;
+        if (ReferenceEquals(current, NewProductBatchBox)) return NewProductExpiryBox;
+        if (ReferenceEquals(current, NewProductExpiryBox)) return NewProductRxCheckBox;
+        if (ReferenceEquals(current, NewProductRxCheckBox)) return SaveNewProductBtn;
+        if (ReferenceEquals(current, CancelNewProductBtn)) return SaveNewProductBtn;
+        if (ReferenceEquals(current, SaveNewProductBtn)) return NewProductNameBox;
         return null;
     }
 
-    private Control? GetPrevEditProductField(Control current)
+    private Control? GetPrevProductField(Control current)
     {
-        if (ReferenceEquals(current, EditProductNameBox)) return SaveEditProductButton;
-        if (ReferenceEquals(current, EditGenericNameBox)) return EditProductNameBox;
-        if (ReferenceEquals(current, EditSaltCompositionBox)) return EditGenericNameBox;
-        if (ReferenceEquals(current, EditManufacturerBox)) return EditSaltCompositionBox;
-        if (ReferenceEquals(current, EditCategoryNameBox)) return EditManufacturerBox;
-        if (ReferenceEquals(current, EditHsnCodeBox)) return EditCategoryNameBox;
-        if (ReferenceEquals(current, EditGstRatePercentBox)) return EditHsnCodeBox;
-        if (ReferenceEquals(current, EditScheduleComboBox)) return EditGstRatePercentBox;
-        if (ReferenceEquals(current, EditMinStockAlertBox)) return EditScheduleComboBox;
-        if (ReferenceEquals(current, EditBatchNumberBox)) return EditMinStockAlertBox;
-        if (ReferenceEquals(current, EditExpiryDatePicker)) return EditBatchNumberBox;
-        if (ReferenceEquals(current, EditMrpBox)) return EditExpiryDatePicker;
-        if (ReferenceEquals(current, EditPurchaseRateBox)) return EditMrpBox;
-        if (ReferenceEquals(current, EditSaleRateBox)) return EditPurchaseRateBox;
-        if (ReferenceEquals(current, SaveEditProductButton)) return EditSaleRateBox;
-        if (ReferenceEquals(current, CancelEditProductButton)) return EditSaleRateBox;
+        if (ReferenceEquals(current, NewProductNameBox)) return SaveNewProductBtn;
+        if (ReferenceEquals(current, NewProductManufacturerBox)) return NewProductNameBox;
+        if (ReferenceEquals(current, NewProductStockTypeComboBox)) return NewProductManufacturerBox;
+        if (ReferenceEquals(current, NewProductStripCountBox)) return NewProductStockTypeComboBox;
+        if (ReferenceEquals(current, NewProductPcsPerStripBox)) return NewProductStripCountBox;
+        if (ReferenceEquals(current, NewProductVolumeMlComboBox) ||
+            ReferenceEquals(current, NewProductWeightGmComboBox) ||
+            ReferenceEquals(current, NewProductPackOptionsBox)) return NewProductStockTypeComboBox;
+
+        if (ReferenceEquals(current, NewProductHsnBox))
+        {
+            if (ViewModel.IsTabletOrCapsule) return NewProductPcsPerStripBox;
+            if (ViewModel.IsVolumeMlType) return NewProductVolumeMlComboBox;
+            if (ViewModel.IsWeightGmType) return NewProductWeightGmComboBox;
+            return NewProductPackOptionsBox;
+        }
+
+        if (ReferenceEquals(current, NewProductTaxComboBox)) return NewProductHsnBox;
+        if (ReferenceEquals(current, NewProductMrpBox)) return NewProductTaxComboBox;
+        if (ReferenceEquals(current, NewProductBuyingPriceBox)) return NewProductMrpBox;
+        if (ReferenceEquals(current, NewProductInitialStockQtyBox)) return NewProductBuyingPriceBox;
+        if (ReferenceEquals(current, NewProductBatchBox)) return NewProductInitialStockQtyBox;
+        if (ReferenceEquals(current, NewProductExpiryBox)) return NewProductBatchBox;
+        if (ReferenceEquals(current, NewProductRxCheckBox)) return NewProductExpiryBox;
+        if (ReferenceEquals(current, SaveNewProductBtn)) return NewProductRxCheckBox;
+        if (ReferenceEquals(current, CancelNewProductBtn)) return NewProductRxCheckBox;
         return null;
     }
 
-    private Control? GetDownEditProductField(Control current)
+    private Control? GetDownProductField(Control current)
     {
-        // Row 0 -> Row 1
-        if (ReferenceEquals(current, EditProductNameBox)) return EditSaltCompositionBox;
-        if (ReferenceEquals(current, EditGenericNameBox)) return EditManufacturerBox;
+        if (ReferenceEquals(current, NewProductNameBox)) return NewProductStockTypeComboBox;
+        if (ReferenceEquals(current, NewProductManufacturerBox))
+        {
+            if (ViewModel.IsTabletOrCapsule) return NewProductStripCountBox;
+            if (ViewModel.IsVolumeMlType) return NewProductVolumeMlComboBox;
+            if (ViewModel.IsWeightGmType) return NewProductWeightGmComboBox;
+            return NewProductPackOptionsBox;
+        }
+        if (ReferenceEquals(current, NewProductStockTypeComboBox)) return NewProductHsnBox;
+        if (ReferenceEquals(current, NewProductStripCountBox) ||
+            ReferenceEquals(current, NewProductPcsPerStripBox) ||
+            ReferenceEquals(current, NewProductVolumeMlComboBox) ||
+            ReferenceEquals(current, NewProductWeightGmComboBox) ||
+            ReferenceEquals(current, NewProductPackOptionsBox)) return NewProductTaxComboBox;
 
-        // Row 1 -> Row 2
-        if (ReferenceEquals(current, EditSaltCompositionBox)) return EditCategoryNameBox;
-        if (ReferenceEquals(current, EditManufacturerBox)) return EditGstRatePercentBox;
-
-        // Row 2 -> Row 3
-        if (ReferenceEquals(current, EditCategoryNameBox)) return EditScheduleComboBox;
-        if (ReferenceEquals(current, EditHsnCodeBox)) return EditScheduleComboBox;
-        if (ReferenceEquals(current, EditGstRatePercentBox)) return EditMinStockAlertBox;
-
-        // Row 3 -> Row 4
-        if (ReferenceEquals(current, EditScheduleComboBox)) return EditBatchNumberBox;
-        if (ReferenceEquals(current, EditMinStockAlertBox)) return EditExpiryDatePicker;
-
-        // Row 4 -> Row 5
-        if (ReferenceEquals(current, EditBatchNumberBox)) return EditMrpBox;
-        if (ReferenceEquals(current, EditExpiryDatePicker)) return EditSaleRateBox;
-
-        // Row 5 -> Row 6 (Buttons)
-        if (ReferenceEquals(current, EditMrpBox)) return CancelEditProductButton;
-        if (ReferenceEquals(current, EditPurchaseRateBox)) return SaveEditProductButton;
-        if (ReferenceEquals(current, EditSaleRateBox)) return SaveEditProductButton;
-
-        // Row 6 -> wrap to top
-        if (ReferenceEquals(current, CancelEditProductButton)) return EditProductNameBox;
-        if (ReferenceEquals(current, SaveEditProductButton)) return EditGenericNameBox;
-
+        if (ReferenceEquals(current, NewProductHsnBox)) return NewProductMrpBox;
+        if (ReferenceEquals(current, NewProductTaxComboBox)) return NewProductBuyingPriceBox;
+        if (ReferenceEquals(current, NewProductMrpBox)) return NewProductInitialStockQtyBox;
+        if (ReferenceEquals(current, NewProductBuyingPriceBox)) return NewProductBatchBox;
+        if (ReferenceEquals(current, NewProductInitialStockQtyBox) ||
+            ReferenceEquals(current, NewProductBatchBox) ||
+            ReferenceEquals(current, NewProductExpiryBox)) return NewProductRxCheckBox;
+        if (ReferenceEquals(current, NewProductRxCheckBox)) return SaveNewProductBtn;
+        if (ReferenceEquals(current, CancelNewProductBtn)) return NewProductNameBox;
+        if (ReferenceEquals(current, SaveNewProductBtn)) return NewProductManufacturerBox;
         return null;
     }
 
-    private Control? GetUpEditProductField(Control current)
+    private Control? GetUpProductField(Control current)
     {
-        // Row 6 -> Row 5
-        if (ReferenceEquals(current, CancelEditProductButton)) return EditMrpBox;
-        if (ReferenceEquals(current, SaveEditProductButton)) return EditSaleRateBox;
-
-        // Row 5 -> Row 4
-        if (ReferenceEquals(current, EditMrpBox)) return EditBatchNumberBox;
-        if (ReferenceEquals(current, EditPurchaseRateBox)) return EditBatchNumberBox;
-        if (ReferenceEquals(current, EditSaleRateBox)) return EditExpiryDatePicker;
-
-        // Row 4 -> Row 3
-        if (ReferenceEquals(current, EditBatchNumberBox)) return EditScheduleComboBox;
-        if (ReferenceEquals(current, EditExpiryDatePicker)) return EditMinStockAlertBox;
-
-        // Row 3 -> Row 2
-        if (ReferenceEquals(current, EditScheduleComboBox)) return EditCategoryNameBox;
-        if (ReferenceEquals(current, EditMinStockAlertBox)) return EditGstRatePercentBox;
-
-        // Row 2 -> Row 1
-        if (ReferenceEquals(current, EditCategoryNameBox)) return EditSaltCompositionBox;
-        if (ReferenceEquals(current, EditHsnCodeBox)) return EditSaltCompositionBox;
-        if (ReferenceEquals(current, EditGstRatePercentBox)) return EditManufacturerBox;
-
-        // Row 1 -> Row 0
-        if (ReferenceEquals(current, EditSaltCompositionBox)) return EditProductNameBox;
-        if (ReferenceEquals(current, EditManufacturerBox)) return EditGenericNameBox;
-
-        // Row 0 -> wrap to bottom
-        if (ReferenceEquals(current, EditProductNameBox)) return CancelEditProductButton;
-        if (ReferenceEquals(current, EditGenericNameBox)) return SaveEditProductButton;
+        if (ReferenceEquals(current, SaveNewProductBtn) || ReferenceEquals(current, CancelNewProductBtn)) return NewProductRxCheckBox;
+        if (ReferenceEquals(current, NewProductRxCheckBox)) return NewProductInitialStockQtyBox;
+        if (ReferenceEquals(current, NewProductInitialStockQtyBox)) return NewProductMrpBox;
+        if (ReferenceEquals(current, NewProductBatchBox) || ReferenceEquals(current, NewProductExpiryBox)) return NewProductBuyingPriceBox;
+        if (ReferenceEquals(current, NewProductMrpBox)) return NewProductHsnBox;
+        if (ReferenceEquals(current, NewProductBuyingPriceBox)) return NewProductTaxComboBox;
+        if (ReferenceEquals(current, NewProductHsnBox)) return NewProductStockTypeComboBox;
+        if (ReferenceEquals(current, NewProductTaxComboBox))
+        {
+            if (ViewModel.IsTabletOrCapsule) return NewProductStripCountBox;
+            if (ViewModel.IsVolumeMlType) return NewProductVolumeMlComboBox;
+            if (ViewModel.IsWeightGmType) return NewProductWeightGmComboBox;
+            return NewProductPackOptionsBox;
+        }
+        if (ReferenceEquals(current, NewProductStockTypeComboBox)) return NewProductNameBox;
+        if (ReferenceEquals(current, NewProductStripCountBox) ||
+            ReferenceEquals(current, NewProductPcsPerStripBox) ||
+            ReferenceEquals(current, NewProductVolumeMlComboBox) ||
+            ReferenceEquals(current, NewProductWeightGmComboBox) ||
+            ReferenceEquals(current, NewProductPackOptionsBox)) return NewProductManufacturerBox;
 
         return null;
     }

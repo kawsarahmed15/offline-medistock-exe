@@ -10,9 +10,6 @@ using System.Threading.Tasks;
 using Medistock.Contracts.Auth;
 using Medistock.Infrastructure.Data;
 using Medistock.Infrastructure.Identity.Models;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 
 namespace Medistock.Infrastructure.Identity.Services;
 
@@ -226,88 +223,107 @@ public class ActivationService : IActivationService
     {
         try
         {
-            // In development mode (when public key is the placeholder), bypass signature validation
-            // Remove this block when you replace the placeholder with your real key
-            if (PublicKeyPem.Contains("PLACEHOLDER"))
+            if (string.IsNullOrWhiteSpace(rawJwt)) return null;
+            var parts = rawJwt.Split('.');
+            if (parts.Length != 3) return null;
+
+            // In non-dev mode, verify RSA-SHA256 signature
+            if (!PublicKeyPem.Contains("PLACEHOLDER"))
             {
-                return ParseJwtUnsafe(rawJwt);
+                var signedData = Encoding.UTF8.GetBytes($"{parts[0]}.{parts[1]}");
+                var signature = Base64UrlDecode(parts[2]);
+
+                using var rsa = RSA.Create();
+                rsa.ImportFromPem(PublicKeyPem);
+                if (!rsa.VerifyData(signedData, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
+                {
+                    return null; // Invalid signature
+                }
             }
 
-            var rsa = RSA.Create();
-            rsa.ImportFromPem(PublicKeyPem);
-            var securityKey = new RsaSecurityKey(rsa);
-
-            var handler = new JwtSecurityTokenHandler();
-            var validationParams = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = securityKey,
-                ValidateIssuer = false,    // Issuer validation optional — add if you set iss claim
-                ValidateAudience = false,  // Audience validation optional
-                ValidateLifetime = false,  // We handle expiry ourselves (grace period logic)
-                ClockSkew = TimeSpan.Zero
-            };
-
-            var principal = handler.ValidateToken(rawJwt, validationParams, out var validatedToken);
-            return ExtractLicenseToken(principal, rawJwt);
+            return ParseJwtPayload(parts[1], rawJwt);
         }
         catch
         {
-            return null; // Invalid signature or malformed token
+            return null; // Invalid token or malformed data
         }
     }
 
-    /// <summary>
-    /// Used only when PublicKeyPem is the placeholder (dev mode).
-    /// DO NOT USE IN PRODUCTION — this skips signature verification!
-    /// </summary>
-    private static LicenseToken? ParseJwtUnsafe(string rawJwt)
+    private static LicenseToken? ParseJwtPayload(string base64UrlPayload, string rawJwt)
     {
         try
         {
-            var handler = new JwtSecurityTokenHandler();
-            if (!handler.CanReadToken(rawJwt)) return null;
-            var token = handler.ReadJwtToken(rawJwt);
+            var jsonBytes = Base64UrlDecode(base64UrlPayload);
+            using var doc = JsonDocument.Parse(jsonBytes);
+            var root = doc.RootElement;
+
+            var orgId = GetStringClaim(root, "org_id", "DEV-ORG");
+            var orgName = GetStringClaim(root, "org_name", "Development");
+            var userId = GetStringClaim(root, "sub", GetStringClaim(root, "nameid", "dev-user"));
+            var userEmail = GetStringClaim(root, "email", "dev@medistock.local");
+            var deviceId = GetStringClaim(root, "device_id", "dev-device");
+            var plan = GetStringClaim(root, "plan", "pharmacy_pro");
+
+            var iatUnix = GetLongClaim(root, "iat", 0);
+            var expUnix = GetLongClaim(root, "exp", 0);
+
+            var issuedAt = iatUnix > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(iatUnix).UtcDateTime
+                : DateTime.UtcNow;
+
+            var expiresAt = expUnix > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime
+                : DateTime.UtcNow.AddDays(30);
 
             return new LicenseToken
             {
-                OrgId = token.Claims.FirstOrDefault(c => c.Type == "org_id")?.Value ?? "DEV-ORG",
-                OrgName = token.Claims.FirstOrDefault(c => c.Type == "org_name")?.Value ?? "Development",
-                UserId = token.Claims.FirstOrDefault(c => c.Type == "sub")?.Value ?? "dev-user",
-                UserEmail = token.Claims.FirstOrDefault(c => c.Type == "email")?.Value ?? "dev@medistock.local",
-                DeviceId = token.Claims.FirstOrDefault(c => c.Type == "device_id")?.Value ?? "dev-device",
-                Plan = token.Claims.FirstOrDefault(c => c.Type == "plan")?.Value ?? "pharmacy_pro",
-                IssuedAt = token.IssuedAt,
-                ExpiresAt = token.ValidTo,
+                OrgId = orgId,
+                OrgName = orgName,
+                UserId = userId,
+                UserEmail = userEmail,
+                DeviceId = deviceId,
+                Plan = plan,
+                IssuedAt = issuedAt,
+                ExpiresAt = expiresAt,
                 RawJwt = rawJwt
             };
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
     }
 
-    private static LicenseToken? ExtractLicenseToken(ClaimsPrincipal principal, string rawJwt)
+    private static string GetStringClaim(JsonElement root, string propertyName, string defaultValue = "")
     {
-        try
+        if (root.TryGetProperty(propertyName, out var element) && element.ValueKind == JsonValueKind.String)
         {
-            var expUnix = long.Parse(principal.FindFirst("exp")?.Value ?? "0");
-            var iatUnix = long.Parse(principal.FindFirst("iat")?.Value ?? "0");
-
-            return new LicenseToken
-            {
-                OrgId = principal.FindFirst("org_id")?.Value ?? string.Empty,
-                OrgName = principal.FindFirst("org_name")?.Value ?? string.Empty,
-                UserId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                      ?? principal.FindFirst("sub")?.Value ?? string.Empty,
-                UserEmail = principal.FindFirst(ClaimTypes.Email)?.Value
-                         ?? principal.FindFirst("email")?.Value ?? string.Empty,
-                DeviceId = principal.FindFirst("device_id")?.Value ?? string.Empty,
-                Plan = principal.FindFirst("plan")?.Value ?? string.Empty,
-                IssuedAt = DateTimeOffset.FromUnixTimeSeconds(iatUnix).UtcDateTime,
-                ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime,
-                RawJwt = rawJwt
-            };
+            return element.GetString() ?? defaultValue;
         }
-        catch { return null; }
+        return defaultValue;
+    }
+
+    private static long GetLongClaim(JsonElement root, string propertyName, long defaultValue = 0)
+    {
+        if (root.TryGetProperty(propertyName, out var element))
+        {
+            if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var val))
+                return val;
+            if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), out var parsed))
+                return parsed;
+        }
+        return defaultValue;
+    }
+
+    private static byte[] Base64UrlDecode(string input)
+    {
+        var output = input.Replace('-', '+').Replace('_', '/');
+        switch (output.Length % 4)
+        {
+            case 2: output += "=="; break;
+            case 3: output += "="; break;
+        }
+        return Convert.FromBase64String(output);
     }
 
     private static string? ReadFromCredentialVault()

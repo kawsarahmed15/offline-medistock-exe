@@ -133,7 +133,9 @@ public partial class InventoryViewModel : ObservableObject
 {
     private readonly IInventoryService _inventoryService;
     private readonly IInventoryExportService? _exportService;
+    private readonly Medistock.Application.Products.Commands.IProductService? _productService;
     private readonly string _warehouseId = "wh-1";
+    private readonly string _orgId = "org-1";
     private readonly List<StockSummaryItemDto> _allLoadedDtoItems = new();
 
 #pragma warning disable MVVMTK0045
@@ -183,6 +185,309 @@ public partial class InventoryViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasExportMessage))]
     private string _exportStatusMessage = string.Empty;
 
+    // --- Unified Add / Edit Product Modal Properties ---
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModalTitle))]
+    [NotifyPropertyChangedFor(nameof(ModalDescription))]
+    [NotifyPropertyChangedFor(nameof(ModalSaveButtonText))]
+    private bool _isEditingProduct;
+
+    [ObservableProperty]
+    private bool _isAddProductModalOpen;
+
+    public string ModalTitle => IsEditingProduct ? "✏️ Edit Product Details" : "💊 Add New Product to Database";
+    public string ModalDescription => IsEditingProduct ? "Update medicine master pricing, packaging & batch details in database." : "Register new medicine into database with pricing, packaging & initial stock.";
+    public string ModalSaveButtonText => IsEditingProduct ? "Update Product Details [Enter]" : "Save Product to DB [Enter]";
+
+    public ObservableCollection<string> StockTypeOptions { get; } = new()
+    {
+        "Tablet (Tab)",
+        "Capsule (Cap)",
+        "Syrup (Syp)",
+        "Injection (Inj)",
+        "Cream",
+        "Drop",
+        "Other"
+    };
+
+    public ObservableCollection<decimal> TaxRateOptions { get; } = new()
+    {
+        0.0m,
+        5.0m,
+        12.0m,
+        18.0m,
+        28.0m
+    };
+
+    public ObservableCollection<string> VolumeMlOptions { get; } = new()
+    {
+        "30ml", "60ml", "100ml", "150ml", "200ml", "400ml", "500ml"
+    };
+
+    public ObservableCollection<string> WeightGmOptions { get; } = new()
+    {
+        "5gm", "10gm", "15gm", "20gm", "30gm", "50gm", "100gm"
+    };
+
+    [ObservableProperty]
+    private string _editingProductId = string.Empty;
+
+    [ObservableProperty]
+    private string _editingBatchId = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductName = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductCategory = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductManufacturer = string.Empty;
+
+    private string _newProductStockType = "Tablet (Tab)";
+    public string NewProductStockType
+    {
+        get => _newProductStockType;
+        set
+        {
+            if (SetProperty(ref _newProductStockType, value))
+            {
+                OnPropertyChanged(nameof(IsTabletOrCapsule));
+                OnPropertyChanged(nameof(IsVolumeMlType));
+                OnPropertyChanged(nameof(IsWeightGmType));
+                OnPropertyChanged(nameof(IsGeneralType));
+                OnPropertyChanged(nameof(NewProductMrpHeader));
+                OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
+                OnPropertyChanged(nameof(NewProductStockBreakdownText));
+                OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+            }
+        }
+    }
+
+    public bool IsTabletOrCapsule => NewProductStockType is "Tablet (Tab)" or "Capsule (Cap)";
+    public bool IsVolumeMlType => NewProductStockType is "Syrup (Syp)" or "Injection (Inj)" or "Drop";
+    public bool IsWeightGmType => NewProductStockType is "Cream";
+    public bool IsGeneralType => !IsTabletOrCapsule && !IsVolumeMlType && !IsWeightGmType;
+
+    private decimal _newProductStripCount = 1;
+    public decimal NewProductStripCount
+    {
+        get => _newProductStripCount;
+        set
+        {
+            if (SetProperty(ref _newProductStripCount, value))
+            {
+                if (IsTabletOrCapsule)
+                {
+                    _newProductInitialStockQty = value * _newProductPcsPerStrip;
+                    OnPropertyChanged(nameof(NewProductInitialStockQty));
+                    OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+                    OnPropertyChanged(nameof(NewProductStockBreakdownText));
+                }
+            }
+        }
+    }
+
+    public double NewProductStripCountDouble
+    {
+        get => (double)NewProductStripCount;
+        set => NewProductStripCount = (decimal)value;
+    }
+
+    private int _newProductPcsPerStrip = 10;
+    public int NewProductPcsPerStrip
+    {
+        get => _newProductPcsPerStrip;
+        set
+        {
+            var val = value > 0 ? value : 10;
+            if (SetProperty(ref _newProductPcsPerStrip, val))
+            {
+                if (IsTabletOrCapsule)
+                {
+                    _newProductInitialStockQty = _newProductStripCount * val;
+                    OnPropertyChanged(nameof(NewProductInitialStockQty));
+                    OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+                    OnPropertyChanged(nameof(NewProductStockBreakdownText));
+                    OnPropertyChanged(nameof(NewProductPieceMrp));
+                    OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+                    OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+                }
+            }
+        }
+    }
+
+    public double NewProductPcsPerStripDouble
+    {
+        get => NewProductPcsPerStrip;
+        set => NewProductPcsPerStrip = (int)value;
+    }
+
+    private int _newProductPackOptions = 10;
+    public int NewProductPackOptions
+    {
+        get => _newProductPackOptions;
+        set
+        {
+            var val = value > 0 ? value : 1;
+            if (SetProperty(ref _newProductPackOptions, val))
+            {
+                if (IsGeneralType)
+                {
+                    _newProductInitialStockQty = val;
+                    OnPropertyChanged(nameof(NewProductInitialStockQty));
+                    OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+                    OnPropertyChanged(nameof(NewProductStockBreakdownText));
+                }
+            }
+        }
+    }
+
+    public double NewProductPackOptionsDouble
+    {
+        get => NewProductPackOptions;
+        set => NewProductPackOptions = (int)value;
+    }
+
+    private decimal _newProductInitialStockQty = 10;
+    public decimal NewProductInitialStockQty
+    {
+        get => _newProductInitialStockQty;
+        set
+        {
+            if (SetProperty(ref _newProductInitialStockQty, value))
+            {
+                OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+                OnPropertyChanged(nameof(NewProductStockBreakdownText));
+            }
+        }
+    }
+
+    public double NewProductInitialStockQtyDouble
+    {
+        get => (double)NewProductInitialStockQty;
+        set => NewProductInitialStockQty = (decimal)value;
+    }
+
+    private decimal _newProductBuyingPrice = 0;
+    public decimal NewProductBuyingPrice
+    {
+        get => _newProductBuyingPrice;
+        set
+        {
+            if (SetProperty(ref _newProductBuyingPrice, value))
+            {
+                OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
+                OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+                OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+            }
+        }
+    }
+
+    public double NewProductBuyingPriceDouble
+    {
+        get => (double)NewProductBuyingPrice;
+        set => NewProductBuyingPrice = (decimal)value;
+    }
+
+    [ObservableProperty]
+    private decimal _newProductSellingPrice = 0;
+
+    public double NewProductSellingPriceDouble
+    {
+        get => (double)NewProductSellingPrice;
+        set => NewProductSellingPrice = (decimal)value;
+    }
+
+    private decimal _newProductMrp = 0;
+    public decimal NewProductMrp
+    {
+        get => _newProductMrp;
+        set
+        {
+            if (SetProperty(ref _newProductMrp, value))
+            {
+                OnPropertyChanged(nameof(NewProductMrpDouble));
+                OnPropertyChanged(nameof(NewProductPieceMrp));
+                OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+            }
+        }
+    }
+
+    public double NewProductMrpDouble
+    {
+        get => (double)NewProductMrp;
+        set => NewProductMrp = (decimal)value;
+    }
+
+    [ObservableProperty]
+    private string _newProductPackSizeText = "100ml";
+
+    [ObservableProperty]
+    private string _newProductExpiryText = string.Empty;
+
+    [ObservableProperty]
+    private DateTimeOffset _newProductExpiryDate = DateTimeOffset.UtcNow.AddYears(2);
+
+    [ObservableProperty]
+    private decimal _newProductTaxPercent = 12.0m;
+
+    [ObservableProperty]
+    private string _newProductBatch = string.Empty;
+
+    [ObservableProperty]
+    private string _newProductHsnCode = "3004";
+
+    [ObservableProperty]
+    private bool _newProductIsPrescriptionRequired = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNewProductValidationMessage))]
+    private string _newProductValidationMessage = string.Empty;
+
+    public bool HasNewProductValidationMessage => !string.IsNullOrWhiteSpace(NewProductValidationMessage);
+
+    public string NewProductMrpHeader => IsTabletOrCapsule ? "Strip MRP (₹) *" : "MRP (₹) *";
+    public string NewProductBuyingPriceHeader => IsTabletOrCapsule ? "Strip Buying Price (₹) *" : "Buying Price (₹) *";
+
+    public decimal NewProductPieceMrp => (IsTabletOrCapsule && NewProductPcsPerStrip > 0)
+        ? Math.Round(NewProductMrp / NewProductPcsPerStrip, 2)
+        : NewProductMrp;
+
+    public decimal NewProductPieceBuyingPrice => (IsTabletOrCapsule && NewProductPcsPerStrip > 0)
+        ? Math.Round(NewProductBuyingPrice / NewProductPcsPerStrip, 2)
+        : NewProductBuyingPrice;
+
+    public string NewProductPriceBreakdownText
+    {
+        get
+        {
+            if (IsTabletOrCapsule && NewProductPcsPerStrip > 0)
+            {
+                return $"💡 1 Strip = {NewProductPcsPerStrip} Pcs | MRP: ₹{NewProductPieceMrp:F2}/Pc | Buying: ₹{NewProductPieceBuyingPrice:F2}/Pc";
+            }
+            return $"💡 Unit MRP: ₹{NewProductMrp:F2} | Unit Buying Price: ₹{NewProductBuyingPrice:F2}";
+        }
+    }
+
+    public string NewProductStockBreakdownText
+    {
+        get
+        {
+            if (IsTabletOrCapsule && NewProductPcsPerStrip > 0)
+            {
+                int totalUnits = (int)Math.Max(0, NewProductInitialStockQty);
+                int strips = totalUnits / NewProductPcsPerStrip;
+                int loose = totalUnits % NewProductPcsPerStrip;
+                if (strips > 0 && loose > 0) return $"📦 Total: {strips} Strip {loose} Pc ({totalUnits} units)";
+                if (strips > 0) return $"📦 Total: {strips} Strip{(strips > 1 ? "s" : "")} ({totalUnits} units)";
+                if (loose > 0) return $"📦 Total: {loose} Pc{(loose > 1 ? "s" : "")}";
+            }
+            return $"📦 Total: {NewProductInitialStockQty:0.##} units";
+        }
+    }
+
+    // Legacy edit fields maintained for backwards compatibility
     [ObservableProperty]
     private bool _isEditProductModalOpen;
 
@@ -338,10 +643,19 @@ public partial class InventoryViewModel : ObservableObject
 
     public ObservableCollection<StockItemViewModel> StockItems { get; } = new();
 
-    public InventoryViewModel(IInventoryService inventoryService, IInventoryExportService? exportService = null)
+    public InventoryViewModel(
+        IInventoryService inventoryService,
+        IInventoryExportService? exportService = null,
+        Medistock.Application.Products.Commands.IProductService? productService = null)
     {
         _inventoryService = inventoryService;
         _exportService = exportService;
+        _productService = productService;
+    }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplyFilterAndDisplay();
     }
 
     [RelayCommand]
@@ -353,11 +667,11 @@ public partial class InventoryViewModel : ObservableObject
         {
             var results = await _inventoryService.GetStockSummaryAsync(
                 warehouseId: _warehouseId,
-                searchQuery: string.IsNullOrWhiteSpace(SearchText) ? null : SearchText,
+                searchQuery: null,
                 expiryBand: SelectedExpiryBand,
                 schedule: SelectedSchedule,
                 lowStockOnly: LowStockOnly,
-                limit: 1000
+                limit: 2000
             );
 
             _allLoadedDtoItems.Clear();
@@ -441,6 +755,20 @@ public partial class InventoryViewModel : ObservableObject
         else if (SelectedFilterTab == "ScheduleDrugs")
         {
             filtered = filtered.Where(i => i.IsScheduleDrug);
+        }
+
+        // Realtime Search Text Live Filtering
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            var terms = SearchText.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            filtered = filtered.Where(i => terms.All(t =>
+                (i.ProductName != null && i.ProductName.Contains(t, StringComparison.OrdinalIgnoreCase)) ||
+                (i.GenericName != null && i.GenericName.Contains(t, StringComparison.OrdinalIgnoreCase)) ||
+                (i.SaltComposition != null && i.SaltComposition.Contains(t, StringComparison.OrdinalIgnoreCase)) ||
+                (i.BatchNumber != null && i.BatchNumber.Contains(t, StringComparison.OrdinalIgnoreCase)) ||
+                (i.Manufacturer != null && i.Manufacturer.Contains(t, StringComparison.OrdinalIgnoreCase)) ||
+                (i.HsnCode != null && i.HsnCode.Contains(t, StringComparison.OrdinalIgnoreCase))
+            ));
         }
 
         StockItems.Clear();
@@ -634,91 +962,420 @@ public partial class InventoryViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void OpenAddProductModal(object? parameter = null)
+    {
+        IsEditingProduct = false;
+        EditingProductId = string.Empty;
+        EditingBatchId = string.Empty;
+        ResetNewProductForm();
+        IsAddProductModalOpen = true;
+    }
+
+    [RelayCommand]
     public void OpenEditProduct(StockItemViewModel? item)
     {
         if (item == null) return;
 
-        EditProductId = item.ProductId;
-        EditProductName = item.ProductName;
-        EditGenericName = item.GenericName;
-        EditSaltComposition = item.SaltComposition;
-        EditManufacturer = item.Manufacturer;
-        EditCategoryName = item.CategoryName;
-        EditHsnCode = item.HsnCode;
-        EditGstRatePercent = item.GstRatePercent;
-        EditScheduleIndex = (int)item.Schedule;
-        EditMinStockAlert = item.MinStockAlert;
+        IsEditingProduct = true;
+        EditingProductId = item.ProductId;
+        EditingBatchId = item.BatchId;
 
-        EditBatchId = item.BatchId;
-        EditBatchNumber = item.BatchNumber;
-        EditExpiryDate = item.ExpiryDate > DateTime.MinValue ? new DateTimeOffset(item.ExpiryDate) : DateTimeOffset.UtcNow.AddYears(1);
-        EditMrp = item.Mrp;
-        EditPurchaseRate = item.PurchaseRate;
-        EditSaleRate = item.SaleRate;
+        NewProductName = item.ProductName;
+        NewProductCategory = item.CategoryName;
+        NewProductManufacturer = item.Manufacturer;
 
-        EditErrorMessage = string.Empty;
-        IsEditProductModalOpen = true;
+        if (item.ProductName.Contains("Cap", StringComparison.OrdinalIgnoreCase))
+            NewProductStockType = "Capsule (Cap)";
+        else if (item.ProductName.Contains("Syp", StringComparison.OrdinalIgnoreCase) || item.ProductName.Contains("Syrup", StringComparison.OrdinalIgnoreCase))
+            NewProductStockType = "Syrup (Syp)";
+        else if (item.ProductName.Contains("Inj", StringComparison.OrdinalIgnoreCase) || item.ProductName.Contains("Injection", StringComparison.OrdinalIgnoreCase))
+            NewProductStockType = "Injection (Inj)";
+        else if (item.ProductName.Contains("Cream", StringComparison.OrdinalIgnoreCase) || item.ProductName.Contains("Ointment", StringComparison.OrdinalIgnoreCase) || item.ProductName.Contains("Gel", StringComparison.OrdinalIgnoreCase))
+            NewProductStockType = "Cream";
+        else if (item.ProductName.Contains("Drop", StringComparison.OrdinalIgnoreCase))
+            NewProductStockType = "Drop";
+        else
+            NewProductStockType = "Tablet (Tab)";
+
+        NewProductPcsPerStrip = 10;
+        NewProductStripCount = item.AvailableQuantity > 0 ? Math.Max(1, Math.Floor(item.AvailableQuantity / 10)) : 1;
+        NewProductPackOptions = 10;
+        NewProductInitialStockQty = item.AvailableQuantity;
+        NewProductBuyingPrice = item.PurchaseRate;
+        NewProductSellingPrice = item.SaleRate;
+        NewProductMrp = item.Mrp;
+        NewProductPackSizeText = "100ml";
+        NewProductExpiryDate = item.ExpiryDate > DateTime.MinValue ? new DateTimeOffset(item.ExpiryDate) : DateTimeOffset.UtcNow.AddYears(1);
+        NewProductExpiryText = item.ExpiryDate > DateTime.MinValue ? item.ExpiryDate.ToString("MM/yy") : string.Empty;
+        NewProductTaxPercent = item.GstRatePercent;
+        NewProductBatch = item.BatchNumber;
+        NewProductHsnCode = string.IsNullOrWhiteSpace(item.HsnCode) ? "3004" : item.HsnCode;
+        NewProductIsPrescriptionRequired = item.IsScheduleDrug;
+        NewProductValidationMessage = string.Empty;
+
+        OnPropertyChanged(nameof(IsTabletOrCapsule));
+        OnPropertyChanged(nameof(IsVolumeMlType));
+        OnPropertyChanged(nameof(IsWeightGmType));
+        OnPropertyChanged(nameof(IsGeneralType));
+        OnPropertyChanged(nameof(NewProductStripCountDouble));
+        OnPropertyChanged(nameof(NewProductPcsPerStripDouble));
+        OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+        OnPropertyChanged(nameof(NewProductMrpDouble));
+        OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
+        OnPropertyChanged(nameof(NewProductSellingPriceDouble));
+        OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+        OnPropertyChanged(nameof(NewProductMrpHeader));
+        OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
+        OnPropertyChanged(nameof(HasNewProductValidationMessage));
+        OnPropertyChanged(nameof(ModalTitle));
+        OnPropertyChanged(nameof(ModalDescription));
+        OnPropertyChanged(nameof(ModalSaveButtonText));
+
+        IsAddProductModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseAddProductModal()
+    {
+        IsAddProductModalOpen = false;
+        IsEditProductModalOpen = false;
+        NewProductValidationMessage = string.Empty;
+        ResetNewProductForm();
     }
 
     [RelayCommand]
     public void CloseEditProduct()
     {
-        IsEditProductModalOpen = false;
-        EditErrorMessage = string.Empty;
+        CloseAddProductModal();
+    }
+
+    public void ResetNewProductForm()
+    {
+        NewProductName = string.Empty;
+        NewProductCategory = string.Empty;
+        NewProductManufacturer = string.Empty;
+        NewProductStockType = "Tablet (Tab)";
+        NewProductStripCount = 1;
+        NewProductPcsPerStrip = 10;
+        NewProductPackOptions = 10;
+        NewProductInitialStockQty = 10;
+        NewProductBuyingPrice = 0;
+        NewProductSellingPrice = 0;
+        NewProductMrp = 0;
+        NewProductPackSizeText = "100ml";
+        NewProductExpiryText = string.Empty;
+        NewProductExpiryDate = DateTimeOffset.UtcNow.AddYears(2);
+        NewProductTaxPercent = SettingsViewModel.GetDefaultGstRate();
+        NewProductBatch = string.Empty;
+        NewProductHsnCode = "3004";
+        NewProductIsPrescriptionRequired = false;
+        NewProductValidationMessage = string.Empty;
+
+        OnPropertyChanged(nameof(IsTabletOrCapsule));
+        OnPropertyChanged(nameof(IsVolumeMlType));
+        OnPropertyChanged(nameof(IsWeightGmType));
+        OnPropertyChanged(nameof(IsGeneralType));
+        OnPropertyChanged(nameof(NewProductStripCountDouble));
+        OnPropertyChanged(nameof(NewProductPcsPerStripDouble));
+        OnPropertyChanged(nameof(NewProductPackOptionsDouble));
+        OnPropertyChanged(nameof(NewProductMrpDouble));
+        OnPropertyChanged(nameof(NewProductBuyingPriceDouble));
+        OnPropertyChanged(nameof(NewProductSellingPriceDouble));
+        OnPropertyChanged(nameof(NewProductInitialStockQtyDouble));
+        OnPropertyChanged(nameof(NewProductStockBreakdownText));
+        OnPropertyChanged(nameof(NewProductPieceMrp));
+        OnPropertyChanged(nameof(NewProductPieceBuyingPrice));
+        OnPropertyChanged(nameof(NewProductPriceBreakdownText));
+        OnPropertyChanged(nameof(NewProductMrpHeader));
+        OnPropertyChanged(nameof(NewProductBuyingPriceHeader));
+        OnPropertyChanged(nameof(HasNewProductValidationMessage));
+    }
+
+    public void SelectNextStockType()
+    {
+        var idx = StockTypeOptions.IndexOf(NewProductStockType);
+        if (idx >= 0 && idx < StockTypeOptions.Count - 1)
+        {
+            NewProductStockType = StockTypeOptions[idx + 1];
+        }
+        else
+        {
+            NewProductStockType = StockTypeOptions[0];
+        }
+    }
+
+    public void SelectPreviousStockType()
+    {
+        var idx = StockTypeOptions.IndexOf(NewProductStockType);
+        if (idx > 0)
+        {
+            NewProductStockType = StockTypeOptions[idx - 1];
+        }
+        else
+        {
+            NewProductStockType = StockTypeOptions[^1];
+        }
+    }
+
+    public void SelectNextTaxRate()
+    {
+        if (TaxRateOptions.Count == 0) return;
+        int idx = TaxRateOptions.IndexOf(NewProductTaxPercent);
+        if (idx == -1) idx = 0;
+        else idx = (idx + 1) % TaxRateOptions.Count;
+        NewProductTaxPercent = TaxRateOptions[idx];
+    }
+
+    public void SelectPreviousTaxRate()
+    {
+        if (TaxRateOptions.Count == 0) return;
+        int idx = TaxRateOptions.IndexOf(NewProductTaxPercent);
+        if (idx == -1 || idx == 0) idx = TaxRateOptions.Count - 1;
+        else idx--;
+        NewProductTaxPercent = TaxRateOptions[idx];
+    }
+
+    public void SelectNextPackSize()
+    {
+        if (IsVolumeMlType)
+        {
+            if (VolumeMlOptions.Count == 0) return;
+            int idx = VolumeMlOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1) idx = 0;
+            else idx = (idx + 1) % VolumeMlOptions.Count;
+            NewProductPackSizeText = VolumeMlOptions[idx];
+        }
+        else if (IsWeightGmType)
+        {
+            if (WeightGmOptions.Count == 0) return;
+            int idx = WeightGmOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1) idx = 0;
+            else idx = (idx + 1) % WeightGmOptions.Count;
+            NewProductPackSizeText = WeightGmOptions[idx];
+        }
+        else if (IsGeneralType)
+        {
+            NewProductPackOptionsDouble = Math.Max(1, NewProductPackOptionsDouble + 1);
+        }
+        else if (IsTabletOrCapsule)
+        {
+            NewProductPcsPerStripDouble = Math.Max(1, NewProductPcsPerStripDouble + 1);
+        }
+    }
+
+    public void SelectPreviousPackSize()
+    {
+        if (IsVolumeMlType)
+        {
+            if (VolumeMlOptions.Count == 0) return;
+            int idx = VolumeMlOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1 || idx == 0) idx = VolumeMlOptions.Count - 1;
+            else idx--;
+            NewProductPackSizeText = VolumeMlOptions[idx];
+        }
+        else if (IsWeightGmType)
+        {
+            if (WeightGmOptions.Count == 0) return;
+            int idx = WeightGmOptions.IndexOf(NewProductPackSizeText);
+            if (idx == -1 || idx == 0) idx = WeightGmOptions.Count - 1;
+            else idx--;
+            NewProductPackSizeText = WeightGmOptions[idx];
+        }
+        else if (IsGeneralType)
+        {
+            NewProductPackOptionsDouble = Math.Max(1, NewProductPackOptionsDouble - 1);
+        }
+        else if (IsTabletOrCapsule)
+        {
+            NewProductPcsPerStripDouble = Math.Max(1, NewProductPcsPerStripDouble - 1);
+        }
     }
 
     [RelayCommand]
-    public async Task SaveProductDetailsAsync()
+    public async Task SaveNewProductAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditProductName))
+        if (string.IsNullOrWhiteSpace(NewProductName))
         {
-            EditErrorMessage = "Product name is required.";
+            NewProductValidationMessage = "⚠️ Product Name is required.";
             return;
         }
 
+        if (NewProductMrp <= 0)
+        {
+            NewProductValidationMessage = "⚠️ MRP must be greater than zero.";
+            return;
+        }
+
+        if (NewProductBuyingPrice > NewProductMrp)
+        {
+            NewProductValidationMessage = "⚠️ Buying price cannot exceed MRP.";
+            return;
+        }
+
+        DateTimeOffset expiryDate = NewProductExpiryDate;
+        if (!string.IsNullOrWhiteSpace(NewProductExpiryText))
+        {
+            var parts = NewProductExpiryText.Trim().Split(new[] { '/', '-' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2 && int.TryParse(parts[0], out var m) && int.TryParse(parts[1], out var y) && m >= 1 && m <= 12)
+            {
+                int fullYear = y < 100 ? (y < 70 ? 2000 + y : 1900 + y) : y;
+                expiryDate = new DateTimeOffset(new DateTime(fullYear, m, 1, 0, 0, 0, DateTimeKind.Utc));
+            }
+        }
+
+        var batchNo = string.IsNullOrWhiteSpace(NewProductBatch) ? "B1" : NewProductBatch.Trim().ToUpperInvariant();
+        var expiryToUse = expiryDate != default ? expiryDate.UtcDateTime : DateTime.UtcNow.AddYears(2);
+
+        DosageForm dosageForm;
+        string baseUnit;
+        switch (NewProductStockType)
+        {
+            case "Tablet (Tab)":
+                dosageForm = DosageForm.Tablet;
+                baseUnit = "TAB";
+                break;
+            case "Capsule (Cap)":
+                dosageForm = DosageForm.Capsule;
+                baseUnit = "CAP";
+                break;
+            case "Syrup (Syp)":
+                dosageForm = DosageForm.Syrup;
+                baseUnit = "BTL";
+                break;
+            case "Injection (Inj)":
+                dosageForm = DosageForm.Injection;
+                baseUnit = "VIAL";
+                break;
+            case "Cream":
+                dosageForm = DosageForm.Cream;
+                baseUnit = "TUBE";
+                break;
+            case "Drop":
+                dosageForm = DosageForm.Drops;
+                baseUnit = "BTL";
+                break;
+            default:
+                dosageForm = DosageForm.Other;
+                baseUnit = "UNIT";
+                break;
+        }
+
+        int packUnits = IsTabletOrCapsule
+            ? (NewProductPcsPerStrip > 0 ? NewProductPcsPerStrip : 10)
+            : (NewProductPackOptions > 0 ? NewProductPackOptions : 1);
+
+        string strengthSpec = IsTabletOrCapsule
+            ? $"{NewProductPcsPerStrip} Tabs/Strip"
+            : (string.IsNullOrWhiteSpace(NewProductPackSizeText) ? string.Empty : NewProductPackSizeText.Trim());
+
+        var schedule = NewProductIsPrescriptionRequired ? DrugSchedule.ScheduleH : DrugSchedule.OTC;
+
+        var pieceMrp = IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductMrp / NewProductPcsPerStrip, 4)
+            : NewProductMrp;
+        var piecePurchaseRate = IsTabletOrCapsule && NewProductPcsPerStrip > 0
+            ? Math.Round(NewProductBuyingPrice / NewProductPcsPerStrip, 4)
+            : NewProductBuyingPrice;
+        var pieceSaleRate = pieceMrp;
+
         IsSavingProduct = true;
-        EditErrorMessage = string.Empty;
+        NewProductValidationMessage = string.Empty;
 
         try
         {
-            var command = new UpdateProductDetailsCommand(
-                ProductId: EditProductId,
-                ProductName: EditProductName.Trim(),
-                GenericName: string.IsNullOrWhiteSpace(EditGenericName) ? null : EditGenericName.Trim(),
-                SaltComposition: string.IsNullOrWhiteSpace(EditSaltComposition) ? null : EditSaltComposition.Trim(),
-                Manufacturer: string.IsNullOrWhiteSpace(EditManufacturer) ? null : EditManufacturer.Trim(),
-                CategoryName: string.IsNullOrWhiteSpace(EditCategoryName) ? null : EditCategoryName.Trim(),
-                HsnCode: string.IsNullOrWhiteSpace(EditHsnCode) ? "3004" : EditHsnCode.Trim(),
-                GstRatePercent: EditGstRatePercent,
-                Schedule: (DrugSchedule)EditScheduleIndex,
-                MinStockAlert: EditMinStockAlert,
-                BatchId: string.IsNullOrWhiteSpace(EditBatchId) ? null : EditBatchId,
-                BatchNumber: string.IsNullOrWhiteSpace(EditBatchNumber) ? null : EditBatchNumber.Trim(),
-                ExpiryDate: EditExpiryDate.UtcDateTime,
-                Mrp: EditMrp,
-                PurchaseRate: EditPurchaseRate,
-                SaleRate: EditSaleRate
-            );
-
-            var result = await _inventoryService.UpdateProductDetailsAsync(command);
-            if (result.Success)
+            if (IsEditingProduct && !string.IsNullOrWhiteSpace(EditingProductId))
             {
-                IsEditProductModalOpen = false;
-                await LoadStocksAsync();
+                var command = new UpdateProductDetailsCommand(
+                    ProductId: EditingProductId,
+                    ProductName: NewProductName.Trim(),
+                    GenericName: null,
+                    SaltComposition: null,
+                    Manufacturer: string.IsNullOrWhiteSpace(NewProductManufacturer) ? null : NewProductManufacturer.Trim(),
+                    CategoryName: string.IsNullOrWhiteSpace(NewProductCategory) ? null : NewProductCategory.Trim(),
+                    HsnCode: string.IsNullOrWhiteSpace(NewProductHsnCode) ? "3004" : NewProductHsnCode.Trim(),
+                    GstRatePercent: NewProductTaxPercent,
+                    Schedule: schedule,
+                    MinStockAlert: 10m,
+                    BatchId: string.IsNullOrWhiteSpace(EditingBatchId) ? null : EditingBatchId,
+                    BatchNumber: batchNo,
+                    ExpiryDate: expiryToUse,
+                    Mrp: pieceMrp,
+                    PurchaseRate: piecePurchaseRate,
+                    SaleRate: pieceSaleRate
+                );
+
+                var result = await _inventoryService.UpdateProductDetailsAsync(command);
+                if (result.Success)
+                {
+                    IsAddProductModalOpen = false;
+                    IsEditProductModalOpen = false;
+                    await LoadStocksAsync();
+                }
+                else
+                {
+                    NewProductValidationMessage = result.ErrorMessage ?? "Failed to update product details.";
+                }
             }
             else
             {
-                EditErrorMessage = result.ErrorMessage ?? "Failed to update product details.";
+                if (_productService != null)
+                {
+                    var cmd = new Medistock.Application.Products.Commands.CreateProductWithBatchCommand(
+                        OrgId: _orgId,
+                        WarehouseId: _warehouseId,
+                        Name: NewProductName.Trim(),
+                        BrandName: NewProductName.Trim(),
+                        GenericName: string.Empty,
+                        Composition: string.Empty,
+                        Strength: strengthSpec,
+                        DosageForm: dosageForm,
+                        PackUnits: packUnits,
+                        BaseUnit: baseUnit,
+                        HsnCode: string.IsNullOrWhiteSpace(NewProductHsnCode) ? "3004" : NewProductHsnCode.Trim(),
+                        GstRatePercent: NewProductTaxPercent,
+                        Schedule: schedule,
+                        PrimaryBarcode: null,
+                        ManufacturerName: string.IsNullOrWhiteSpace(NewProductManufacturer) ? null : NewProductManufacturer.Trim(),
+                        IsColdChain: false,
+                        BatchNumber: batchNo,
+                        ExpiryDate: expiryToUse,
+                        Mrp: pieceMrp,
+                        PurchaseRate: piecePurchaseRate,
+                        SaleRate: pieceSaleRate,
+                        OpeningQuantity: NewProductInitialStockQty
+                    );
+
+                    var res = await _productService.CreateProductWithBatchAsync(cmd);
+                    if (!res.Success)
+                    {
+                        NewProductValidationMessage = $"⚠️ {res.ErrorMessage}";
+                        return;
+                    }
+                }
+
+                IsAddProductModalOpen = false;
+                IsEditProductModalOpen = false;
+                await LoadStocksAsync();
             }
         }
         catch (Exception ex)
         {
-            EditErrorMessage = ex.Message;
+            NewProductValidationMessage = $"❌ {ex.Message}";
         }
         finally
         {
             IsSavingProduct = false;
         }
+    }
+
+    [RelayCommand]
+    public async Task SaveProductDetailsAsync()
+    {
+        await SaveNewProductAsync();
     }
 
     partial void OnMetricDetailSearchTextChanged(string value)

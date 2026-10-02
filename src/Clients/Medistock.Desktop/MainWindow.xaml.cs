@@ -72,14 +72,86 @@ public sealed partial class MainWindow : Window
         _activationService = App.Services.GetService<IActivationService>();
         _ = CheckActivationAsync();
 
-        RootGrid.KeyDown += (s, e) =>
+        RootGrid.AddHandler(UIElement.PreviewKeyDownEvent, new KeyEventHandler((s, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.F7)
             {
                 NavigateToSaleHistory();
                 e.Handled = true;
             }
-        };
+            else if (e.Key == Windows.System.VirtualKey.F4)
+            {
+                NavigateToPurchases();
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.F2)
+            {
+                if (ContentFrame.Content is PurchaseEntryPage purchasePage && !purchasePage.ViewModel.IsPurchaseEntryScreenOpen)
+                {
+                    purchasePage.ViewModel.OpenPurchaseEntry();
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Windows.System.VirtualKey.Escape)
+            {
+                if (ContentFrame.Content is PurchaseEntryPage purchasePage)
+                {
+                    if (purchasePage.ViewModel.IsPurchaseEntryScreenOpen)
+                    {
+                        if (purchasePage.ViewModel.IsExitConfirmDialogOpen)
+                        {
+                            purchasePage.ViewModel.CancelExitDialog();
+                            e.Handled = true;
+                        }
+                        else if (purchasePage.ViewModel.IsSaveSummaryModalOpen)
+                        {
+                            purchasePage.ViewModel.CancelSaveSummary();
+                            e.Handled = true;
+                        }
+                        else if (purchasePage.ViewModel.IsAddProductModalOpen)
+                        {
+                            purchasePage.ViewModel.CloseAddProductModal();
+                            e.Handled = true;
+                        }
+                        else if (purchasePage.ViewModel.IsAddSupplierModalOpen)
+                        {
+                            purchasePage.ViewModel.CloseAddSupplierModalCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                        else if (purchasePage.ViewModel.HasProductSearchResults || purchasePage.ViewModel.IsProductSearchOpen)
+                        {
+                            purchasePage.ViewModel.HasProductSearchResults = false;
+                            purchasePage.ViewModel.IsProductSearchOpen = false;
+                            e.Handled = true;
+                        }
+                        else
+                        {
+                            purchasePage.ViewModel.RequestClosePurchaseEntry();
+                            e.Handled = true;
+                        }
+                    }
+                    else
+                    {
+                        // On master purchase ledger screen, Escape navigates to POS (home screen)
+                        NavigateToPos();
+                        e.Handled = true;
+                    }
+                }
+            }
+        }), handledEventsToo: true);
+    }
+
+    public void NavigateToPos()
+    {
+        foreach (var menuItem in NavView.MenuItems)
+        {
+            if (menuItem is NavigationViewItem nvi && (string)nvi.Tag == "pos")
+            {
+                NavView.SelectedItem = nvi;
+                break;
+            }
+        }
+        ContentFrame.Content = App.Services.GetRequiredService<PosPage>();
     }
 
     public void NavigateToSaleHistory()

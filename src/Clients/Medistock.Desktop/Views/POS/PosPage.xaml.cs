@@ -98,6 +98,13 @@ public sealed partial class PosPage : Page
                     CancelCloseTabButton.Focus(FocusState.Programmatic);
                 });
             }
+            else if (ev.PropertyName == nameof(PosViewModel.IsExitAppConfirmationOpen) && ViewModel.IsExitAppConfirmationOpen)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    CancelExitAppButton?.Focus(FocusState.Programmatic);
+                });
+            }
             else if (ev.PropertyName == nameof(PosViewModel.IsCreateProductModalOpen))
             {
                 if (ViewModel.IsCreateProductModalOpen)
@@ -1087,6 +1094,14 @@ public sealed partial class PosPage : Page
 
         if (e.Key == VirtualKey.Escape)
         {
+            if (ViewModel.IsExitAppConfirmationOpen)
+            {
+                ViewModel.CloseExitAppConfirmation();
+                SearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
             if (ViewModel.IsPrintPromptOpen)
             {
                 ViewModel.SkipPrint();
@@ -1142,6 +1157,23 @@ public sealed partial class PosPage : Page
                 e.Handled = true;
                 return;
             }
+
+            if (SearchResultsPopup != null && SearchResultsPopup.IsOpen)
+            {
+                SearchResultsPopup.IsOpen = false;
+                ViewModel.HasSearchResults = false;
+                e.Handled = true;
+                return;
+            }
+
+            // If no other modal or dropdown is active, prompt to Exit Medistock App
+            ViewModel.OpenExitAppConfirmation();
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                CancelExitAppButton?.Focus(FocusState.Programmatic);
+            });
+            e.Handled = true;
+            return;
         }
 
         if (_shortcutService.TryExecuteShortcut(e.Key, isCtrl, isAlt, isShift, "POS"))
@@ -2790,6 +2822,58 @@ public sealed partial class PosPage : Page
             else
             {
                 CancelCloseTabButton.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void CancelExitAppButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseExitAppConfirmation();
+        SearchBox?.Focus(FocusState.Programmatic);
+    }
+
+    private void ConfirmExitAppButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseExitAppConfirmation();
+        Microsoft.UI.Xaml.Application.Current.Exit();
+    }
+
+    private void ExitAppModalBtn_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, ConfirmExitAppButton))
+            {
+                ViewModel.CloseExitAppConfirmation();
+                Microsoft.UI.Xaml.Application.Current.Exit();
+            }
+            else
+            {
+                ViewModel.CloseExitAppConfirmation();
+                SearchBox?.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CloseExitAppConfirmation();
+            SearchBox?.Focus(FocusState.Programmatic);
+            e.Handled = true;
+        }
+    }
+
+    private void ExitAppModalBtn_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Right || e.Key == VirtualKey.Left || e.Key == VirtualKey.Down || e.Key == VirtualKey.Up)
+        {
+            if (ReferenceEquals(sender, CancelExitAppButton))
+            {
+                ConfirmExitAppButton?.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                CancelExitAppButton?.Focus(FocusState.Programmatic);
             }
             e.Handled = true;
         }

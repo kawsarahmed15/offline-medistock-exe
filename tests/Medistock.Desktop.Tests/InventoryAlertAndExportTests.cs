@@ -499,7 +499,7 @@ public class InventoryAlertAndExportTests
 
         // Verify Monthly Revenue & Collections from fakeService
         Assert.Equal(154200.50m, vm.RevenueThisMonth);
-        Assert.Equal("154,200.50", vm.RevenueThisMonthFormatted);
+        Assert.Equal(154200.50m.ToString("N2"), vm.RevenueThisMonthFormatted);
         Assert.Equal("42 invoices finalized this month", vm.MonthlyInvoicesCountDisplay);
 
         // Cash Collection

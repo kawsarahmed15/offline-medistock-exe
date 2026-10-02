@@ -1014,7 +1014,7 @@ public class PurchaseViewModelAndExportTests
         await vm.LoadKpisAsync();
 
         Assert.Equal(154500m, vm.TotalStockValue);
-        Assert.Equal("₹154,500.00", vm.TotalStockValueFormatted);
+        Assert.Equal($"₹{154500m:N2}", vm.TotalStockValueFormatted);
         Assert.Equal(22400m, vm.TotalPurchasesAmount);
         Assert.Equal(1, vm.TotalInvoicesCount);
         Assert.Equal(2, vm.TotalSuppliersCount);
@@ -1173,7 +1173,7 @@ public class PurchaseViewModelAndExportTests
         Assert.Equal("APEX/2026/001", vm.SupplierInvoiceNo);
         Assert.Equal("Apex Pharma Wholesalers", vm.SelectedSupplierName);
         Assert.Equal("Entry", vm.SelectedTab);
-        Assert.Equal("UPDATE PURCHASE BILL [Ctrl+S]", vm.SaveButtonText);
+        Assert.Equal("Save Changes [Ctrl+S]", vm.SaveButtonText);
         Assert.Contains("PO-0001", vm.FormHeaderTitle);
         Assert.Single(vm.LineItems);
         Assert.Equal("Dolo 650", vm.LineItems[0].ProductName);
@@ -1283,12 +1283,12 @@ public class PurchaseViewModelAndExportTests
 
         // 5 strips * 15 pieces = 75 total quantity
         Assert.Equal(75m, row.Quantity);
-        Assert.Equal("5 Strip × 15 Pcs = 75 Qty", row.PackCalculationDisplay);
+        Assert.Equal("5 Strip × 15 Pcs = 75 Total Qty", row.PackCalculationDisplay);
 
         // Changing StripCount updates Quantity
         row.StripCount = 10;
         Assert.Equal(150m, row.Quantity);
-        Assert.Equal("10 Strip × 15 Pcs = 150 Qty", row.PackCalculationDisplay);
+        Assert.Equal("10 Strip × 15 Pcs = 150 Total Qty", row.PackCalculationDisplay);
 
         // Changing PiecesPerStrip updates Quantity and PackUnits
         row.PiecesPerStrip = 10;
@@ -1299,6 +1299,290 @@ public class PurchaseViewModelAndExportTests
         row.Quantity = 50;
         Assert.Equal(5m, row.StripCount);
     }
+
+    [Fact]
+    public void SupplierInvoiceDateText_SyncsWith_SupplierInvoiceDate_AndParsesCorrectly()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+
+        // Default date text should be today's date formatted dd/MM/yyyy
+        Assert.False(string.IsNullOrWhiteSpace(vm.SupplierInvoiceDateText));
+
+        // Setting a custom date string parses to SupplierInvoiceDate
+        vm.SupplierInvoiceDateText = "15/08/2026";
+        Assert.Equal(15, vm.SupplierInvoiceDate.Day);
+        Assert.Equal(8, vm.SupplierInvoiceDate.Month);
+        Assert.Equal(2026, vm.SupplierInvoiceDate.Year);
+
+        // Setting SupplierInvoiceDate updates SupplierInvoiceDateText
+        vm.SupplierInvoiceDate = new DateTimeOffset(new DateTime(2028, 12, 25), TimeSpan.Zero);
+        Assert.Equal("25/12/2028", vm.SupplierInvoiceDateText);
+    }
+
+    [Fact]
+    public async Task SaveNewProductAsync_ClearsFormData_AfterSuccessfulSave()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.OpenAddProductModal("Paracetamol 650mg", null);
+
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Equal("Paracetamol 650mg", vm.NewProductName);
+
+        vm.NewProductMrp = 30m;
+        vm.NewProductBuyingPrice = 20m;
+        vm.NewProductExpiryText = "12/28";
+
+        await vm.SaveNewProductAsync();
+
+        // Modal should be closed
+        Assert.False(vm.IsAddProductModalOpen);
+        // Form fields must be cleared/reset
+        Assert.Equal(string.Empty, vm.NewProductName);
+        Assert.Equal(0m, vm.NewProductMrp);
+        Assert.Equal(0m, vm.NewProductBuyingPrice);
+
+        // New product was added to line items
+        Assert.Contains(vm.LineItems, r => r.ProductName == "Paracetamol 650mg");
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_DefaultSelectedTab_IsHistory()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        Assert.Equal("History", vm.SelectedTab);
+
+        vm.OpenPurchaseEntry();
+        Assert.Equal("Entry", vm.SelectedTab);
+    }
+
+    [Fact]
+    public void PurchaseItemRowViewModel_UnitPackagingHoverText_FormatsCorrectly_PerStockType()
+    {
+        var row = new PurchaseItemRowViewModel
+        {
+            StripCount = 1,
+            PiecesPerStrip = 10,
+            Quantity = 10,
+            StockType = "Tablet (Tab)"
+        };
+        Assert.Equal("1 Strip (10 Pcs/Strip) — Total 10 Pcs", row.UnitPackagingHoverText);
+
+        row.StockType = "Syrup (Syp)";
+        row.Unit = "BOTTLE";
+        row.PiecesPerStrip = 1;
+        row.PackUnits = 100;
+        row.Quantity = 5;
+        Assert.Equal("5 Units (100ml)", row.UnitPackagingHoverText);
+
+        row.StockType = "Cream";
+        row.Unit = "TUBE";
+        row.PiecesPerStrip = 1;
+        row.PackUnits = 30;
+        row.Quantity = 2;
+        Assert.Equal("2 Tubes (30gm)", row.UnitPackagingHoverText);
+    }
+
+    [Fact]
+    public async Task PurchaseEntryViewModel_SearchProductsTopAsync_And_SelectTopProductSearch_AddsRow()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.LineItems.Clear();
+
+        await vm.SearchProductsTopAsync("dolo");
+        Assert.True(vm.HasProductSearchResults);
+        Assert.NotEmpty(vm.ProductSearchResults);
+
+        var match = vm.ProductSearchResults[0];
+        vm.SelectTopProductSearch(match);
+
+        Assert.Single(vm.LineItems);
+        Assert.Equal("Dolo 650mg Tablet", vm.LineItems[0].ProductName);
+        Assert.Equal("30049099", vm.LineItems[0].HsnCode);
+        Assert.Equal(string.Empty, vm.ProductSearchQuery);
+        Assert.False(vm.HasProductSearchResults);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_AddSearchedProductModal_OpensModalWithPrefilledName()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.ProductSearchQuery = "New Drug 500mg";
+
+        Assert.Equal("➕ Add \"New Drug 500mg\" [F3]", vm.AddNewProductButtonText);
+
+        vm.AddSearchedProductModal();
+        Assert.True(vm.IsAddProductModalOpen);
+        Assert.Equal("New Drug 500mg", vm.NewProductName);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_PureScreenNavigation_And_ExitConfirmationFlow()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        Assert.False(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("History", vm.SelectedTab);
+
+        // Open pure purchase entry screen
+        vm.OpenPurchaseEntry();
+        Assert.True(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("Entry", vm.SelectedTab);
+
+        // When no unsaved data, RequestClose closes immediately
+        Assert.False(vm.HasUnsavedData);
+        vm.RequestClosePurchaseEntry();
+        Assert.False(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("History", vm.SelectedTab);
+        Assert.False(vm.IsExitConfirmDialogOpen);
+
+        // Re-open and add data
+        vm.OpenPurchaseEntry();
+        vm.SupplierInvoiceNo = "INV-999";
+        Assert.True(vm.HasUnsavedData);
+
+        // RequestClose when data entered opens Exit Confirm dialog
+        vm.RequestClosePurchaseEntry();
+        Assert.True(vm.IsExitConfirmDialogOpen);
+        Assert.True(vm.IsPurchaseEntryScreenOpen);
+
+        // Keep editing cancels dialog
+        vm.CancelExitDialog();
+        Assert.False(vm.IsExitConfirmDialogOpen);
+        Assert.True(vm.IsPurchaseEntryScreenOpen);
+
+        // Save draft exits screen but preserves data
+        vm.SaveDraftAndExit();
+        Assert.False(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("History", vm.SelectedTab);
+        Assert.Equal("INV-999", vm.SupplierInvoiceNo);
+
+        // Re-open and discard
+        vm.OpenPurchaseEntry();
+        vm.DiscardAndExit();
+        Assert.False(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("History", vm.SelectedTab);
+        Assert.Equal(string.Empty, vm.SupplierInvoiceNo);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_SaveSummaryModal_And_StockTypeCycling()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.OpenPurchaseEntry();
+
+        // Requesting summary with no items shows validation error
+        vm.LineItems.Clear();
+        vm.RequestSaveSummary();
+        Assert.False(vm.IsSaveSummaryModalOpen);
+        Assert.Contains("Please add at least one medicine", vm.StatusMessage);
+
+        // Add valid item and invoice no
+        vm.AddBlankRow();
+        vm.LineItems[0].ProductName = "Paracetamol 650mg";
+        vm.LineItems[0].UnitPrice = 10m;
+        vm.LineItems[0].Mrp = 15m;
+        vm.LineItems[0].BatchNumber = "B101";
+        vm.LineItems[0].ExpiryText = "12/28";
+        vm.SupplierInvoiceNo = "APEX-5544";
+
+        vm.RequestSaveSummary();
+        Assert.True(vm.IsSaveSummaryModalOpen);
+
+        vm.CancelSaveSummary();
+        Assert.False(vm.IsSaveSummaryModalOpen);
+
+        // Stock type navigation
+        vm.NewProductStockType = "Tablet (Tab)";
+        vm.SelectNextStockType();
+        Assert.Equal("Capsule (Cap)", vm.NewProductStockType);
+
+        vm.SelectPreviousStockType();
+        Assert.Equal("Tablet (Tab)", vm.NewProductStockType);
+    }
+
+    [Fact]
+    public async Task PurchaseEntryViewModel_InitialOpenHasNoRows_AndDynamicRowAddedOnSelectOrSave()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.ResetForm();
+        Assert.Empty(vm.LineItems);
+
+        vm.OpenPurchaseEntry();
+        Assert.True(vm.IsPurchaseEntryScreenOpen);
+        Assert.Equal("Entry", vm.SelectedTab);
+        Assert.Empty(vm.LineItems);
+
+        // Dynamic row added upon product selection from top search
+        await vm.SearchProductsTopAsync("dolo");
+        Assert.NotEmpty(vm.ProductSearchResults);
+
+        var match = vm.ProductSearchResults[0];
+        var addedRow = vm.SelectTopProductSearch(match);
+
+        Assert.Single(vm.LineItems);
+        Assert.Same(addedRow, vm.LineItems[0]);
+        Assert.Equal("Dolo 650mg Tablet", vm.LineItems[0].ProductName);
+        Assert.Equal("30049099", vm.LineItems[0].HsnCode);
+    }
+
+    [Fact]
+    public async Task PurchaseEntryViewModel_SequentialAdditions_DoNotOverwriteExistingRows()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.ResetForm();
+        Assert.Empty(vm.LineItems);
+
+        // 1. Add custom product "kawsar" via modal
+        vm.OpenAddProductModal("kawsar", null);
+        vm.NewProductMrp = 50m;
+        vm.NewProductBuyingPrice = 40m;
+        await vm.SaveNewProductAsync();
+        Assert.Single(vm.LineItems);
+        Assert.Equal("kawsar", vm.LineItems[0].ProductName);
+
+        // 2. Add product from search autocomplete "Dolo 650mg Tablet"
+        await vm.SearchProductsTopAsync("dolo");
+        vm.SelectTopProductSearch(vm.ProductSearchResults[0]);
+        Assert.Equal(2, vm.LineItems.Count);
+        Assert.Equal("kawsar", vm.LineItems[0].ProductName);
+        Assert.Equal("Dolo 650mg Tablet", vm.LineItems[1].ProductName);
+
+        // 3. Add second custom product "tamanna" via modal (targetRow is null)
+        vm.OpenAddProductModal("tamanna", null);
+        vm.NewProductMrp = 100m;
+        vm.NewProductBuyingPrice = 80m;
+        await vm.SaveNewProductAsync();
+
+        // 4. Assert all 3 products are intact and nothing was overwritten!
+        Assert.Equal(3, vm.LineItems.Count);
+        Assert.Equal("kawsar", vm.LineItems[0].ProductName);
+        Assert.Equal("Dolo 650mg Tablet", vm.LineItems[1].ProductName);
+        Assert.Equal("tamanna", vm.LineItems[2].ProductName);
+    }
+
+    [Fact]
+    public void PurchaseEntryViewModel_TaxAndPackSizeCycle_WorksCorrectly()
+    {
+        var vm = new PurchaseEntryViewModel(new MockPurchaseService(), new MockProductSearchRepository());
+        vm.OpenAddProductModal("Test Drug", null);
+
+        // Tax cycling
+        vm.NewProductTaxPercent = 5m;
+        vm.SelectNextTaxRate();
+        Assert.Equal(12m, vm.NewProductTaxPercent);
+        vm.SelectNextTaxRate();
+        Assert.Equal(18m, vm.NewProductTaxPercent);
+        vm.SelectPreviousTaxRate();
+        Assert.Equal(12m, vm.NewProductTaxPercent);
+
+        // Volume ML pack size cycling
+        vm.NewProductStockType = "Syrup (Syp)";
+        vm.NewProductPackSizeText = "100ml";
+        vm.SelectNextPackSize();
+        Assert.Equal("200ml", vm.NewProductPackSizeText);
+        vm.SelectPreviousPackSize();
+        Assert.Equal("100ml", vm.NewProductPackSizeText);
+    }
 }
+
 
 

@@ -12,6 +12,7 @@ using System.IO;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Medistock.Application.Common.Interfaces;
 using Medistock.Application.Customers.DTOs;
 using Medistock.Application.Customers.Services;
 using Medistock.Application.Products.Commands;
@@ -70,6 +71,16 @@ public class CartItemDraftDto
     public decimal DiscountPercent { get; set; } = 0;
 }
 
+public class HighlightedSegment
+{
+    public string Text { get; set; } = string.Empty;
+    public bool IsMatch { get; set; }
+    public string BackgroundHex => IsMatch ? "#350D6EFD" : "#00000000";
+    public string BorderHex => IsMatch ? "#600D6EFD" : "#00000000";
+    public string ForegroundHex => IsMatch ? "#0D6EFD" : "#F8FAFC";
+    public string FontWeight => IsMatch ? "Bold" : "SemiBold";
+}
+
 public partial class ProductSearchItemViewModel : ObservableObject
 {
     public string Id { get; set; } = string.Empty;
@@ -98,6 +109,103 @@ public partial class ProductSearchItemViewModel : ObservableObject
     public int NearExpiryDays { get; set; } = 90;
     public List<ProductBatchDto> Batches { get; set; } = new();
 
+    private string _searchQuery = string.Empty;
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (_searchQuery != value)
+            {
+                _searchQuery = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(NameSegments));
+                OnPropertyChanged(nameof(GenericNameSegments));
+            }
+        }
+    }
+
+    public List<HighlightedSegment> NameSegments => BuildSegments(Name, SearchQuery);
+    public List<HighlightedSegment> GenericNameSegments => BuildSegments(GenericName, SearchQuery);
+
+    public static List<HighlightedSegment> BuildSegments(string? source, string? query)
+    {
+        if (string.IsNullOrEmpty(source))
+            return new List<HighlightedSegment>();
+
+        if (string.IsNullOrWhiteSpace(query))
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+
+        var terms = query.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (terms.Length == 0)
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+
+        var matchRanges = new List<(int Start, int End)>();
+        foreach (var term in terms)
+        {
+            int searchIndex = 0;
+            while (searchIndex < source.Length)
+            {
+                int found = source.IndexOf(term, searchIndex, StringComparison.OrdinalIgnoreCase);
+                if (found < 0) break;
+                matchRanges.Add((found, found + term.Length));
+                searchIndex = found + Math.Max(1, term.Length);
+            }
+        }
+
+        if (matchRanges.Count == 0)
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+
+        matchRanges.Sort((a, b) => a.Start.CompareTo(b.Start));
+        var merged = new List<(int Start, int End)>();
+        var current = matchRanges[0];
+        for (int i = 1; i < matchRanges.Count; i++)
+        {
+            var next = matchRanges[i];
+            if (next.Start <= current.End)
+            {
+                current = (current.Start, Math.Max(current.End, next.End));
+            }
+            else
+            {
+                merged.Add(current);
+                current = next;
+            }
+        }
+        merged.Add(current);
+
+        var segments = new List<HighlightedSegment>();
+        int cursor = 0;
+        foreach (var (start, end) in merged)
+        {
+            if (start > cursor)
+            {
+                segments.Add(new HighlightedSegment
+                {
+                    Text = source.Substring(cursor, start - cursor),
+                    IsMatch = false
+                });
+            }
+            segments.Add(new HighlightedSegment
+            {
+                Text = source.Substring(start, end - start),
+                IsMatch = true
+            });
+            cursor = end;
+        }
+
+        if (cursor < source.Length)
+        {
+            segments.Add(new HighlightedSegment
+            {
+                Text = source.Substring(cursor),
+                IsMatch = false
+            });
+        }
+
+        return segments;
+    }
+
     private bool _isSelected;
     public bool IsSelected
     {
@@ -119,7 +227,50 @@ public partial class ProductSearchItemViewModel : ObservableObject
     public bool IsOutOfStock => AvailableQuantity <= 0;
     public bool IsLowStock => !IsOutOfStock && AvailableQuantity <= MinStockAlert;
 
-    public string StockDisplay => IsOutOfStock ? "0 (OOS)" : (IsLowStock ? $"{AvailableQuantity:0.#} (LOW)" : $"{AvailableQuantity:0.#}");
+    public string StockDisplay
+    {
+        get
+        {
+            if (IsOutOfStock)
+                return "0 (OOS)";
+
+            string suffix = IsLowStock ? " (LOW)" : string.Empty;
+
+            var breakdown = PackagingHelper.Parse(PackSizeDescription, DosageForm.ToString());
+            var tabsPerStrip = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
+
+            bool isTabletOrCapsule = DosageForm is DosageForm.Tablet or DosageForm.Capsule
+                || (!string.IsNullOrEmpty(PackSizeDescription) && (PackSizeDescription.Contains("TAB", StringComparison.OrdinalIgnoreCase) || PackSizeDescription.Contains("CAP", StringComparison.OrdinalIgnoreCase)));
+
+            if (isTabletOrCapsule)
+            {
+                int totalUnits = (int)Math.Max(0, AvailableQuantity);
+                int strips = totalUnits / tabsPerStrip;
+                int loosePcs = totalUnits % tabsPerStrip;
+
+                if (strips > 0 && loosePcs > 0)
+                    return $"{strips} Strip {loosePcs} Pc{suffix}";
+                else if (strips > 0)
+                    return $"{strips} Strip{(strips > 1 ? "s" : "")}{suffix}";
+                else if (loosePcs > 0)
+                    return $"{loosePcs} Pc{(loosePcs > 1 ? "s" : "")}{suffix}";
+                else
+                    return $"0 (OOS)";
+            }
+
+            if (DosageForm is DosageForm.Syrup or DosageForm.Drops or DosageForm.Suspension)
+                return $"{AvailableQuantity:0.##} Btl{suffix}";
+            if (DosageForm is DosageForm.Injection)
+                return $"{AvailableQuantity:0.##} Vial{suffix}";
+            if (DosageForm is DosageForm.Cream or DosageForm.Ointment or DosageForm.Gel)
+                return $"{AvailableQuantity:0.##} Tube{suffix}";
+            if (DosageForm is DosageForm.Inhaler)
+                return $"{AvailableQuantity:0.##} Inh{suffix}";
+
+            return $"{AvailableQuantity:0.##} Pc{suffix}";
+        }
+    }
+
     public string ExpiryDisplay => NearestExpiryDate.HasValue ? NearestExpiryDate.Value.ToString("MM/yy") : "--/--";
     public string ExpiryBadge => IsExpired ? "EXPIRED" : (IsNearExpiry ? "EXP NEAR" : string.Empty);
     public bool HasExpiryBadge => IsExpired || IsNearExpiry;
@@ -154,7 +305,7 @@ public partial class ProductSearchItemViewModel : ObservableObject
     public string HighlightBackgroundHex => IsSelected ? "#350D6EFD" : RowBackgroundHex;
     public string HighlightBorderHex => IsSelected ? "#0D6EFD" : RowBorderHex;
 
-    public static ProductSearchItemViewModel FromDto(ProductSearchDto dto, int nearExpiryDays = 90)
+    public static ProductSearchItemViewModel FromDto(ProductSearchDto dto, int nearExpiryDays = 90, string query = "")
     {
         return new ProductSearchItemViewModel
         {
@@ -182,7 +333,8 @@ public partial class ProductSearchItemViewModel : ObservableObject
             AvailableQuantity = dto.AvailableQuantity,
             MinStockAlert = dto.MinStockAlert > 0 ? dto.MinStockAlert : 10,
             NearExpiryDays = nearExpiryDays > 0 ? nearExpiryDays : 90,
-            Batches = dto.Batches ?? new List<ProductBatchDto>()
+            Batches = dto.Batches ?? new List<ProductBatchDto>(),
+            SearchQuery = query
         };
     }
 }
@@ -513,7 +665,7 @@ public partial class InvoiceTabViewModel : ObservableObject
     public string TabCloseForegroundHex => IsActive ? "#FFFFFF" : "#94A3B8";
 
     public string TabId { get; }
-    public string TabTitle => $"Bill #{TabNumber}";
+    public string TabTitle => $"#{TabNumber}";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayInvoiceNo))]
@@ -919,6 +1071,9 @@ public partial class PosViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isCloseTabConfirmationOpen = false;
+
+    [ObservableProperty]
+    private bool _isExitAppConfirmationOpen = false;
 
     [ObservableProperty]
     private InvoiceTabViewModel? _tabPendingClose;
@@ -1329,6 +1484,8 @@ public partial class PosViewModel : ObservableObject
     private CustomerDto? _selectedCustomerSuggestion;
 
     // --- Fast Party Creation Form Properties ---
+    private readonly IDocumentSequenceService? _sequenceService;
+
     [ObservableProperty]
     private bool _isCreatePartyModalOpen = false;
 
@@ -1369,7 +1526,17 @@ public partial class PosViewModel : ObservableObject
         IPosTransactionService posTransactionService,
         IProductService productService,
         string draftStorageFilePath)
-        : this(searchService, posTransactionService, productService, null, draftStorageFilePath)
+        : this(searchService, posTransactionService, productService, null, null, draftStorageFilePath)
+    {
+    }
+
+    public PosViewModel(
+        IProductSearchService searchService,
+        IPosTransactionService posTransactionService,
+        IProductService productService,
+        ICustomerService? customerService,
+        string? draftStorageFilePath)
+        : this(searchService, posTransactionService, productService, customerService, null, draftStorageFilePath)
     {
     }
 
@@ -1378,16 +1545,19 @@ public partial class PosViewModel : ObservableObject
         IPosTransactionService posTransactionService,
         IProductService productService,
         ICustomerService? customerService = null,
+        IDocumentSequenceService? sequenceService = null,
         string? draftStorageFilePath = null)
     {
         _searchService = searchService;
         _posTransactionService = posTransactionService;
         _productService = productService;
         _customerService = customerService;
+        _sequenceService = sequenceService;
         _draftStorageFilePath = draftStorageFilePath;
 
         NearExpiryDays = SettingsViewModel.GetNearExpiryDays();
         LoadDraftState();
+        _ = SyncInitialTabNumberWithDbAsync();
     }
 
     private string GetDraftFilePath()
@@ -1586,6 +1756,28 @@ public partial class PosViewModel : ObservableObject
         UpdateActiveTabState();
     }
 
+    public async Task SyncInitialTabNumberWithDbAsync()
+    {
+        if (_sequenceService == null) return;
+        try
+        {
+            var dbSeq = await _sequenceService.PeekNextSequenceNumberAsync(_orgId, _branchId, "INV");
+            if (InvoiceTabs.Count == 1 && InvoiceTabs[0].CartItems.Count == 0 && (InvoiceTabs[0].TabNumber <= 1 || string.IsNullOrWhiteSpace(InvoiceTabs[0].CustomInvoiceNo)))
+            {
+                InvoiceTabs[0].TabNumber = dbSeq;
+                _tabCounter = dbSeq + 1;
+            }
+            else
+            {
+                _tabCounter = Math.Max(_tabCounter, dbSeq + 1);
+            }
+        }
+        catch
+        {
+            // Non-fatal background peek
+        }
+    }
+
     partial void OnActiveTabIndexChanged(int value)
     {
         if (value >= 0 && value < InvoiceTabs.Count)
@@ -1596,9 +1788,24 @@ public partial class PosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void AddNewTab()
+    public async Task AddNewTabAsync()
     {
-        var newTab = new InvoiceTabViewModel(_tabCounter++);
+        int nextNum = _tabCounter++;
+        if (_sequenceService != null)
+        {
+            try
+            {
+                var dbSeq = await _sequenceService.PeekNextSequenceNumberAsync(_orgId, _branchId, "INV");
+                var maxCurrent = InvoiceTabs.Count > 0 ? InvoiceTabs.Max(t => t.TabNumber) : 0;
+                nextNum = Math.Max(dbSeq, maxCurrent + 1);
+                _tabCounter = nextNum + 1;
+            }
+            catch
+            {
+            }
+        }
+
+        var newTab = new InvoiceTabViewModel(nextNum);
         RegisterTabListeners(newTab);
         InvoiceTabs.Add(newTab);
         ActiveTab = newTab;
@@ -1609,7 +1816,11 @@ public partial class PosViewModel : ObservableObject
         StatusMessage = $"Opened {newTab.TabTitle}. Ready for billing.";
     }
 
-    [RelayCommand]
+    public void AddNewTab()
+    {
+        _ = AddNewTabAsync();
+    }
+
     public void NewTab() => AddNewTab();
 
     [RelayCommand]
@@ -1655,6 +1866,18 @@ public partial class PosViewModel : ObservableObject
         TabPendingClose = null;
         IsCloseTabConfirmationOpen = false;
         StatusMessage = "Kept bill.";
+    }
+
+    [RelayCommand]
+    public void OpenExitAppConfirmation()
+    {
+        IsExitAppConfirmationOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseExitAppConfirmation()
+    {
+        IsExitAppConfirmationOpen = false;
     }
 
     private void CloseTabInternal(InvoiceTabViewModel targetTab)
@@ -1930,7 +2153,7 @@ public partial class PosViewModel : ObservableObject
                 SearchResults.Clear();
                 foreach (var r in results)
                 {
-                    SearchResults.Add(ProductSearchItemViewModel.FromDto(r, NearExpiryDays));
+                    SearchResults.Add(ProductSearchItemViewModel.FromDto(r, NearExpiryDays, value));
                 }
 
                 SelectedSearchIndex = SearchResults.Count > 0 ? 0 : -1;
@@ -2723,10 +2946,25 @@ public partial class PosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void ClearBill()
+    public async Task ClearBillAsync()
     {
         if (ActiveTab == null) return;
-        ActiveTab.TabNumber = ++_tabCounter;
+        int nextNum = _tabCounter++;
+        if (_sequenceService != null)
+        {
+            try
+            {
+                var dbSeq = await _sequenceService.PeekNextSequenceNumberAsync(OrgId, BranchId, "INV");
+                var maxOther = InvoiceTabs.Where(t => t != ActiveTab).Select(t => t.TabNumber).DefaultIfEmpty(0).Max();
+                nextNum = Math.Max(dbSeq, maxOther + 1);
+                _tabCounter = nextNum + 1;
+            }
+            catch
+            {
+            }
+        }
+
+        ActiveTab.TabNumber = nextNum;
         ActiveTab.CustomInvoiceNo = string.Empty;
         ActiveTab.CartItems.Clear();
         ActiveTab.CustomerId = null;
@@ -2747,6 +2985,11 @@ public partial class PosViewModel : ObservableObject
         SelectedSaleTypeIndex = 0;
         IsSaleTypePromptOpen = false;
         StatusMessage = $"Fresh sale ready ({ActiveTab.TabTitle}). Ready for billing.";
+    }
+
+    public void ClearBill()
+    {
+        _ = ClearBillAsync();
     }
 
     [RelayCommand]

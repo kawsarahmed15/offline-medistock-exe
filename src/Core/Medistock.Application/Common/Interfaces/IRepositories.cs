@@ -92,6 +92,7 @@ public interface IOutboxRepository
 public interface IDocumentSequenceService
 {
     Task<string> GenerateInvoiceNumberAsync(string orgId, string branchId, string prefix = "INV", CancellationToken cancellationToken = default);
+    Task<int> PeekNextSequenceNumberAsync(string orgId, string branchId, string prefix = "INV", CancellationToken cancellationToken = default);
 }
 
 public interface ISaleReturnRepository

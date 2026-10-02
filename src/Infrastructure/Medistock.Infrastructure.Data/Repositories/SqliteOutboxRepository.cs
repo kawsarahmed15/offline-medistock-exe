@@ -192,4 +192,36 @@ public class SqliteDocumentSequenceService : IDocumentSequenceService
             throw;
         }
     }
+
+    public async Task<int> PeekNextSequenceNumberAsync(
+        string orgId,
+        string branchId,
+        string prefix = "INV",
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var currentYear = DateTime.UtcNow.Year;
+        var seqId = $"{orgId}_{branchId}_{prefix}_{currentYear}";
+
+        const string sql = @"
+            SELECT IFNULL(
+                (SELECT last_sequence_number FROM document_sequences WHERE id = @seqId),
+                (SELECT COUNT(1) FROM sales WHERE org_id = @orgId)
+            ) + 1;
+        ";
+
+        try
+        {
+            var nextNum = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                sql,
+                new { seqId, orgId },
+                cancellationToken: cancellationToken));
+
+            return Math.Max(1, nextNum);
+        }
+        catch
+        {
+            return 1;
+        }
+    }
 }

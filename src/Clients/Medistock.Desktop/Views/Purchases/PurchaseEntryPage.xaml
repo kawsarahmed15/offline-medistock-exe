@@ -36,8 +36,8 @@
     </Page.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*" Margin="20">
-        <!-- 1. Top Section: Header & Executive KPI Summary Banner -->
-        <Grid Grid.Row="0" Margin="0,0,0,12">
+        <!-- 1. Top Section: Header & Executive KPI Summary Banner (Hidden when Pure Purchase Entry is active) -->
+        <Grid Grid.Row="0" Margin="0,0,0,12" Visibility="{Binding IsPurchaseEntryScreenOpen, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -205,18 +205,40 @@
             </Grid>
         </Grid>
 
-        <!-- 2. Navigation Tabs Toolbar -->
-        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Content="🚚 Rapid Purchase Entry [F2]"
-                        Command="{Binding SelectTabCommand}"
-                        CommandParameter="Entry"
-                        Background="{Binding SelectedTab, Converter={StaticResource SelectedTabBackgroundConverter}, ConverterParameter='Entry'}"
-                        Foreground="{Binding SelectedTab, Converter={StaticResource SelectedTabForegroundConverter}, ConverterParameter='Entry'}"
+        <!-- 1B. Dedicated Purchase Entry Pure Header (Shown ONLY when Purchase Entry is active) -->
+        <Grid Grid.Row="0" Margin="0,0,0,12" Visibility="{Binding IsPurchaseEntryScreenOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="🚚" FontSize="22" VerticalAlignment="Center" />
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="{Binding FormHeaderTitle}" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                        <TextBlock Text="Direct Purchase Inward Entry • Fast Barcode/Search • Multi-Batch &amp; Packaging" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Status Message -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{Binding StatusMessage, Converter={StaticResource StatusColorConverter}}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Close / Exit Button -->
+                <Button Grid.Column="2"
+                        Content="✕ Close [Esc]"
+                        Command="{Binding RequestClosePurchaseEntryCommand}"
+                        ToolTipService.ToolTip="Exit Purchase Entry [Esc]"
                         FontWeight="SemiBold"
                         Padding="14,6"
                         CornerRadius="4" />
+            </Grid>
+        </Grid>
 
+        <!-- 2. Navigation Tabs Toolbar (Hidden when Pure Purchase Entry is active) -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,10" Visibility="{Binding IsPurchaseEntryScreenOpen, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Content="📋 Invoices Recorded Ledger"
                         Command="{Binding SelectTabCommand}"
                         CommandParameter="History"
@@ -245,13 +267,22 @@
                        VerticalAlignment="Center"
                        HorizontalAlignment="Right"
                        Margin="0,0,12,0" />
+
+            <!-- Add Purchase Entry Action Button -->
+            <Button Grid.Column="2"
+                    Content="➕ Add Purchase Entry [F2]"
+                    Command="{Binding OpenPurchaseEntryCommand}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    FontWeight="Bold"
+                    Padding="14,6"
+                    CornerRadius="4" />
         </Grid>
 
         <!-- 3. Main Content Views -->
         <Grid Grid.Row="2">
             <!-- TAB 1: Rapid Inward Entry -->
             <Grid Visibility="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter='Entry'}"
-                  RowDefinitions="Auto,*,Auto">
+                  RowDefinitions="Auto,Auto,*,Auto">
                 
                 <!-- Supplier & Inward Metadata Panel (and Edit Banner when active) -->
                 <StackPanel Grid.Row="0" Margin="0,0,0,10" Spacing="8">
@@ -285,7 +316,7 @@
                             Padding="12,10">
                         <Grid RowDefinitions="Auto,Auto">
                         <!-- Row 1: Supplier Selector & Invoice Metadata -->
-                        <Grid Grid.Row="0" ColumnDefinitions="3*,1.8*,1.4*,1.4*,Auto" ColumnSpacing="12">
+                        <Grid Grid.Row="0" ColumnDefinitions="3*,1.8*,1.4*,Auto" ColumnSpacing="12">
                             <!-- Supplier Autocomplete Field -->
                             <StackPanel Grid.Column="0" Spacing="3">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -314,29 +345,22 @@
                                          FontWeight="SemiBold" />
                             </StackPanel>
 
-                            <!-- Supplier Invoice Date -->
+                            <!-- Supplier Invoice Date Text Input -->
                             <StackPanel Grid.Column="2" Spacing="3">
-                                <TextBlock Text="INVOICE DATE" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <DatePicker x:Name="SupplierInvoiceDatePicker"
-                                            Date="{Binding SupplierInvoiceDate, Mode=TwoWay}"
-                                            HorizontalAlignment="Stretch" />
-                            </StackPanel>
-
-                            <!-- Supplier GSTIN -->
-                            <StackPanel Grid.Column="3" Spacing="3">
-                                <TextBlock Text="SUPPLIER GSTIN" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <TextBox x:Name="SupplierGstinBox"
-                                         Text="{Binding SupplierGstin, Mode=TwoWay}"
-                                         KeyDown="GstinBox_KeyDown"
+                                <TextBlock Text="INVOICE DATE (DD/MM/YYYY) *" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                <TextBox x:Name="SupplierInvoiceDateBox"
+                                         Text="{Binding SupplierInvoiceDateText, Mode=TwoWay}"
+                                         PlaceholderText="DD/MM/YYYY"
+                                         TextChanged="SupplierInvoiceDateBox_TextChanged"
+                                         PreviewKeyDown="SupplierInvoiceDateBox_PreviewKeyDown"
+                                         KeyDown="SupplierInvoiceDateBox_KeyDown"
                                          FontFamily="Consolas, Fira Code, Segoe UI Mono"
-                                         PlaceholderText="GSTIN..." />
+                                         FontWeight="SemiBold"
+                                         MaxLength="10" />
                             </StackPanel>
 
-                            <!-- Interstate Flag & Add Item Button -->
-                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-                                <CheckBox Content="Interstate (IGST)"
-                                          IsChecked="{Binding IsInterstate, Mode=TwoWay}"
-                                          Margin="0,0,0,2" />
+                            <!-- Add Item & Add Product Action Buttons -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
                                 <Button Command="{Binding OpenAddProductModalCommand}"
                                         Content="💊 Add Product [F3]"
                                         ToolTipService.ToolTip="Register a new medicine into database catalog &amp; invoice [F3]"
@@ -372,8 +396,153 @@
                 </Border>
                 </StackPanel>
 
+                <!-- Top Dedicated Medicine Search Bar (POS-Style) -->
+                <Grid Grid.Row="1" Margin="0,0,0,8">
+                    <TextBox x:Name="PurchaseProductSearchBox"
+                             PlaceholderText="🔍 [F3] Type Medicine Name, Generic / Salt, or Scan Barcode... [↑/↓: Navigate, Enter: Select, F3 / ➕: Add New Product]"
+                             Text="{Binding ProductSearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="13.5"
+                             FontWeight="SemiBold"
+                             Height="38"
+                             Padding="10,0"
+                             VerticalContentAlignment="Center"
+                             BorderThickness="1.5"
+                             BorderBrush="{ThemeResource AccentPrimary}"
+                             KeyDown="PurchaseProductSearchBox_KeyDown"
+                             PreviewKeyDown="PurchaseProductSearchBox_PreviewKeyDown" />
+
+                    <!-- Floating Product Search Results Autocomplete Dropdown Popup -->
+                    <Popup x:Name="PurchaseProductSearchResultsPopup"
+                           IsOpen="{Binding HasProductSearchResults, Mode=OneWay}"
+                           VerticalOffset="40"
+                           HorizontalOffset="0"
+                           IsLightDismissEnabled="False">
+                        <Border Width="1100"
+                                MaxHeight="340"
+                                Background="{ThemeResource SurfaceBackground}"
+                                BorderBrush="{ThemeResource BorderStrong}"
+                                 BorderThickness="1.5"
+                                 CornerRadius="6"
+                                 Shadow="{StaticResource SharedShadow}">
+                            <Grid RowDefinitions="Auto,*,Auto">
+                                <!-- Table Header -->
+                                <Grid Grid.Row="0" ColumnDefinitions="2.2*,1.5*,85,90,75,85,85,75" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1">
+                                    <TextBlock Grid.Column="0" Text="Medicine / Product Name" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Grid.Column="1" Text="Generic / Salt" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Grid.Column="2" Text="Pack / Unit" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Grid.Column="3" Text="HSN" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                    <TextBlock Grid.Column="4" Text="Stock" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="5" Text="Buying Rate (₹)" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="6" Text="MRP (₹)" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="7" Text="GST %" FontWeight="Bold" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- Search Results List -->
+                                <ListView Grid.Row="1"
+                                          x:Name="PurchaseProductSearchResultsList"
+                                          ItemsSource="{Binding ProductSearchResults, Mode=OneWay}"
+                                          SelectionMode="Single"
+                                          SelectedIndex="{Binding SelectedProductSearchIndex, Mode=TwoWay}"
+                                          IsItemClickEnabled="True"
+                                          ItemClick="PurchaseProductSearchResultsList_ItemClick"
+                                          KeyDown="PurchaseProductSearchResultsList_KeyDown">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ProductSearchItemViewModel">
+                                            <Border Background="{x:Bind RowBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                    BorderBrush="{x:Bind RowBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Margin="1,1">
+                                                <Grid ColumnDefinitions="2.2*,1.5*,85,90,75,85,85,75" Padding="8,5">
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                        <ItemsControl ItemsSource="{x:Bind NameSegments, Mode=OneWay}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:HighlightedSegment">
+                                                                    <Border Background="{x:Bind BackgroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                            BorderBrush="{x:Bind BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="3"
+                                                                            Padding="1,0"
+                                                                            Margin="0,0">
+                                                                        <TextBlock Text="{x:Bind Text}"
+                                                                                   FontSize="12.5"
+                                                                                   FontWeight="{x:Bind FontWeight}"
+                                                                                   Foreground="{x:Bind ForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                                   VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <Border Background="#DC2626" CornerRadius="3" Padding="4,1" VerticalAlignment="Center"
+                                                                Visibility="{x:Bind HasExpiryBadge, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{x:Bind ExpiryBadge}" FontSize="9" FontWeight="Bold" Foreground="White" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <ItemsControl Grid.Column="1" ItemsSource="{x:Bind GenericNameSegments, Mode=OneWay}" VerticalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:HighlightedSegment">
+                                                                <Border Background="{x:Bind BackgroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                        BorderBrush="{x:Bind BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="3"
+                                                                        Padding="1,0"
+                                                                        Margin="0,0">
+                                                                    <TextBlock Text="{x:Bind Text}"
+                                                                               FontSize="11"
+                                                                               FontWeight="{x:Bind FontWeight}"
+                                                                               Foreground="{x:Bind ForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                               VerticalAlignment="Center" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind PackSizeDescription}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind HsnCode}" FontSize="11" FontFamily="Consolas, Fira Code" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="4" Text="{x:Bind StockDisplay}" FontWeight="SemiBold" FontSize="11.5" Foreground="{ThemeResource TextPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="5" Text="{x:Bind SaleRate, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="SemiBold" FontSize="11.5" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="6" Text="{x:Bind Mrp, Converter={StaticResource StringFormatConverter}, ConverterParameter='₹{0:N2}'}" FontWeight="Bold" FontSize="12" Foreground="{ThemeResource TextPrimary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="7" Text="{x:Bind GstRatePercent, Converter={StaticResource StringFormatConverter}, ConverterParameter='GST {0:N0}%'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+
+                                <!-- Footer / "+ Add [Product Name]" item -->
+                                <Border Grid.Row="2" Background="{ThemeResource SurfaceSubtle}" Padding="10,6" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,1,0,0">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Button Background="{ThemeResource AccentPrimary}"
+                                                Foreground="White"
+                                                CornerRadius="16"
+                                                Padding="12,4"
+                                                Command="{Binding AddSearchedProductModalCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Border Background="White" CornerRadius="8" Width="16" Height="16">
+                                                    <TextBlock Text="+" Foreground="{ThemeResource AccentPrimary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
+                                                </Border>
+                                                <TextBlock Text="{Binding AddNewProductButtonText}" FontWeight="Bold" FontSize="12" />
+                                            </StackPanel>
+                                        </Button>
+                                        <TextBlock Grid.Column="1" Text="[↑/↓: Navigate • Enter: Select • F3: Open Add Product Modal • Esc: Dismiss]" FontSize="10.5" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
+
                 <!-- Line Items Table -->
-                <Border Grid.Row="1"
+                <Border Grid.Row="2"
                         Background="{ThemeResource SurfaceDefault}"
                         BorderBrush="{ThemeResource BorderDefault}"
                         BorderThickness="1"
@@ -392,7 +561,7 @@
                                 <TextBlock Grid.Column="1" Text="BATCH NO." FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="2" Text="EXPIRY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
                                 <TextBlock Grid.Column="3" Text="HSN" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
-                                <TextBlock Grid.Column="4" Text="STRIP" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="4" Text="STRIP / PACK" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="5" Text="PIECE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="6" Text="QTY" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="7" Text="FREE" FontSize="9.5" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
@@ -500,7 +669,7 @@
                                                        SpinButtonPlacementMode="Hidden"
                                                        Margin="1"
                                                        FontSize="11.5"
-                                                       ToolTipService.ToolTip="Number of strips" />
+                                                       ToolTipService.ToolTip="{Binding UnitPackagingHoverText}" />
 
                                             <!-- Pieces per Strip -->
                                             <NumberBox Grid.Column="5"
@@ -522,7 +691,7 @@
                                                        SpinButtonPlacementMode="Hidden"
                                                        Margin="1"
                                                        FontSize="11.5"
-                                                       ToolTipService.ToolTip="{Binding PackCalculationDisplay}" />
+                                                       ToolTipService.ToolTip="{Binding UnitPackagingHoverText}" />
 
                                             <!-- Free Quantity -->
                                             <NumberBox Grid.Column="7"
@@ -699,7 +868,29 @@
                                                         Margin="2,1">
                                                     <Grid ColumnDefinitions="2.8*,2*,0.8*,0.8*,0.9*,0.9*,0.8*,1*" Padding="10,6">
                                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11.5" />
+                                                            <ItemsControl ItemsSource="{Binding NameSegments}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Background="{Binding BackgroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                                BorderBrush="{Binding BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                                BorderThickness="1"
+                                                                                CornerRadius="3"
+                                                                                Padding="1,0"
+                                                                                Margin="0,0">
+                                                                            <TextBlock Text="{Binding Text}"
+                                                                                       FontSize="11.5"
+                                                                                       FontWeight="{Binding FontWeight}"
+                                                                                       Foreground="{Binding ForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                                       VerticalAlignment="Center" />
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
                                                             <Border Background="#DC2626" CornerRadius="3" Padding="4,1" VerticalAlignment="Center"
                                                                     Visibility="{Binding HasExpiryBadge, Converter={StaticResource BoolToVisibilityConverter}}">
                                                                 <TextBlock Text="{Binding ExpiryBadge}" FontSize="8.5" FontWeight="Bold" Foreground="White" />
@@ -709,7 +900,29 @@
                                                                 <TextBlock Text="{Binding StockBadge}" FontSize="8.5" FontWeight="Bold" Foreground="White" />
                                                             </Border>
                                                         </StackPanel>
-                                                        <TextBlock Grid.Column="1" Text="{Binding GenericName}" FontSize="11" Foreground="{ThemeResource TextSecondary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                        <ItemsControl Grid.Column="1" ItemsSource="{Binding GenericNameSegments}" VerticalAlignment="Center">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Background="{Binding BackgroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                            BorderBrush="{Binding BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="3"
+                                                                            Padding="1,0"
+                                                                            Margin="0,0">
+                                                                        <TextBlock Text="{Binding Text}"
+                                                                                   FontSize="11"
+                                                                                   FontWeight="{Binding FontWeight}"
+                                                                                   Foreground="{Binding ForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                                                   VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
                                                         <TextBlock Grid.Column="2" Text="{Binding PackSizeDescription}" FontSize="10.5" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
                                                         <TextBlock Grid.Column="3" Text="{Binding HsnCode}" FontSize="10.5" FontFamily="Consolas, Fira Code" VerticalAlignment="Center" />
                                                         <TextBlock Grid.Column="4" Text="{Binding ExpiryDisplay}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding ExpiryForegroundHex, Converter={StaticResource HexToSolidColorBrushConverter}}" VerticalAlignment="Center" />
@@ -740,7 +953,7 @@
                 </Border>
 
                 <!-- Bottom Settlement Panel -->
-                <Border Grid.Row="2"
+                <Border Grid.Row="3"
                         Background="{ThemeResource SurfaceDefault}"
                         BorderBrush="{ThemeResource BorderDefault}"
                         BorderThickness="1"
@@ -795,7 +1008,7 @@
                             </Border>
 
                             <!-- Post Invoice Button -->
-                            <Button Command="{Binding PostPurchaseInvoiceCommand}"
+                            <Button Command="{Binding RequestSaveSummaryCommand}"
                                     Style="{StaticResource AccentButtonStyle}"
                                     Height="44"
                                     Padding="20,0">
@@ -1197,48 +1410,54 @@
                     BorderBrush="{ThemeResource BorderDefault}"
                     BorderThickness="1"
                     CornerRadius="10"
-                    Width="680"
-                    MaxHeight="700"
+                    Width="780"
+                    MaxHeight="840"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
-                    Padding="24"
+                    Padding="20,16"
                     Shadow="{ThemeResource SharedShadow}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="12">
+                    <StackPanel Spacing="8">
                         <!-- Header -->
                         <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="💊 Add New Product to Inventory" FontSize="17" FontWeight="Bold" />
+                            <StackPanel Spacing="1">
+                                <TextBlock Text="💊 Add New Product to Inventory" FontSize="16" FontWeight="Bold" />
                                 <TextBlock Text="Product not found in system. Register it with pricing, packaging &amp; batch details."
-                                           FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                           FontSize="11.5" Foreground="{ThemeResource TextSecondary}" />
                             </StackPanel>
                             <Button Grid.Column="1" Content="✕" Command="{Binding CloseAddProductModalCommand}" Padding="8,4" VerticalAlignment="Top" />
                         </Grid>
 
                         <!-- Validation Message -->
-                        <Border Background="#20DC2626" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="4" Padding="10,6"
+                        <Border Background="#20DC2626" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="4" Padding="8,4"
                                 Visibility="{Binding HasNewProductValidationMessage, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{Binding NewProductValidationMessage}" Foreground="#EF4444" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding NewProductValidationMessage}" Foreground="#EF4444" FontSize="11.5" FontWeight="SemiBold" TextWrapping="Wrap" />
                         </Border>
 
                         <!-- Section: Basic Information -->
-                        <TextBlock Text="Product Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+                        <TextBlock Text="Product Details" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,2,0,0" />
 
-                        <TextBox x:Name="NewProductNameBox"
-                                 Header="Product Name *"
-                                 Text="{Binding NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 Loaded="NewProductNameBox_Loaded"
-                                 PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                 PlaceholderText="e.g. Augmentin 625 Duo Tablet" />
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBox x:Name="NewProductNameBox"
+                                     Grid.Column="0"
+                                     Header="Product Name *"
+                                     Text="{Binding NewProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Loaded="NewProductNameBox_Loaded"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="e.g. Augmentin 625 Duo Tablet"
+                                     Margin="0,0,6,0" />
 
-                        <TextBox x:Name="NewProductManufacturerBox"
-                                 Header="Manufacturer / Company"
-                                 Text="{Binding NewProductManufacturer, Mode=TwoWay}"
-                                 PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                 PlaceholderText="e.g. GSK / Cipla / Sun Pharma" />
+                            <TextBox x:Name="NewProductManufacturerBox"
+                                     Grid.Column="1"
+                                     Header="Manufacturer / Company"
+                                     Text="{Binding NewProductManufacturer, Mode=TwoWay}"
+                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
+                                     PlaceholderText="e.g. GSK / Cipla / Sun Pharma"
+                                     Margin="6,0,0,0" />
+                        </Grid>
 
                         <!-- Section: Stock Type & Packaging -->
-                        <TextBlock Text="Stock Classification &amp; Packaging" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+                        <TextBlock Text="Stock Classification &amp; Packaging" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,2,0,0" />
 
                         <Grid ColumnDefinitions="*,*">
                             <ComboBox x:Name="NewProductStockTypeComboBox"
@@ -1322,7 +1541,7 @@
                         </Grid>
 
                         <!-- Section: Pricing -->
-                        <TextBlock Text="Pricing &amp; Valuation" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+                        <TextBlock Text="Pricing &amp; Valuation" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,2,0,0" />
 
                         <Grid ColumnDefinitions="*,*">
                             <NumberBox x:Name="NewProductMrpBox"
@@ -1346,10 +1565,10 @@
                                    FontSize="11"
                                    FontWeight="SemiBold"
                                    Foreground="{ThemeResource AccentPrimary}"
-                                   Margin="0,-4,0,0" />
+                                   Margin="0,-2,0,0" />
 
                         <!-- Section: Initial Stock & Batch Details -->
-                        <TextBlock Text="Initial Stock &amp; Batch Details" FontSize="12.5" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,4,0,0" />
+                        <TextBlock Text="Initial Stock &amp; Batch Details" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentPrimary}" Margin="0,2,0,0" />
 
                         <Grid ColumnDefinitions="*,*,*">
                             <StackPanel Grid.Column="0" Margin="0,0,4,0" Spacing="2">
@@ -1360,7 +1579,7 @@
                                            SmallChange="1"
                                            PreviewKeyDown="NewProductField_PreviewKeyDown" />
                                 <TextBlock Text="{Binding NewProductStockBreakdownText}"
-                                           FontSize="11"
+                                           FontSize="10.5"
                                            FontWeight="SemiBold"
                                            Foreground="{ThemeResource AccentPrimary}"
                                            TextTrimming="CharacterEllipsis" />
@@ -1388,32 +1607,32 @@
                                 BorderBrush="{ThemeResource BorderDefault}"
                                 BorderThickness="1"
                                 CornerRadius="6"
-                                Padding="12,8"
-                                Margin="0,4,0,0">
+                                Padding="10,6"
+                                Margin="0,2,0,0">
                             <CheckBox x:Name="NewProductRxCheckBox"
                                       IsChecked="{Binding NewProductIsPrescriptionRequired, Mode=TwoWay}"
                                       PreviewKeyDown="NewProductField_PreviewKeyDown">
                                 <StackPanel Spacing="1">
-                                    <TextBlock Text="Prescription required" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Text="Prescription required" FontWeight="SemiBold" FontSize="12.5" />
                                     <TextBlock Text="Mark this product as Rx-only (Schedule H / H1 safeguard required at POS)"
-                                               FontSize="11.5" Foreground="{ThemeResource TextSecondary}" />
+                                               FontSize="11" Foreground="{ThemeResource TextSecondary}" />
                                 </StackPanel>
                             </CheckBox>
                         </Border>
 
                         <!-- Actions -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,6,0,0">
                             <Button x:Name="CancelNewProductBtn"
                                     Content="Cancel [Esc]"
                                     Command="{Binding CloseAddProductModalCommand}"
                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
-                                    Padding="16,6" />
+                                    Padding="16,5" />
                             <Button x:Name="SaveNewProductBtn"
                                     Content="Save &amp; Add to Invoice [Enter]"
                                     Command="{Binding SaveNewProductCommand}"
                                     PreviewKeyDown="NewProductField_PreviewKeyDown"
                                     Style="{StaticResource AccentButtonStyle}"
-                                    Padding="20,6" />
+                                    Padding="16,5" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -1733,6 +1952,188 @@
                             <Button Content="Close"
                                     Command="{Binding ClosePurchaseReturnBillModalCommand}"
                                     Padding="16,6" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- EXIT CONFIRMATION DIALOG (When Esc pressed with data entered) -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Visibility="{Binding IsExitConfirmDialogOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#99000000"
+              Margin="-20"
+              Canvas.ZIndex="1200">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource BorderStrong}"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    Padding="24"
+                    Width="460"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Shadow="{StaticResource SharedShadow}">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="⚠️" FontSize="22" VerticalAlignment="Center" />
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Discard Purchase Changes?" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" />
+                            <TextBlock Text="You have entered supplier or medicine details in this bill." FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="What would you like to do before leaving Purchase Entry?" FontSize="12" Foreground="{ThemeResource TextSecondary}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,10,0,0">
+                        <Button Grid.Column="0"
+                                Content="🗑️ Discard &amp; Exit"
+                                Command="{Binding DiscardAndExitCommand}"
+                                Background="#DC2626"
+                                Foreground="White"
+                                FontWeight="SemiBold"
+                                Padding="8,8"
+                                HorizontalAlignment="Stretch" />
+
+                        <Button Grid.Column="1"
+                                Content="💾 Save Draft"
+                                Command="{Binding SaveDraftAndExitCommand}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                FontWeight="SemiBold"
+                                Padding="8,8"
+                                HorizontalAlignment="Stretch" />
+
+                        <Button Grid.Column="2"
+                                Content="✕ Keep Editing"
+                                Command="{Binding CancelExitDialogCommand}"
+                                Padding="8,8"
+                                HorizontalAlignment="Stretch" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- SAVE PURCHASE INVOICE SUMMARY CONFIRMATION MODAL -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              Visibility="{Binding IsSaveSummaryModalOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#99000000"
+              Margin="-20"
+              Canvas.ZIndex="1300">
+            <Border Background="{ThemeResource SurfaceBackground}"
+                    BorderBrush="{ThemeResource BorderStrong}"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    Padding="24"
+                    Width="780"
+                    MaxHeight="720"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Shadow="{StaticResource SharedShadow}">
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
+                    <!-- Modal Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="💾" FontSize="20" VerticalAlignment="Center" />
+                            <TextBlock Text="Confirm Purchase Inward Invoice" FontSize="16" FontWeight="Bold" Foreground="{ThemeResource TextPrimary}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="✕"
+                                Command="{Binding CancelSaveSummaryCommand}"
+                                Padding="8,4"
+                                Background="Transparent"
+                                BorderThickness="0" />
+                    </Grid>
+
+                    <!-- Summary Card (Supplier Info) -->
+                    <Border Grid.Row="1" Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" Padding="14,10">
+                        <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,*">
+                                <TextBlock Grid.Column="0" Text="Wholesaler:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedSupplierName}" FontWeight="Bold" FontSize="13" Margin="8,0,16,0" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="GSTIN:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="3" Text="{Binding SupplierGstin}" FontWeight="SemiBold" FontSize="12" Margin="8,0,0,0" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,*">
+                                <TextBlock Grid.Column="0" Text="Invoice No:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="1" Text="{Binding SupplierInvoiceNo}" FontWeight="Bold" FontSize="12.5" Margin="8,0,16,0" />
+                                <TextBlock Grid.Column="2" Text="Date:" FontSize="12" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Grid.Column="3" Text="{Binding SupplierInvoiceDateText}" FontWeight="SemiBold" FontSize="12" Margin="8,0,0,0" HorizontalAlignment="Right" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Items Table Preview -->
+                    <Border Grid.Row="2" Background="{ThemeResource SurfaceSubtle}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="1" CornerRadius="6" MinHeight="140" MaxHeight="260">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Grid.Row="0" Background="{ThemeResource SurfaceDefault}" BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="10,6">
+                                <Grid ColumnDefinitions="3*,1.4*,1.2*,1*,1.2*,1.2*,1.4*">
+                                    <TextBlock Grid.Column="0" Text="MEDICINE" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="1" Text="BATCH" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="2" Text="EXPIRY" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" />
+                                    <TextBlock Grid.Column="3" Text="QTY" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4" Text="RATE (₹)" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="5" Text="TAX %" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="6" Text="TOTAL (₹)" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextMuted}" HorizontalAlignment="Right" />
+                                </Grid>
+                            </Border>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding PreviewLineItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{ThemeResource BorderDefault}" BorderThickness="0,0,0,1" Padding="10,6">
+                                                <Grid ColumnDefinitions="3*,1.4*,1.2*,1*,1.2*,1.2*,1.4*">
+                                                    <TextBlock Grid.Column="0" Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding BatchNumber}" FontFamily="Consolas, Fira Code" FontSize="11" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding ExpiryFormatted}" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Quantity}" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding UnitPrice, Converter={StaticResource CurrencyFormatConverter}}" FontSize="11.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="5" Text="{Binding GstRatePercent, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}{0}%'}" FontSize="11" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="6" Text="{Binding LineTotal, Converter={StaticResource CurrencyFormatConverter}}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource BrandGreen}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <!-- Total Amount Banner -->
+                    <Border Grid.Row="3" Background="{StaticResource BrandGreenLight}" BorderBrush="{StaticResource BrandGreen}" BorderThickness="1" CornerRadius="6" Padding="14,10">
+                        <Grid ColumnDefinitions="*,*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="Taxable Subtotal:" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Text="{Binding TaxableSubtotal, Converter={StaticResource CurrencyFormatConverter}}" FontWeight="SemiBold" FontSize="13" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="Total GST (Tax):" FontSize="11" Foreground="{ThemeResource TextSecondary}" />
+                                <TextBlock Text="{Binding TotalTax, Converter={StaticResource CurrencyFormatConverter}}" FontWeight="SemiBold" FontSize="13" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" Spacing="1">
+                                <TextBlock Text="NET PAYABLE GRAND TOTAL" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrandGreen}" HorizontalAlignment="Right" />
+                                <TextBlock Text="{Binding GrandTotal, Converter={StaticResource CurrencyFormatConverter}}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrandGreen}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Actions -->
+                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                        <TextBlock Text="[Enter: Confirm &amp; Save • Esc: Cancel / Keep Editing]" FontSize="11" Foreground="{ThemeResource TextSecondary}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="CancelSaveSummaryButton"
+                                    Content="✕ Cancel [Esc]"
+                                    Command="{Binding CancelSaveSummaryCommand}"
+                                    KeyDown="SaveSummaryModalBtn_KeyDown"
+                                    PreviewKeyDown="SaveSummaryModalBtn_PreviewKeyDown"
+                                    Padding="14,6" />
+                            <Button x:Name="ConfirmSaveSummaryButton"
+                                    Content="💾 Confirm &amp; Save [Enter]"
+                                    Command="{Binding ConfirmAndSavePurchaseCommand}"
+                                    KeyDown="SaveSummaryModalBtn_KeyDown"
+                                    PreviewKeyDown="SaveSummaryModalBtn_PreviewKeyDown"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    FontWeight="Bold"
+                                    Padding="18,6" />
                         </StackPanel>
                     </Grid>
                 </Grid>

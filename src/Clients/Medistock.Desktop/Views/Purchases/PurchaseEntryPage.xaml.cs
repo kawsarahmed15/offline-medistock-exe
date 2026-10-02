@@ -31,19 +31,215 @@ public sealed partial class PurchaseEntryPage : Page
         ViewModel = viewModel;
         this.DataContext = ViewModel;
         this.InitializeComponent();
+        this.AddHandler(UIElement.PreviewKeyDownEvent, new KeyEventHandler(Page_PreviewKeyDown), handledEventsToo: true);
         this.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(Page_KeyDown), handledEventsToo: true);
 
         ViewModel.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(PurchaseEntryViewModel.IsAddSupplierModalOpen) && ViewModel.IsAddSupplierModalOpen)
+            if (e.PropertyName == nameof(PurchaseEntryViewModel.IsAddSupplierModalOpen))
             {
-                DispatcherQueue.TryEnqueue(() =>
+                if (ViewModel.IsAddSupplierModalOpen)
                 {
-                    NewSupplierNameBox?.Focus(FocusState.Programmatic);
-                    NewSupplierNameBox?.SelectAll();
-                });
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        NewSupplierNameBox?.Focus(FocusState.Programmatic);
+                        NewSupplierNameBox?.SelectAll();
+                    });
+                }
+                else
+                {
+                    // Focus on Supplier Invoice No when supplier modal closes with selected supplier
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(50);
+                        if (ViewModel.SelectedSupplier != null)
+                        {
+                            SupplierInvoiceNoBox?.Focus(FocusState.Programmatic);
+                            SupplierInvoiceNoBox?.SelectAll();
+                        }
+                        else
+                        {
+                            SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                        }
+                    });
+                }
+            }
+            else if (e.PropertyName == nameof(PurchaseEntryViewModel.IsPurchaseEntryScreenOpen))
+            {
+                if (ViewModel.IsPurchaseEntryScreenOpen && !ViewModel.IsAddProductModalOpen && !ViewModel.IsAddSupplierModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(80);
+                        if (ViewModel.IsPurchaseEntryScreenOpen && !ViewModel.IsAddProductModalOpen && !ViewModel.IsAddSupplierModalOpen)
+                        {
+                            SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                        }
+                    });
+                }
+            }
+            else if (e.PropertyName == nameof(PurchaseEntryViewModel.IsAddProductModalOpen))
+            {
+                if (ViewModel.IsAddProductModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(100);
+                        NewProductNameBox?.Focus(FocusState.Programmatic);
+                        if (!string.IsNullOrWhiteSpace(NewProductNameBox?.Text))
+                        {
+                            NewProductNameBox.SelectAll();
+                        }
+                    });
+                }
+                else
+                {
+                    // Focus on last product in the list row when modal dismissed
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(60);
+                        if (ViewModel.LineItems.Count > 0)
+                        {
+                            var targetIndex = ViewModel.LineItems.Count - 1;
+                            ViewModel.SetActiveRow(targetIndex);
+                            FocusRowColumn(targetIndex, 0);
+                        }
+                    });
+                }
+            }
+            else if (e.PropertyName == nameof(PurchaseEntryViewModel.IsSaveSummaryModalOpen))
+            {
+                if (ViewModel.IsSaveSummaryModalOpen)
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(100);
+                        ConfirmSaveSummaryButton?.Focus(FocusState.Programmatic);
+                    });
+                }
+                else
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+                    });
+                }
             }
         };
+    }
+
+    private void Page_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            if (ViewModel.IsExitConfirmDialogOpen)
+            {
+                ViewModel.CancelExitDialog();
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsSaveSummaryModalOpen)
+            {
+                ViewModel.CancelSaveSummary();
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsAddProductModalOpen)
+            {
+                ViewModel.CloseAddProductModal();
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsAddSupplierModalOpen)
+            {
+                ViewModel.CloseAddSupplierModalCommand.Execute(null);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                });
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsCancelConfirmOpen)
+            {
+                ViewModel.DismissCancelConfirmCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsInvoiceDetailsModalOpen)
+            {
+                ViewModel.CloseInvoiceDetailsCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsPurchaseReturnModalOpen)
+            {
+                ViewModel.ClosePurchaseReturnModal();
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.HasProductSearchResults || ViewModel.IsProductSearchOpen)
+            {
+                ViewModel.HasProductSearchResults = false;
+                ViewModel.IsProductSearchOpen = false;
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry")
+            {
+                ViewModel.RequestClosePurchaseEntry();
+                e.Handled = true;
+                return;
+            }
+            else
+            {
+                // When on Master / Ledger screen, Esc navigates back to POS (home screen)
+                App.MainWindowInstance?.NavigateToPos();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // If any modal is open, don't intercept F2/F3 at page level
+        if (ViewModel.IsAddProductModalOpen || ViewModel.IsAddSupplierModalOpen || ViewModel.IsCancelConfirmOpen || ViewModel.IsInvoiceDetailsModalOpen || ViewModel.IsSaveSummaryModalOpen || ViewModel.IsExitConfirmDialogOpen || ViewModel.IsPurchaseReturnModalOpen)
+        {
+            return;
+        }
+
+        if (e.Key == VirtualKey.F2)
+        {
+            if (!ViewModel.IsPurchaseEntryScreenOpen)
+            {
+                ViewModel.OpenPurchaseEntry();
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    await Task.Delay(100);
+                    SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+                });
+                e.Handled = true;
+                return;
+            }
+            else
+            {
+                ViewModel.AddBlankRowCommand.Execute(null);
+                var newIdx = ViewModel.LineItems.Count - 1;
+                ViewModel.SetActiveRow(newIdx);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    FocusRowColumn(newIdx, 0);
+                });
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == VirtualKey.F3 && (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry"))
+        {
+            var targetRow = ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[^1] : null);
+            ViewModel.OpenAddProductModal(null, targetRow);
+            e.Handled = true;
+            return;
+        }
     }
 
     private void NewSupplierNameBox_Loaded(object sender, RoutedEventArgs e)
@@ -70,24 +266,46 @@ public sealed partial class PurchaseEntryPage : Page
     {
         if (string.IsNullOrWhiteSpace(_pendingInitialProductName)) return;
 
-        ViewModel.SelectedTab = "Entry";
+        var nameToSet = _pendingInitialProductName;
+        _pendingInitialProductName = null;
+
+        ViewModel.OpenPurchaseEntry();
         var targetRow = ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[0] : null);
         if (targetRow != null)
         {
-            ViewModel.OpenAddProductModal(_pendingInitialProductName, targetRow);
+            ViewModel.OpenAddProductModal(nameToSet, targetRow);
         }
-        _pendingInitialProductName = null;
+        else
+        {
+            ViewModel.OpenAddProductModal(nameToSet, null);
+        }
+
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            await Task.Delay(120);
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            if (!string.IsNullOrWhiteSpace(NewProductNameBox?.Text))
+            {
+                NewProductNameBox.SelectAll();
+            }
+        });
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         await ViewModel.InitializeAsync();
         ApplyPendingProductEntry();
-        await Task.Delay(150);
-        FocusControl("SupplierAutoSuggestBox");
-        if (SupplierAutoSuggestBox != null)
+        if (!ViewModel.IsAddProductModalOpen && !ViewModel.IsAddSupplierModalOpen && ViewModel.IsPurchaseEntryScreenOpen)
         {
-            SupplierAutoSuggestBox.Focus(FocusState.Programmatic);
+            await Task.Delay(150);
+            if (!ViewModel.IsAddProductModalOpen && !ViewModel.IsAddSupplierModalOpen && ViewModel.IsPurchaseEntryScreenOpen)
+            {
+                FocusControl("SupplierAutoSuggestBox");
+                if (SupplierAutoSuggestBox != null)
+                {
+                    SupplierAutoSuggestBox.Focus(FocusState.Programmatic);
+                }
+            }
         }
     }
 
@@ -95,6 +313,26 @@ public sealed partial class PurchaseEntryPage : Page
     private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         // 1. Modal Intercepts
+        if (ViewModel.IsSaveSummaryModalOpen)
+        {
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CancelSaveSummary();
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (ViewModel.IsExitConfirmDialogOpen)
+        {
+            if (e.Key == VirtualKey.Escape)
+            {
+                ViewModel.CancelExitDialog();
+                e.Handled = true;
+            }
+            return;
+        }
+
         if (ViewModel.IsCancelConfirmOpen || ViewModel.IsAddSupplierModalOpen || ViewModel.IsInvoiceDetailsModalOpen)
         {
             if (e.Key == VirtualKey.Escape)
@@ -126,14 +364,20 @@ public sealed partial class PurchaseEntryPage : Page
 
         switch (e.Key)
         {
-            case VirtualKey.F2 when ViewModel.SelectedTab == "Entry":
+            case VirtualKey.F2 when ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry":
                 ViewModel.AddBlankRowCommand.Execute(null);
-                FocusRowColumn(ViewModel.LineItems.Count - 1, 0);
+                var f2Idx = ViewModel.LineItems.Count - 1;
+                ViewModel.SetActiveRow(f2Idx);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    FocusRowColumn(f2Idx, 0);
+                });
                 e.Handled = true;
                 break;
 
-            case VirtualKey.F3 when ViewModel.SelectedTab == "Entry":
-                ViewModel.OpenAddProductModal(null, ViewModel.ActiveRow);
+            case VirtualKey.F3 when ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry":
+                var f3TargetRow = ViewModel.ActiveRow ?? (ViewModel.LineItems.Count > 0 ? ViewModel.LineItems[^1] : null);
+                ViewModel.OpenAddProductModal(null, f3TargetRow);
                 e.Handled = true;
                 break;
 
@@ -144,15 +388,15 @@ public sealed partial class PurchaseEntryPage : Page
 
             case VirtualKey.F6:
             case VirtualKey.S when ctrl:
-                if (ViewModel.SelectedTab == "Entry")
+                if (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry")
                 {
-                    _ = ViewModel.PostPurchaseInvoiceCommand.ExecuteAsync(null);
+                    ViewModel.RequestSaveSummary();
                     e.Handled = true;
                 }
                 break;
 
             case VirtualKey.Z when ctrl:
-                if (ViewModel.SelectedTab == "Entry")
+                if (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry")
                 {
                     if (e.Handled) return;
                     ViewModel.UndoRemoveRow();
@@ -165,12 +409,15 @@ public sealed partial class PurchaseEntryPage : Page
                 break;
 
             case VirtualKey.Escape:
-                FocusControl("SupplierInvoiceNoBox");
-                e.Handled = true;
+                if (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry")
+                {
+                    ViewModel.RequestClosePurchaseEntry();
+                    e.Handled = true;
+                }
                 break;
 
             case VirtualKey.Delete:
-                if (ViewModel.SelectedTab == "Entry")
+                if (ViewModel.IsPurchaseEntryScreenOpen || ViewModel.SelectedTab == "Entry")
                 {
                     if (e.Handled) return;
 
@@ -303,23 +550,283 @@ public sealed partial class PurchaseEntryPage : Page
 
     private void InvoiceNoBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Tab)
+        if (e.Key == VirtualKey.Left && sender is TextBox tb && (tb.SelectionStart == 0 || string.IsNullOrEmpty(tb.Text)))
         {
-            FocusControl("SupplierGstinBox");
+            SupplierAutoSuggestBox?.Focus(FocusState.Programmatic);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Tab || e.Key == VirtualKey.Right || e.Key == VirtualKey.Down)
+        {
+            SupplierInvoiceDateBox?.Focus(FocusState.Programmatic);
+            SupplierInvoiceDateBox?.SelectAll();
             e.Handled = true;
         }
     }
 
-    private void GstinBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private bool _isDateFormatting = false;
+
+    private void SupplierInvoiceDateBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (_isDateFormatting) return;
+        if (sender is TextBox tb)
+        {
+            var raw = tb.Text;
+            if (string.IsNullOrEmpty(raw)) return;
+
+            // Automatically format as DD/MM/YYYY
+            if (raw.Length == 2 && !raw.Contains('/') && char.IsDigit(raw[0]) && char.IsDigit(raw[1]))
+            {
+                _isDateFormatting = true;
+                try
+                {
+                    tb.Text = raw + "/";
+                    tb.SelectionStart = tb.Text.Length;
+                }
+                finally
+                {
+                    _isDateFormatting = false;
+                }
+            }
+            else if (raw.Length == 5 && raw.Count(c => c == '/') == 1 && char.IsDigit(raw[3]) && char.IsDigit(raw[4]))
+            {
+                _isDateFormatting = true;
+                try
+                {
+                    tb.Text = raw + "/";
+                    tb.SelectionStart = tb.Text.Length;
+                }
+                finally
+                {
+                    _isDateFormatting = false;
+                }
+            }
+        }
+    }
+
+    private void SupplierInvoiceDateBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            // Left arrow to Invoice No
+            if (e.Key == VirtualKey.Left && (tb.SelectionStart == 0 || string.IsNullOrEmpty(tb.Text)))
+            {
+                SupplierInvoiceNoBox?.Focus(FocusState.Programmatic);
+                SupplierInvoiceNoBox?.SelectAll();
+                e.Handled = true;
+                return;
+            }
+
+            // Backspace handling: delete across slash
+            if (e.Key == VirtualKey.Back)
+            {
+                if (tb.SelectionStart == 3 && tb.Text.Length >= 3 && tb.Text[2] == '/')
+                {
+                    _isDateFormatting = true;
+                    try
+                    {
+                        tb.Text = tb.Text.Substring(0, 1) + (tb.Text.Length > 3 ? tb.Text.Substring(3) : "");
+                        tb.SelectionStart = 1;
+                        e.Handled = true;
+                        return;
+                    }
+                    finally
+                    {
+                        _isDateFormatting = false;
+                    }
+                }
+                else if (tb.SelectionStart == 6 && tb.Text.Length >= 6 && tb.Text[5] == '/')
+                {
+                    _isDateFormatting = true;
+                    try
+                    {
+                        tb.Text = tb.Text.Substring(0, 4) + (tb.Text.Length > 6 ? tb.Text.Substring(6) : "");
+                        tb.SelectionStart = 4;
+                        e.Handled = true;
+                        return;
+                    }
+                    finally
+                    {
+                        _isDateFormatting = false;
+                    }
+                }
+            }
+        }
+
+        if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Down || e.Key == VirtualKey.Right)
+        {
+            CommitDateAndFocusProductSearch();
+            e.Handled = true;
+        }
+    }
+
+    private void SupplierInvoiceDateBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter || e.Key == VirtualKey.Down || e.Key == VirtualKey.Right)
+        {
+            CommitDateAndFocusProductSearch();
+            e.Handled = true;
+        }
+    }
+
+    private void CommitDateAndFocusProductSearch()
+    {
+        if (SupplierInvoiceDateBox != null && !string.IsNullOrWhiteSpace(SupplierInvoiceDateBox.Text))
+        {
+            var text = SupplierInvoiceDateBox.Text.Trim();
+            if (DateTime.TryParseExact(text, new[] { "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "yyyy-MM-dd" },
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var dt))
+            {
+                ViewModel.SupplierInvoiceDate = new DateTimeOffset(dt, TimeSpan.Zero);
+            }
+        }
+
+        if (ViewModel.LineItems.Count == 0)
+        {
+            ViewModel.AddBlankRowCommand.Execute(null);
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+            PurchaseProductSearchBox?.SelectAll();
+        });
+    }
+
+    // ─── Top Product Search Box Handlers ─────────────────────────────────────
+    private void PurchaseProductSearchBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.HasProductSearchResults = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Down)
+        {
+            if (ViewModel.HasProductSearchResults && ViewModel.ProductSearchResults.Count > 0)
+            {
+                ViewModel.MoveSearchSelectionDown();
+                if (ViewModel.SelectedProductSearchItem != null && PurchaseProductSearchResultsList != null)
+                {
+                    PurchaseProductSearchResultsList.ScrollIntoView(ViewModel.SelectedProductSearchItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            else
+            {
+                FocusRowColumn(0, 0);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == VirtualKey.Up)
+        {
+            if (ViewModel.HasProductSearchResults && ViewModel.ProductSearchResults.Count > 0 && ViewModel.SelectedProductSearchIndex > 0)
+            {
+                ViewModel.MoveSearchSelectionUp();
+                if (ViewModel.SelectedProductSearchItem != null && PurchaseProductSearchResultsList != null)
+                {
+                    PurchaseProductSearchResultsList.ScrollIntoView(ViewModel.SelectedProductSearchItem);
+                }
+                e.Handled = true;
+                return;
+            }
+            else
+            {
+                SupplierInvoiceDateBox?.Focus(FocusState.Programmatic);
+                SupplierInvoiceDateBox?.SelectAll();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == VirtualKey.Left)
+        {
+            if (sender is TextBox tb && (tb.SelectionLength == tb.Text.Length || tb.SelectionStart == 0 || string.IsNullOrEmpty(tb.Text)))
+            {
+                SupplierInvoiceDateBox?.Focus(FocusState.Programmatic);
+                SupplierInvoiceDateBox?.SelectAll();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == VirtualKey.Right)
+        {
+            if (sender is TextBox tb && (tb.SelectionLength == tb.Text.Length || tb.SelectionStart == tb.Text.Length || string.IsNullOrEmpty(tb.Text)))
+            {
+                FocusRowColumn(0, 0);
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (e.Key == VirtualKey.Enter)
         {
-            if (ViewModel.LineItems.Count == 0)
-            {
-                ViewModel.AddBlankRowCommand.Execute(null);
-            }
-            ViewModel.SetActiveRow(0);
-            FocusRowColumn(0, 0);
+            HandleProductSearchSubmit();
+            e.Handled = true;
+            return;
+        }
+    }
+
+    private void PurchaseProductSearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled) return;
+        if (e.Key == VirtualKey.Enter)
+        {
+            HandleProductSearchSubmit();
+            e.Handled = true;
+        }
+    }
+
+    private void HandleProductSearchSubmit()
+    {
+        if (ViewModel.HasProductSearchResults && ViewModel.ProductSearchResults.Count > 0 && ViewModel.SelectedProductSearchItem != null)
+        {
+            var row = ViewModel.SelectTopProductSearch(ViewModel.SelectedProductSearchItem);
+            var rowIndex = ViewModel.LineItems.IndexOf(row);
+            FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1); // Focus Batch No
+        }
+        else if (!string.IsNullOrWhiteSpace(ViewModel.ProductSearchQuery))
+        {
+            ViewModel.AddSearchedProductModal();
+        }
+        else
+        {
+            // Empty / blank search query -> open Purchase Invoice Summary & Confirmation Preview Modal
+            ViewModel.RequestSaveSummary();
+        }
+    }
+
+    private void PurchaseProductSearchResultsList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ProductSearchItemViewModel item)
+        {
+            var row = ViewModel.SelectTopProductSearch(item);
+            var rowIndex = ViewModel.LineItems.IndexOf(row);
+            FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
+        }
+    }
+
+    private void PurchaseProductSearchResultsList_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter && ViewModel.SelectedProductSearchItem != null)
+        {
+            var row = ViewModel.SelectTopProductSearch(ViewModel.SelectedProductSearchItem);
+            var rowIndex = ViewModel.LineItems.IndexOf(row);
+            FocusRowColumn(rowIndex >= 0 ? rowIndex : 0, 1);
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.HasProductSearchResults = false;
+            PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
             e.Handled = true;
         }
     }
@@ -562,7 +1069,8 @@ public sealed partial class PurchaseEntryPage : Page
             }
             else
             {
-                FocusControl("SupplierInvoiceNoBox");
+                PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+                PurchaseProductSearchBox?.SelectAll();
             }
             e.Handled = true;
         }
@@ -578,7 +1086,8 @@ public sealed partial class PurchaseEntryPage : Page
         {
             if (tb != null && (tb.SelectionLength == tb.Text.Length || tb.SelectionStart == 0 || string.IsNullOrEmpty(tb.Text)))
             {
-                FocusControl("SupplierInvoiceNoBox");
+                PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+                PurchaseProductSearchBox?.SelectAll();
                 e.Handled = true;
             }
         }
@@ -759,7 +1268,8 @@ public sealed partial class PurchaseEntryPage : Page
                 }
                 else
                 {
-                    FocusControl("SupplierInvoiceNoBox");
+                    PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+                    PurchaseProductSearchBox?.SelectAll();
                 }
                 e.Handled = true;
                 return;
@@ -830,12 +1340,12 @@ public sealed partial class PurchaseEntryPage : Page
     {
         if (colIndex >= TotalColumns - 1)
         {
-            // Last column of row (GST %) -> advance to next row
-            if (rowIndex == ViewModel.LineItems.Count - 1)
+            // Last column of row (GST %) -> advance to top medicine search bar to add next medicine
+            DispatcherQueue.TryEnqueue(() =>
             {
-                ViewModel.AddBlankRowCommand.Execute(null);
-            }
-            FocusRowColumn(rowIndex + 1, 0);
+                PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+                PurchaseProductSearchBox?.SelectAll();
+            });
         }
         else
         {
@@ -851,7 +1361,8 @@ public sealed partial class PurchaseEntryPage : Page
         }
         else
         {
-            FocusControl("SupplierInvoiceNoBox");
+            PurchaseProductSearchBox?.Focus(FocusState.Programmatic);
+            PurchaseProductSearchBox?.SelectAll();
         }
     }
 
@@ -1329,16 +1840,489 @@ public sealed partial class PurchaseEntryPage : Page
 
         if (e.Key == VirtualKey.Enter)
         {
-            if (ReferenceEquals(sender, CancelNewProductBtn) || ReferenceEquals(sender, SaveNewProductBtn))
+            if (ReferenceEquals(sender, CancelNewProductBtn))
             {
+                ViewModel.CloseAddProductModal();
+                e.Handled = true;
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(ViewModel.NewProductName) && ViewModel.NewProductMrp > 0)
+            if (ReferenceEquals(sender, SaveNewProductBtn) || ReferenceEquals(sender, NewProductRxCheckBox))
             {
-                await ViewModel.SaveNewProductAsync();
-                e.Handled = true;
+                if (!string.IsNullOrWhiteSpace(ViewModel.NewProductName) && ViewModel.NewProductMrp > 0)
+                {
+                    await ViewModel.SaveNewProductAsync();
+                    e.Handled = true;
+                }
+                else
+                {
+                    SaveNewProductBtn?.Focus(FocusState.Programmatic);
+                    e.Handled = true;
+                }
+                return;
             }
+
+            HandleAddProductFieldNext(sender);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Down)
+        {
+            if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+            {
+                ViewModel.SelectNextStockType();
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(sender, NewProductTaxComboBox))
+            {
+                ViewModel.SelectNextTaxRate();
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(sender, NewProductVolumeMlComboBox) || ReferenceEquals(sender, NewProductWeightGmComboBox) ||
+                ReferenceEquals(sender, NewProductPackOptionsBox) || ReferenceEquals(sender, NewProductPcsPerStripBox))
+            {
+                ViewModel.SelectNextPackSize();
+                e.Handled = true;
+                return;
+            }
+
+            HandleAddProductFieldDown(sender);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Up)
+        {
+            if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+            {
+                ViewModel.SelectPreviousStockType();
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(sender, NewProductTaxComboBox))
+            {
+                ViewModel.SelectPreviousTaxRate();
+                e.Handled = true;
+                return;
+            }
+            if (ReferenceEquals(sender, NewProductVolumeMlComboBox) || ReferenceEquals(sender, NewProductWeightGmComboBox) ||
+                ReferenceEquals(sender, NewProductPackOptionsBox) || ReferenceEquals(sender, NewProductPcsPerStripBox))
+            {
+                ViewModel.SelectPreviousPackSize();
+                e.Handled = true;
+                return;
+            }
+
+            HandleAddProductFieldUp(sender);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Right)
+        {
+            if (sender is TextBox tb)
+            {
+                if (tb.SelectionLength == tb.Text.Length || tb.SelectionStart == tb.Text.Length || string.IsNullOrEmpty(tb.Text))
+                {
+                    HandleAddProductFieldRight(sender);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else
+            {
+                HandleAddProductFieldRight(sender);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == VirtualKey.Left)
+        {
+            if (sender is TextBox tb)
+            {
+                if (tb.SelectionLength == tb.Text.Length || tb.SelectionStart == 0 || string.IsNullOrEmpty(tb.Text))
+                {
+                    HandleAddProductFieldLeft(sender);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else
+            {
+                HandleAddProductFieldLeft(sender);
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private void FocusActivePackagingControl()
+    {
+        if (ViewModel.IsTabletOrCapsule)
+        {
+            NewProductStripCountBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ViewModel.IsVolumeMlType)
+        {
+            NewProductVolumeMlComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ViewModel.IsWeightGmType)
+        {
+            NewProductWeightGmComboBox?.Focus(FocusState.Programmatic);
+        }
+        else
+        {
+            NewProductPackOptionsBox?.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void HandleAddProductFieldDown(object sender)
+    {
+        if (ReferenceEquals(sender, NewProductNameBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductManufacturerBox))
+        {
+            NewProductStockTypeComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+        {
+            NewProductHsnBox?.Focus(FocusState.Programmatic);
+            NewProductHsnBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductStripCountBox) || ReferenceEquals(sender, NewProductPcsPerStripBox) ||
+                 ReferenceEquals(sender, NewProductVolumeMlComboBox) || ReferenceEquals(sender, NewProductWeightGmComboBox) ||
+                 ReferenceEquals(sender, NewProductPackOptionsBox))
+        {
+            NewProductTaxComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductHsnBox))
+        {
+            NewProductMrpBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductTaxComboBox))
+        {
+            NewProductBuyingPriceBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductMrpBox))
+        {
+            NewProductInitialStockQtyBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductBuyingPriceBox))
+        {
+            NewProductBatchBox?.Focus(FocusState.Programmatic);
+            NewProductBatchBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductInitialStockQtyBox) || ReferenceEquals(sender, NewProductBatchBox) || ReferenceEquals(sender, NewProductExpiryBox))
+        {
+            NewProductRxCheckBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductRxCheckBox))
+        {
+            SaveNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, CancelNewProductBtn) || ReferenceEquals(sender, SaveNewProductBtn))
+        {
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        }
+    }
+
+    private void HandleAddProductFieldUp(object sender)
+    {
+        if (ReferenceEquals(sender, SaveNewProductBtn) || ReferenceEquals(sender, CancelNewProductBtn))
+        {
+            NewProductRxCheckBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductRxCheckBox))
+        {
+            NewProductInitialStockQtyBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductExpiryBox) || ReferenceEquals(sender, NewProductBatchBox))
+        {
+            NewProductBuyingPriceBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductInitialStockQtyBox))
+        {
+            NewProductMrpBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductBuyingPriceBox))
+        {
+            NewProductTaxComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductMrpBox))
+        {
+            NewProductHsnBox?.Focus(FocusState.Programmatic);
+            NewProductHsnBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductTaxComboBox))
+        {
+            FocusActivePackagingControl();
+        }
+        else if (ReferenceEquals(sender, NewProductHsnBox))
+        {
+            NewProductStockTypeComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStripCountBox) || ReferenceEquals(sender, NewProductPcsPerStripBox) ||
+                 ReferenceEquals(sender, NewProductVolumeMlComboBox) || ReferenceEquals(sender, NewProductWeightGmComboBox) ||
+                 ReferenceEquals(sender, NewProductPackOptionsBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductManufacturerBox))
+        {
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductNameBox))
+        {
+            SaveNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void HandleAddProductFieldRight(object sender)
+    {
+        if (ReferenceEquals(sender, NewProductNameBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductManufacturerBox))
+        {
+            NewProductStockTypeComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+        {
+            FocusActivePackagingControl();
+        }
+        else if (ReferenceEquals(sender, NewProductStripCountBox))
+        {
+            NewProductPcsPerStripBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductPcsPerStripBox) || ReferenceEquals(sender, NewProductVolumeMlComboBox) ||
+                 ReferenceEquals(sender, NewProductWeightGmComboBox) || ReferenceEquals(sender, NewProductPackOptionsBox))
+        {
+            NewProductHsnBox?.Focus(FocusState.Programmatic);
+            NewProductHsnBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductHsnBox))
+        {
+            NewProductTaxComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductTaxComboBox))
+        {
+            NewProductMrpBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductMrpBox))
+        {
+            NewProductBuyingPriceBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductBuyingPriceBox))
+        {
+            NewProductInitialStockQtyBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductInitialStockQtyBox))
+        {
+            NewProductBatchBox?.Focus(FocusState.Programmatic);
+            NewProductBatchBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductBatchBox))
+        {
+            NewProductExpiryBox?.Focus(FocusState.Programmatic);
+            NewProductExpiryBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductExpiryBox))
+        {
+            NewProductRxCheckBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductRxCheckBox))
+        {
+            CancelNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, CancelNewProductBtn))
+        {
+            SaveNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void HandleAddProductFieldLeft(object sender)
+    {
+        if (ReferenceEquals(sender, SaveNewProductBtn))
+        {
+            CancelNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, CancelNewProductBtn))
+        {
+            NewProductRxCheckBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductRxCheckBox))
+        {
+            NewProductExpiryBox?.Focus(FocusState.Programmatic);
+            NewProductExpiryBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductExpiryBox))
+        {
+            NewProductBatchBox?.Focus(FocusState.Programmatic);
+            NewProductBatchBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductBatchBox))
+        {
+            NewProductInitialStockQtyBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductInitialStockQtyBox))
+        {
+            NewProductBuyingPriceBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductBuyingPriceBox))
+        {
+            NewProductMrpBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductMrpBox))
+        {
+            NewProductTaxComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductTaxComboBox))
+        {
+            NewProductHsnBox?.Focus(FocusState.Programmatic);
+            NewProductHsnBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductHsnBox))
+        {
+            FocusActivePackagingControl();
+        }
+        else if (ReferenceEquals(sender, NewProductPcsPerStripBox))
+        {
+            NewProductStripCountBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStripCountBox) || ReferenceEquals(sender, NewProductVolumeMlComboBox) ||
+                 ReferenceEquals(sender, NewProductWeightGmComboBox) || ReferenceEquals(sender, NewProductPackOptionsBox))
+        {
+            NewProductStockTypeComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductManufacturerBox))
+        {
+            NewProductNameBox?.Focus(FocusState.Programmatic);
+            NewProductNameBox?.SelectAll();
+        }
+    }
+
+    private void HandleAddProductFieldNext(object sender)
+    {
+        if (ReferenceEquals(sender, NewProductNameBox))
+        {
+            NewProductManufacturerBox?.Focus(FocusState.Programmatic);
+            NewProductManufacturerBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductManufacturerBox))
+        {
+            NewProductStockTypeComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductStockTypeComboBox))
+        {
+            FocusActivePackagingControl();
+        }
+        else if (ReferenceEquals(sender, NewProductStripCountBox))
+        {
+            NewProductPcsPerStripBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductPcsPerStripBox) || ReferenceEquals(sender, NewProductVolumeMlComboBox) ||
+                 ReferenceEquals(sender, NewProductWeightGmComboBox) || ReferenceEquals(sender, NewProductPackOptionsBox))
+        {
+            NewProductHsnBox?.Focus(FocusState.Programmatic);
+            NewProductHsnBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductHsnBox))
+        {
+            NewProductTaxComboBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductTaxComboBox))
+        {
+            NewProductMrpBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductMrpBox))
+        {
+            NewProductBuyingPriceBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductBuyingPriceBox))
+        {
+            NewProductInitialStockQtyBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductInitialStockQtyBox))
+        {
+            NewProductBatchBox?.Focus(FocusState.Programmatic);
+            NewProductBatchBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductBatchBox))
+        {
+            NewProductExpiryBox?.Focus(FocusState.Programmatic);
+            NewProductExpiryBox?.SelectAll();
+        }
+        else if (ReferenceEquals(sender, NewProductExpiryBox))
+        {
+            NewProductRxCheckBox?.Focus(FocusState.Programmatic);
+        }
+        else if (ReferenceEquals(sender, NewProductRxCheckBox))
+        {
+            SaveNewProductBtn?.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private void SaveSummaryModalBtn_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, ConfirmSaveSummaryButton))
+            {
+                _ = ViewModel.ConfirmAndSavePurchaseAsync();
+            }
+            else
+            {
+                ViewModel.CancelSaveSummary();
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CancelSaveSummary();
+            e.Handled = true;
+        }
+    }
+
+    private void SaveSummaryModalBtn_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Right || e.Key == VirtualKey.Left)
+        {
+            if (ReferenceEquals(sender, ConfirmSaveSummaryButton))
+            {
+                CancelSaveSummaryButton?.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                ConfirmSaveSummaryButton?.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CancelSaveSummary();
+            e.Handled = true;
         }
     }
 }
