@@ -34,7 +34,8 @@ if (-not $SkipDesktopPublish -or -not (Test-Path (Join-Path $distReleaseDir "Med
     
     # Terminate any running Medistock instances
     Get-Process -Name "Medistock*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
+    Get-Process -Name "Medistock.Desktop" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
 
     dotnet publish $desktopProj `
         -c Release `

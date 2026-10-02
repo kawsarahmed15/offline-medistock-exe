@@ -302,12 +302,26 @@ public class InstallerForm : Form
 
     private void PerformInstallation(string targetDir)
     {
+        // 1. Terminate any running Medistock instances first so files aren't locked
+        try
+        {
+            foreach (var proc in Process.GetProcessesByName("Medistock.Desktop"))
+            {
+                try { proc.Kill(); proc.WaitForExit(2000); } catch { }
+            }
+            foreach (var proc in Process.GetProcessesByName("Medistock"))
+            {
+                try { proc.Kill(); proc.WaitForExit(2000); } catch { }
+            }
+        }
+        catch { }
+
         if (!Directory.Exists(targetDir))
         {
             Directory.CreateDirectory(targetDir);
         }
 
-        // Extract payload
+        // 2. Extract payload
         var asm = Assembly.GetExecutingAssembly();
         using (var zipStream = asm.GetManifestResourceStream("Medistock.Setup.app_payload.zip"))
         {
@@ -322,10 +336,7 @@ public class InstallerForm : Form
 
             foreach (var entry in archive.Entries)
             {
-                // Skip WebView2 EBWebView cache — it is a runtime-generated user-data
-                // directory created automatically by WebView2 on first launch.
-                // Bundling it causes "Could not find a part of the path" errors during
-                // installation on machines where the nested directory tree doesn't pre-exist.
+                // Skip WebView2 cache directories
                 if (entry.FullName.Contains(".WebView2/", StringComparison.OrdinalIgnoreCase) ||
                     entry.FullName.Contains(".WebView2\\", StringComparison.OrdinalIgnoreCase) ||
                     entry.FullName.Contains("EBWebView", StringComparison.OrdinalIgnoreCase))
@@ -334,24 +345,47 @@ public class InstallerForm : Form
                     continue;
                 }
 
-                if (string.IsNullOrEmpty(entry.Name) && entry.FullName.EndsWith("/"))
+                var normalizedPath = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+
+                // Directory entry check
+                if (string.IsNullOrEmpty(entry.Name) || entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
                 {
-                    var dir = Path.Combine(targetDir, entry.FullName);
+                    var dir = Path.Combine(targetDir, normalizedPath);
                     Directory.CreateDirectory(dir);
                     continue;
                 }
 
-                var destPath = Path.Combine(targetDir, entry.FullName);
+                var destPath = Path.Combine(targetDir, normalizedPath);
                 var parentDir = Path.GetDirectoryName(destPath);
                 if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
                 {
                     Directory.CreateDirectory(parentDir);
                 }
 
-                entry.ExtractToFile(destPath, overwrite: true);
+                // Extract file with retry logic in case of transient file system locks
+                bool extracted = false;
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    try
+                    {
+                        entry.ExtractToFile(destPath, overwrite: true);
+                        extracted = true;
+                        break;
+                    }
+                    catch (IOException) when (attempt < 2)
+                    {
+                        System.Threading.Thread.Sleep(300);
+                    }
+                }
+
+                if (!extracted)
+                {
+                    entry.ExtractToFile(destPath, overwrite: true);
+                }
+
                 count++;
 
-                if (count % 15 == 0 || count == total)
+                if (count % 10 == 0 || count == total)
                 {
                     int pct = 5 + (int)((count / (double)total) * 85);
                     Invoke(new Action(() =>
