@@ -566,9 +566,11 @@ public partial class PurchaseItemRowViewModel : ObservableObject
 
     public decimal GrossAmount => Math.Round(Quantity * UnitPrice, 2);
     public decimal DiscountAmount => Math.Round(GrossAmount * (DiscountPct / 100m), 2);
-    public decimal TaxableAmount => GrossAmount - DiscountAmount;
-    public decimal GstAmount => Math.Round(TaxableAmount * (GstRatePercent / 100m), 2);
-    public decimal NetAmount => TaxableAmount + GstAmount;
+    public decimal NetAmount => GrossAmount - DiscountAmount;
+    public decimal TaxableAmount => GstRatePercent > 0
+        ? Math.Round((NetAmount * 100m) / (100m + GstRatePercent), 2, MidpointRounding.AwayFromZero)
+        : NetAmount;
+    public decimal GstAmount => NetAmount - TaxableAmount;
     public decimal TotalQuantity => Quantity + FreeQuantity;
     public decimal LandedCostPerUnit => TotalQuantity > 0 ? Math.Round(NetAmount / TotalQuantity, 2) : 0;
     public decimal MarginPercent => Mrp > 0 && LandedCostPerUnit > 0 ? Math.Round(((Mrp - LandedCostPerUnit) / Mrp) * 100m, 1) : 0;
@@ -2124,8 +2126,9 @@ public partial class PurchaseEntryViewModel : ObservableObject
         }
         else
         {
-            CgstTotal = Math.Round(LineItems.Sum(i => i.GstAmount) / 2m, 2);
-            SgstTotal = Math.Round(LineItems.Sum(i => i.GstAmount) / 2m, 2);
+            var totalGst = LineItems.Sum(i => i.GstAmount);
+            CgstTotal = Math.Round(totalGst / 2m, 2, MidpointRounding.AwayFromZero);
+            SgstTotal = totalGst - CgstTotal;
             IgstTotal = 0;
         }
 
@@ -2461,10 +2464,10 @@ public partial class PurchaseEntryViewModel : ObservableObject
                 var stock = await _purchaseService.GetBatchAvailableStockAsync(it.ProductId, it.BatchNumber, details.WarehouseId, details.OrgId);
                 var maxReturnable = Math.Min(it.TotalQuantity, Math.Max(0, stock));
 
-                // Net buying rate (unit price with discount + GST)
+                // Net buying rate (unit price with discount, which already includes GST)
                 decimal netRate = it.LandedCostPerUnit > 0
                     ? it.LandedCostPerUnit
-                    : Math.Round(it.UnitPrice * (1m - it.DiscountPct / 100m) * (1m + it.GstRatePercent / 100m), 2, MidpointRounding.AwayFromZero);
+                    : Math.Round(it.UnitPrice * (1m - it.DiscountPct / 100m), 2, MidpointRounding.AwayFromZero);
 
                 var rRow = new PurchaseReturnItemRowViewModel
                 {

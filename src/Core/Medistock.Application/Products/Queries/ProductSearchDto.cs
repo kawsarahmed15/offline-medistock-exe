@@ -103,4 +103,5 @@ public class BarcodeLookupDto
     public decimal MinStockAlert { get; set; } = 10;
     public string Barcode { get; set; } = string.Empty;
     public string PackSizeDescription { get; set; } = "1x10";
+    public DosageForm DosageForm { get; set; } = DosageForm.Tablet;
 }

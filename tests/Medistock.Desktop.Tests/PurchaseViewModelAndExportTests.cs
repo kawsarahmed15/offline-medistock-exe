@@ -206,11 +206,11 @@ public class PurchaseViewModelAndExportTests
 
         Assert.Equal(2000.00m, row.GrossAmount);
         Assert.Equal(100.00m, row.DiscountAmount);
-        Assert.Equal(1900.00m, row.TaxableAmount);
-        Assert.Equal(228.00m, row.GstAmount);
-        Assert.Equal(2128.00m, row.NetAmount);
+        Assert.Equal(1696.43m, row.TaxableAmount);
+        Assert.Equal(203.57m, row.GstAmount);
+        Assert.Equal(1900.00m, row.NetAmount);
         Assert.Equal(110.00m, row.TotalQuantity);
-        Assert.Equal(19.35m, row.LandedCostPerUnit);
+        Assert.Equal(17.27m, row.LandedCostPerUnit);
         Assert.True(row.MarginPercent > 40);
     }
 
@@ -236,21 +236,21 @@ public class PurchaseViewModelAndExportTests
         vm.IsInterstate = false;
         vm.RecalculateTotals();
 
-        Assert.Equal(1000m, vm.TaxableSubtotal);
-        Assert.Equal(60m, vm.CgstTotal);
-        Assert.Equal(60m, vm.SgstTotal);
+        Assert.Equal(892.86m, vm.TaxableSubtotal);
+        Assert.Equal(53.57m, vm.CgstTotal);
+        Assert.Equal(53.57m, vm.SgstTotal);
         Assert.Equal(0m, vm.IgstTotal);
-        Assert.Equal(1120m, vm.GrandTotal);
+        Assert.Equal(1000m, vm.GrandTotal);
 
         // Interstate test
         vm.IsInterstate = true;
         vm.RecalculateTotals();
 
-        Assert.Equal(1000m, vm.TaxableSubtotal);
+        Assert.Equal(892.86m, vm.TaxableSubtotal);
         Assert.Equal(0m, vm.CgstTotal);
         Assert.Equal(0m, vm.SgstTotal);
-        Assert.Equal(120m, vm.IgstTotal);
-        Assert.Equal(1120m, vm.GrandTotal);
+        Assert.Equal(107.14m, vm.IgstTotal);
+        Assert.Equal(1000m, vm.GrandTotal);
     }
 
     [Fact]
@@ -983,14 +983,14 @@ public class PurchaseViewModelAndExportTests
         // Verify row calculations
         Assert.Equal(1000m, row.GrossAmount); // 10 * 100
         Assert.Equal(100m, row.DiscountAmount); // 10% of 1000
-        Assert.Equal(900m, row.TaxableAmount); // 1000 - 100
-        Assert.Equal(108m, row.GstAmount); // 12% of 900
-        Assert.Equal(1008m, row.NetAmount); // 900 + 108
+        Assert.Equal(803.57m, row.TaxableAmount); // 900 / 1.12
+        Assert.Equal(96.43m, row.GstAmount); // 900 - 803.57
+        Assert.Equal(900m, row.NetAmount); // 1000 - 100
         Assert.Equal(150m, row.SaleRate); // MRP is Sale Price
 
         // Verify that parent ViewModel Grand Total and Taxable Subtotal automatically updated in real-time!
-        Assert.Equal(900m, vm.TaxableSubtotal);
-        Assert.Equal(1008m, vm.GrandTotal);
+        Assert.Equal(803.57m, vm.TaxableSubtotal);
+        Assert.Equal(900m, vm.GrandTotal);
     }
 
     [Fact]

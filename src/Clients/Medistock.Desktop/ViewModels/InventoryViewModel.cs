@@ -120,7 +120,7 @@ public partial class StockItemViewModel : ObservableObject
         Mrp = dto.Mrp;
         PurchaseRate = dto.PurchaseRate;
         GstRatePercent = dto.GstRatePercent;
-        NetPurchaseRate = dto.NetPurchaseRate > 0 ? dto.NetPurchaseRate : Math.Round(dto.PurchaseRate * (1m + (dto.GstRatePercent / 100m)), 2, MidpointRounding.AwayFromZero);
+        NetPurchaseRate = dto.NetPurchaseRate > 0 ? dto.NetPurchaseRate : dto.PurchaseRate;
         SaleRate = dto.SaleRate;
         StockValueAtMrp = dto.StockValueAtMrp;
         StockValueAtCost = dto.StockValueAtCost;

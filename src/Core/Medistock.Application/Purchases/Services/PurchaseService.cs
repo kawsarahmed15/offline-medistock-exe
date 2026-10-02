@@ -109,7 +109,7 @@ public class PurchaseService : IPurchaseService
                 batchNumber: itemInput.BatchNumber,
                 expiryDate: itemInput.ExpiryDate,
                 mrp: itemInput.Mrp,
-                purchaseRate: itemInput.UnitPrice,
+                purchaseRate: item.LandedCostPerUnit > 0 ? item.LandedCostPerUnit : itemInput.UnitPrice,
                 saleRate: itemInput.SaleRate,
                 manufacturingDate: itemInput.ManufacturingDate
             );

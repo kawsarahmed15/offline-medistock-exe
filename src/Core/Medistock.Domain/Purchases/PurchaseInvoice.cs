@@ -68,8 +68,14 @@ public class PurchaseInvoiceItem : Entity<string>
             throw new ArgumentException("Batch number is mandatory.", nameof(batchNumber));
 
         var gross = quantity * unitPrice;
-        var discountAmt = Math.Round(gross * (discountPct / 100m), 2);
-        var taxable = gross - discountAmt;
+        var discountAmt = Math.Round(gross * (discountPct / 100m), 2, MidpointRounding.AwayFromZero);
+        var net = gross - discountAmt;
+
+        var taxable = gstRatePercent > 0
+            ? Math.Round((net * 100m) / (100m + gstRatePercent), 2, MidpointRounding.AwayFromZero)
+            : net;
+
+        var totalGst = net - taxable;
 
         decimal cgstRate = 0, cgstAmt = 0;
         decimal sgstRate = 0, sgstAmt = 0;
@@ -78,17 +84,16 @@ public class PurchaseInvoiceItem : Entity<string>
         if (isInterstate)
         {
             igstRate = gstRatePercent;
-            igstAmt = Math.Round(taxable * (igstRate / 100m), 2);
+            igstAmt = totalGst;
         }
         else
         {
             cgstRate = gstRatePercent / 2m;
-            cgstAmt = Math.Round(taxable * (cgstRate / 100m), 2);
+            cgstAmt = Math.Round(totalGst / 2m, 2, MidpointRounding.AwayFromZero);
             sgstRate = gstRatePercent / 2m;
-            sgstAmt = Math.Round(taxable * (sgstRate / 100m), 2);
+            sgstAmt = totalGst - cgstAmt;
         }
 
-        var net = taxable + cgstAmt + sgstAmt + igstAmt;
 
         return new PurchaseInvoiceItem
         {

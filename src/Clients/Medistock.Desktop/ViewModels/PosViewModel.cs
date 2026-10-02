@@ -20,6 +20,7 @@ using Medistock.Application.Products.Queries;
 using Medistock.Application.Sales.Commands;
 using Medistock.Domain.Common;
 using Medistock.Domain.Products;
+using Microsoft.UI.Xaml;
 
 namespace Medistock.Desktop.ViewModels;
 
@@ -69,6 +70,7 @@ public class CartItemDraftDto
     public decimal FreeQuantity { get; set; } = 0;
     public decimal UnitPrice { get; set; } = 0;
     public decimal DiscountPercent { get; set; } = 0;
+    public DosageForm DosageForm { get; set; } = DosageForm.Tablet;
 }
 
 public class HighlightedSegment
@@ -377,6 +379,9 @@ public partial class CartItemViewModel : ObservableObject
     public decimal GstRatePercent { get; set; }
     public bool IsColdChain { get; set; }
     public DrugSchedule Schedule { get; set; }
+    public DosageForm DosageForm { get; set; } = DosageForm.Tablet;
+    public bool IsTabletOrCapsule => DosageForm is DosageForm.Tablet or DosageForm.Capsule;
+    public Visibility TabBoxVisibility => IsTabletOrCapsule ? Visibility.Visible : Visibility.Collapsed;
 
     [ObservableProperty]
     private int _lineNumber = 1;
@@ -1724,6 +1729,7 @@ public partial class PosViewModel : ObservableObject
                                     GstRatePercent = itemDto.GstRatePercent,
                                     IsColdChain = itemDto.IsColdChain,
                                     Schedule = itemDto.Schedule,
+                                    DosageForm = itemDto.DosageForm,
                                     StripsPerBox = itemDto.StripsPerBox,
                                     TabsPerStrip = itemDto.TabsPerStrip,
                                     TotalUnitsPerBox = itemDto.TotalUnitsPerBox,
@@ -2112,6 +2118,7 @@ public partial class PosViewModel : ObservableObject
                     GstRatePercent = cmd.GstRatePercent,
                     IsColdChain = cmd.IsColdChain,
                     Schedule = cmd.Schedule,
+                    DosageForm = cmd.DosageForm,
                     StripQuantity = 1,
                     TabQuantity = 0,
                     Quantity = packaging.TabsPerStrip,
@@ -2357,6 +2364,7 @@ public partial class PosViewModel : ObservableObject
             GstRatePercent = product.GstRatePercent,
             IsColdChain = product.IsColdChain,
             Schedule = product.Schedule,
+            DosageForm = product.DosageForm,
             AvailableQuantity = available,
             StripQuantity = strips,
             TabQuantity = tabs,
@@ -2934,6 +2942,7 @@ public partial class PosViewModel : ObservableObject
             GstRatePercent = product.GstRatePercent,
             IsColdChain = product.IsColdChain,
             Schedule = product.Schedule,
+            DosageForm = product.DosageForm,
             StripQuantity = 1,
             TabQuantity = 0,
             Quantity = packaging.TabsPerStrip,
@@ -2958,8 +2967,15 @@ public partial class PosViewModel : ObservableObject
 
         if (ActiveTab.CartItems.Contains(item))
         {
+            var removedIndex = ActiveTab.CartItems.IndexOf(item);
             ActiveTab.CartItems.Remove(item);
             ActiveTab.RecalculateTotals();
+
+            // Clamp selection to the nearest valid row after deletion
+            if (ActiveTab.CartItems.Count == 0)
+                ActiveTab.SelectedCartIndex = -1;
+            else
+                ActiveTab.SelectedCartIndex = Math.Min(removedIndex, ActiveTab.CartItems.Count - 1);
         }
     }
 

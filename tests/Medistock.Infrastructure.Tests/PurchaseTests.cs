@@ -237,7 +237,7 @@ public class PurchaseTests : IDisposable
         var result = await _purchaseService.CreateAndPostPurchaseInvoiceAsync(command);
 
         Assert.True(result.Success, result.ErrorMessage);
-        Assert.Equal(10080.00m, result.GrandTotal);
+        Assert.Equal(9000.00m, result.GrandTotal);
         Assert.Equal(110, result.TotalStockAdded); // 100 + 10 free
 
         // Test GetPurchaseInvoiceDetailsAsync
@@ -473,8 +473,8 @@ public class PurchaseTests : IDisposable
         var stockValuationBefore = kpiBefore.TotalStockValue;
 
         // 2. Process Purchase Return for 6 units:
-        // Net unit price = 10.00 * 1.05 = 10.50
-        // Net return value = 6 * 10.50 = 63.00
+        // Net unit price = 10.00 (inclusive of GST)
+        // Net return value = 6 * 10.00 = 60.00
         var returnCmd = new CreatePurchaseReturnCommand(
             OrgId: "org-1",
             BranchId: "br-1",
@@ -489,7 +489,7 @@ public class PurchaseTests : IDisposable
             Items: new List<PurchaseReturnItemInputDto>
             {
                 new("p_return_test", "Return Test Medicine", "BATCH-RET-01",
-                    DateTime.UtcNow.AddMonths(12), 6m, 10.00m, 5.0m, 10.50m, 63.00m, "Damaged in transit")
+                    DateTime.UtcNow.AddMonths(12), 6m, 10.00m, 5.0m, 10.00m, 60.00m, "Damaged in transit")
             }
         );
 
@@ -500,15 +500,15 @@ public class PurchaseTests : IDisposable
         Assert.StartsWith("PR-", returnRes.ReturnNumber);
         Assert.Equal(1, returnRes.ItemsReturnedCount);
         Assert.Equal(6m, returnRes.TotalQuantityReturned);
-        Assert.Equal(63.00m, returnRes.TotalReturnAmount);
+        Assert.Equal(60.00m, returnRes.TotalReturnAmount);
 
         // 4. Verify Stock balance is reduced by 6 units (20 - 6 = 14)
         var stockAfter = await _purchaseRepository.GetBatchAvailableStockAsync("p_return_test", "BATCH-RET-01", "wh-1", "org-1");
         Assert.Equal(14m, stockAfter);
 
-        // 5. Verify Total Stock Valuation dropped by exactly 63.00 (6 * 10.50)
+        // 5. Verify Total Stock Valuation dropped by exactly 60.00 (6 * 10.00)
         var kpiAfter = await _purchaseRepository.GetPurchaseKpiSummaryAsync("org-1", "br-1");
-        Assert.Equal(stockValuationBefore - 63.00m, kpiAfter.TotalStockValue);
+        Assert.Equal(stockValuationBefore - 60.00m, kpiAfter.TotalStockValue);
     }
 }
 

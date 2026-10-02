@@ -176,7 +176,7 @@
                                 <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding TotalStockValueFormatted}" FontSize="20" FontWeight="Bold" Foreground="{ThemeResource AccentPrimary}" />
                             </StackPanel>
-                            <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost + GST %) × Available Quantity" />
+                            <TextBlock Text="{Binding TotalStockValueMrpFormatted}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Valuation calculated as Net Buying Cost (Buying Cost inclusive of GST) × Available Quantity" />
                         </StackPanel>
                     </Border>
                 </Button>

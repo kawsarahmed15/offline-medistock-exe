@@ -118,7 +118,7 @@ public class SqliteInventoryRepository : IInventoryRepository
             decimal saleRate = Convert.ToDecimal(r.SaleRate);
             decimal minStockAlert = r.MinStockAlert != null ? Convert.ToDecimal(r.MinStockAlert) : 10.0m;
             decimal gstRatePercent = r.GstRatePercent != null ? Convert.ToDecimal(r.GstRatePercent) : 0.0m;
-            decimal netRate = purchaseRate * (1m + (gstRatePercent / 100m));
+            decimal netRate = purchaseRate;
             decimal stockValueAtCost = Math.Round(availQty * netRate, 2, MidpointRounding.AwayFromZero);
 
             list.Add(new StockSummaryItemDto(

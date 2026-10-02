@@ -196,7 +196,9 @@ public class SqliteProductSearchRepository : IProductSearchRepository
                 p.is_cold_chain AS IsColdChain,
                 CAST(IFNULL(p.min_stock_alert, 10.0) AS REAL) AS MinStockAlert,
                 CAST(IFNULL(sb.quantity - sb.reserved_quantity, 0.0) AS REAL) AS AvailableQuantity,
-                @barcode AS Barcode
+                @barcode AS Barcode,
+                CAST(IFNULL(p.dosage_form, 0) AS INTEGER) AS DosageForm,
+                (p.pack_units || ' ' || p.base_unit || '/Pack') AS PackSizeDescription
             FROM products p
             LEFT JOIN product_barcodes pb ON pb.product_id = p.id
             LEFT JOIN (

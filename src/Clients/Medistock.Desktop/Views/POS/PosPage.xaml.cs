@@ -1717,6 +1717,16 @@ public sealed partial class PosPage : Page
 
     private void CartCell_GotFocus(object sender, RoutedEventArgs e)
     {
+        var item = FindAncestorDataContext<CartItemViewModel>(sender as FrameworkElement);
+        if (item != null && ViewModel.ActiveTab != null)
+        {
+            var idx = ViewModel.ActiveTab.CartItems.IndexOf(item);
+            if (idx >= 0 && idx != ViewModel.ActiveTab.SelectedCartIndex)
+            {
+                ViewModel.ActiveTab.SelectedCartIndex = idx;
+            }
+        }
+
         if (sender is TextBox directTb)
         {
             HideDeleteButton(directTb);
@@ -1794,7 +1804,11 @@ public sealed partial class PosPage : Page
             CartListView.UpdateLayout();
             if (CartListView.ContainerFromIndex(target) is ListViewItem container)
             {
-                var box = FindVisualChild<NumberBox>(container, nb => Grid.GetColumn(nb) == targetColumn);
+                var box = FindVisualChild<NumberBox>(container, nb => Grid.GetColumn(nb) == targetColumn && nb.Visibility == Visibility.Visible);
+                if (box == null && targetColumn == 6)
+                {
+                    box = FindVisualChild<NumberBox>(container, nb => Grid.GetColumn(nb) == 5);
+                }
                 box?.Focus(FocusState.Programmatic);
             }
         });
@@ -1802,7 +1816,51 @@ public sealed partial class PosPage : Page
 
     private void CartRow_Cell_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Up)
+        if (e.Key == VirtualKey.Delete)
+        {
+            if (sender is FrameworkElement fe)
+            {
+                var item = FindAncestorDataContext<CartItemViewModel>(fe);
+                if (item != null && ViewModel.ActiveTab != null)
+                {
+                    var idx = ViewModel.ActiveTab.CartItems.IndexOf(item);
+                    int targetCol = Grid.GetColumn(fe);
+                    if (targetCol < 5)
+                    {
+                        var parentNb = FindParent<NumberBox>(fe);
+                        if (parentNb != null) targetCol = Grid.GetColumn(parentNb);
+                    }
+                    if (targetCol < 5) targetCol = 5;
+
+                    ViewModel.RemoveCartItem(item);
+                    e.Handled = true;
+
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (ViewModel.ActiveTab?.CartItems.Count > 0)
+                        {
+                            var targetIndex = Math.Min(idx, ViewModel.ActiveTab.CartItems.Count - 1);
+                            ViewModel.ActiveTab.SelectedCartIndex = targetIndex;
+                            if (CartListView.ContainerFromIndex(targetIndex) is ListViewItem container)
+                            {
+                                var box = FindVisualChild<NumberBox>(container, nb => Grid.GetColumn(nb) == targetCol && nb.Visibility == Visibility.Visible);
+                                if (box == null && targetCol == 6)
+                                {
+                                    box = FindVisualChild<NumberBox>(container, nb => Grid.GetColumn(nb) == 5);
+                                }
+                                box?.Focus(FocusState.Programmatic);
+                            }
+                        }
+                        else
+                        {
+                            SearchBox.Focus(FocusState.Programmatic);
+                            SearchBox.SelectAll();
+                        }
+                    });
+                }
+            }
+        }
+        else if (e.Key == VirtualKey.Up)
         {
             if (sender is FrameworkElement fe)
             {
@@ -1868,7 +1926,15 @@ public sealed partial class PosPage : Page
             if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
             {
                 var tabBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 6);
-                tabBox?.Focus(FocusState.Programmatic);
+                if (tabBox != null && tabBox.Visibility == Visibility.Visible)
+                {
+                    tabBox.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    var freeBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 7);
+                    freeBox?.Focus(FocusState.Programmatic);
+                }
                 ViewModel.ActiveTab?.RecalculateTotals();
                 e.Handled = true;
             }
@@ -1969,7 +2035,15 @@ public sealed partial class PosPage : Page
             if (sender is FrameworkElement fe && FindParentGrid(fe) is Grid rowGrid)
             {
                 var tabBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 6);
-                tabBox?.Focus(FocusState.Programmatic);
+                if (tabBox != null && tabBox.Visibility == Visibility.Visible)
+                {
+                    tabBox.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    var stripBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 5);
+                    stripBox?.Focus(FocusState.Programmatic);
+                }
                 e.Handled = true;
             }
         }
@@ -2039,6 +2113,18 @@ public sealed partial class PosPage : Page
             SearchBox.SelectAll();
             e.Handled = true;
         }
+    }
+
+    private static T? FindAncestorDataContext<T>(FrameworkElement? element) where T : class
+    {
+        var current = element;
+        while (current != null)
+        {
+            if (current.DataContext is T target)
+                return target;
+            current = VisualTreeHelper.GetParent(current) as FrameworkElement;
+        }
+        return null;
     }
 
     private static Grid? FindParentGrid(FrameworkElement element)

@@ -441,7 +441,7 @@
                     <TextBlock Grid.Column="2" Text="Pack" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" />
                     <TextBlock Grid.Column="3" Text="Batch No" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" />
                     <TextBlock Grid.Column="4" Text="Expiry" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" />
-                    <TextBlock Grid.Column="5" Text="Strip" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="5" Text="Strip/Pc" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="6" Text="Tab/Qty" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="7" Text="Free" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
                     <TextBlock Grid.Column="8" Text="MRP (₹)" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource TextSecondary}" HorizontalAlignment="Right" />
@@ -508,6 +508,7 @@
                                 <!-- Tab / Qty Edit Box -->
                                 <NumberBox x:Name="RowTabBox"
                                            Grid.Column="6"
+                                           Visibility="{x:Bind TabBoxVisibility, Mode=OneWay}"
                                            Value="{x:Bind TabQuantityDouble, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Minimum="0"
                                            SmallChange="1"

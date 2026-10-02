@@ -758,7 +758,7 @@ public class SqlitePurchaseRepository : IPurchaseRepository
             WHERE org_id = @orgId AND is_active = 1;
 
             SELECT 
-                CAST(IFNULL(SUM(sb.quantity * (b.purchase_rate * (1.0 + (COALESCE(p.gst_rate_percent, 0.0) / 100.0)))), 0.0) AS REAL) AS TotalStockValue
+                CAST(IFNULL(SUM(sb.quantity * b.purchase_rate), 0.0) AS REAL) AS TotalStockValue
             FROM stock_balances sb
             JOIN batches b ON b.id = sb.batch_id
             LEFT JOIN products p ON p.id = b.product_id

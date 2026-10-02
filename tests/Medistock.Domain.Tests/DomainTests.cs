@@ -1,6 +1,7 @@
 using System;
 using Medistock.Domain.Common;
 using Medistock.Domain.Products;
+using Medistock.Domain.Purchases;
 using Medistock.Domain.Sales;
 using Xunit;
 
@@ -172,5 +173,64 @@ public class DomainTests
         Assert.Equal(100.00m, item.UnitPrice);
         Assert.Equal(100.00m, item.Mrp);
         Assert.Equal(200.00m, item.NetAmount);
+    }
+
+    [Fact]
+    public void PurchaseInvoiceItem_BuyingCost20_With12PercentGst_IncludesGstInNetAmount()
+    {
+        var item = PurchaseInvoiceItem.Create(
+            id: "pi-item-1",
+            purchaseInvoiceId: "pi-1",
+            productId: "prod-1",
+            productName: "Paracetamol 500mg",
+            hsnCode: "3004",
+            batchNumber: "PCM-2026",
+            expiryDate: DateTime.UtcNow.AddYears(2),
+            quantity: 1,
+            freeQuantity: 0,
+            unitPrice: 20.00m,
+            mrp: 30.00m,
+            saleRate: 30.00m,
+            discountPct: 0,
+            gstRatePercent: 12.0m,
+            isInterstate: false
+        );
+
+        // Buying price 20 is inclusive of GST:
+        // Net amount is exactly 20.00 (not 20 + GST = 22.40)
+        Assert.Equal(20.00m, item.NetAmount);
+        Assert.Equal(17.86m, item.TaxableAmount);
+        Assert.Equal(1.07m, item.CgstAmount);
+        Assert.Equal(1.07m, item.SgstAmount);
+        Assert.Equal(0.00m, item.IgstAmount);
+        Assert.Equal(20.00m, item.LandedCostPerUnit);
+    }
+
+    [Fact]
+    public void PurchaseInvoiceItem_WithFreeQuantity_CalculatesLandedCostPerUnitCorrectly()
+    {
+        var item = PurchaseInvoiceItem.Create(
+            id: "pi-item-2",
+            purchaseInvoiceId: "pi-2",
+            productId: "prod-2",
+            productName: "Amoxicillin 500mg",
+            hsnCode: "3004",
+            batchNumber: "AMX-2026",
+            expiryDate: DateTime.UtcNow.AddYears(2),
+            quantity: 10,
+            freeQuantity: 2,
+            unitPrice: 20.00m,
+            mrp: 35.00m,
+            saleRate: 35.00m,
+            discountPct: 0,
+            gstRatePercent: 12.0m,
+            isInterstate: false
+        );
+
+        // 10 purchased at 20 = 200 net total
+        Assert.Equal(200.00m, item.NetAmount);
+        Assert.Equal(12m, item.TotalQuantity); // 10 + 2
+        // Landed cost per unit = 200 / 12 = 16.6667
+        Assert.Equal(16.6667m, item.LandedCostPerUnit);
     }
 }

@@ -66,7 +66,7 @@ public class InventoryTests : IDisposable
             Assert.True(item.AvailableQuantity >= 0);
             Assert.True(item.StockValueAtMrp >= 0);
             Assert.True(item.StockValueAtCost >= 0);
-            decimal expectedNetRate = item.PurchaseRate * (1m + (item.GstRatePercent / 100m));
+            decimal expectedNetRate = item.PurchaseRate;
             Assert.Equal(Math.Round(item.AvailableQuantity * expectedNetRate, 2), item.StockValueAtCost);
         }
     }
