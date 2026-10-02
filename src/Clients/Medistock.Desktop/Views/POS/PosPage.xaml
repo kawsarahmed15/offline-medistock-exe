@@ -564,6 +564,7 @@
                                            Grid.Column="9"
                                            Value="{x:Bind UnitPriceDouble, Mode=TwoWay}"
                                            Minimum="0"
+                                           Maximum="{x:Bind MrpDouble, Mode=OneWay}"
                                            SmallChange="1"
                                            SpinButtonPlacementMode="Hidden"
                                            Height="40"

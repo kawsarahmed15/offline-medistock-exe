@@ -150,4 +150,27 @@ public class DomainTests
 
         Assert.Equal(SaleStatus.Posted, sale.Status);
     }
+
+    [Fact]
+    public void SaleItem_UnitPrice_NeverExceedsMrp()
+    {
+        var item = SaleItem.Create(
+            "i-clamp",
+            "sale-clamp",
+            "p-clamp",
+            "Clamped Medicine",
+            "b-clamp",
+            "BATCH01",
+            DateTime.UtcNow.AddMonths(12),
+            quantity: 2,
+            unitPrice: 150.00m,
+            mrp: 100.00m,
+            gstRatePercent: 12.0m,
+            isInterstate: false,
+            discountPct: 0);
+
+        Assert.Equal(100.00m, item.UnitPrice);
+        Assert.Equal(100.00m, item.Mrp);
+        Assert.Equal(200.00m, item.NetAmount);
+    }
 }

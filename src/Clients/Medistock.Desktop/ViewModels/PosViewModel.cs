@@ -2229,7 +2229,10 @@ public partial class PosViewModel : ObservableObject
             PendingStripQuantity = 1;
             PendingTabQuantity = 0;
             PendingFreeQuantity = 0;
-            PendingRate = (double)(PendingSelectedBatch.SaleRate > 0 ? PendingSelectedBatch.SaleRate : (product.SaleRate > 0 ? product.SaleRate : product.Mrp));
+            var effectiveMrp = PendingSelectedBatch.Mrp > 0 ? PendingSelectedBatch.Mrp : product.Mrp;
+            var initialRate = PendingSelectedBatch.SaleRate > 0 ? PendingSelectedBatch.SaleRate : (product.SaleRate > 0 ? product.SaleRate : product.Mrp);
+            if (effectiveMrp > 0 && initialRate > effectiveMrp) initialRate = effectiveMrp;
+            PendingRate = (double)initialRate;
             PendingDiscountPercent = 0;
             IsBatchPickerOpen = false;
             StatusMessage = $"{product.Name} (Batch {PendingSelectedBatch.BatchNumber}) selected. Enter Quantity.";
@@ -2244,7 +2247,10 @@ public partial class PosViewModel : ObservableObject
             PendingStripQuantity = 1;
             PendingTabQuantity = 0;
             PendingFreeQuantity = 0;
-            PendingRate = (double)(SelectedProductBatches[0].SaleRate > 0 ? SelectedProductBatches[0].SaleRate : (product.SaleRate > 0 ? product.SaleRate : product.Mrp));
+            var effectiveMrp = SelectedProductBatches[0].Mrp > 0 ? SelectedProductBatches[0].Mrp : product.Mrp;
+            var initialRate = SelectedProductBatches[0].SaleRate > 0 ? SelectedProductBatches[0].SaleRate : (product.SaleRate > 0 ? product.SaleRate : product.Mrp);
+            if (effectiveMrp > 0 && initialRate > effectiveMrp) initialRate = effectiveMrp;
+            PendingRate = (double)initialRate;
             PendingDiscountPercent = 0;
             StatusMessage = $"Select Batch for {product.Name} [↑/↓ to choose, Enter to confirm]";
             return false; // Multiple batches, show batch picker
@@ -2271,7 +2277,10 @@ public partial class PosViewModel : ObservableObject
         PendingStripQuantity = 1;
         PendingTabQuantity = 0;
         PendingFreeQuantity = 0;
-        PendingRate = (double)(batch.SaleRate > 0 ? batch.SaleRate : (SelectedProductForBatches.SaleRate > 0 ? SelectedProductForBatches.SaleRate : SelectedProductForBatches.Mrp));
+        var effectiveMrp = batch.Mrp > 0 ? batch.Mrp : SelectedProductForBatches.Mrp;
+        var initialRate = batch.SaleRate > 0 ? batch.SaleRate : (SelectedProductForBatches.SaleRate > 0 ? SelectedProductForBatches.SaleRate : SelectedProductForBatches.Mrp);
+        if (effectiveMrp > 0 && initialRate > effectiveMrp) initialRate = effectiveMrp;
+        PendingRate = (double)initialRate;
         PendingDiscountPercent = 0;
         CloseBatchPicker();
         StatusMessage = $"{PendingSelectedItem.Name} (Batch {batch.BatchNumber}) selected. Enter Quantity.";
@@ -2299,9 +2308,13 @@ public partial class PosViewModel : ObservableObject
         var batchId = batch?.Id ?? product.BatchId ?? Guid.NewGuid().ToString("N");
         var batchNo = batch?.BatchNumber ?? product.BatchNumber ?? "DEFAULT";
         var expiry = batch?.ExpiryDate ?? product.NearestExpiryDate ?? DateTime.UtcNow.AddYears(1);
-        var baseRate = (batch != null && batch.SaleRate > 0) ? batch.SaleRate : (product.SaleRate > 0 ? product.SaleRate : product.Mrp);
-        var unitPrice = PendingRate > 0 ? (decimal)PendingRate : baseRate;
         var mrp = batch?.Mrp ?? product.Mrp;
+        var baseRate = (batch != null && batch.SaleRate > 0) ? batch.SaleRate : (product.SaleRate > 0 ? product.SaleRate : mrp);
+        var unitPrice = PendingRate > 0 ? (decimal)PendingRate : baseRate;
+        if (mrp > 0 && unitPrice > mrp)
+        {
+            unitPrice = mrp;
+        }
 
         var available = batch != null ? batch.AvailableQuantity : product.AvailableQuantity;
         if (available <= 0)
@@ -2337,8 +2350,8 @@ public partial class PosViewModel : ObservableObject
             BatchId = batchId,
             BatchNumber = batchNo,
             ExpiryDate = expiry,
-            UnitPrice = unitPrice,
             Mrp = mrp,
+            UnitPrice = unitPrice,
             GstRatePercent = product.GstRatePercent,
             IsColdChain = product.IsColdChain,
             Schedule = product.Schedule,
@@ -2900,6 +2913,13 @@ public partial class PosViewModel : ObservableObject
         if (ActiveTab == null) return;
 
         var packaging = PackagingHelper.Parse(product.PackSizeDescription);
+        var mrp = product.Mrp;
+        var rate = product.SaleRate > 0 ? product.SaleRate : mrp;
+        if (mrp > 0 && rate > mrp)
+        {
+            rate = mrp;
+        }
+
         var item = new CartItemViewModel
         {
             ProductId = product.ProductId,
@@ -2911,8 +2931,8 @@ public partial class PosViewModel : ObservableObject
             BatchId = product.BatchId,
             BatchNumber = product.BatchNumber,
             ExpiryDate = product.ExpiryDate,
-            UnitPrice = product.SaleRate > 0 ? product.SaleRate : product.Mrp,
-            Mrp = product.Mrp,
+            Mrp = mrp,
+            UnitPrice = rate,
             GstRatePercent = product.GstRatePercent,
             IsColdChain = product.IsColdChain,
             Schedule = product.Schedule,
@@ -3175,7 +3195,7 @@ public partial class PosViewModel : ObservableObject
                     c.BatchNumber,
                     c.ExpiryDate,
                     billQty,
-                    c.UnitPrice,
+                    (c.Mrp > 0 && c.UnitPrice > c.Mrp) ? c.Mrp : c.UnitPrice,
                     c.Mrp,
                     c.GstRatePercent,
                     itemDiscPct
