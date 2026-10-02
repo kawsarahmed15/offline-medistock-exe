@@ -46,7 +46,8 @@ public class DatabaseMigrator : IDatabaseMigrator
             ("008_BillCustomizationAndPrinters", GetBillCustomizationSchemaSql()),
             ("009_CustomersAndCreditParties", GetCustomersSchemaSql()),
             ("010_AddMinStockAlertToProducts", GetMinStockAlertSchemaSql()),
-            ("011_AddBatchAndStockUniqueIndexes", GetBatchAndStockUniqueIndexesSql())
+            ("011_AddBatchAndStockUniqueIndexes", GetBatchAndStockUniqueIndexesSql()),
+            ("012_FixTabletCapsuleDefaultPackUnits", GetFixTabletCapsuleDefaultPackUnitsSql())
         };
 
         foreach (var (version, sql) in migrations)
@@ -947,6 +948,17 @@ ALTER TABLE products ADD COLUMN min_stock_alert REAL NOT NULL DEFAULT 10.0;
         return @"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_product_batch_org ON batches(product_id, batch_number, org_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_balances_batch_wh ON stock_balances(batch_id, warehouse_id);
+";
+    }
+
+    private static string GetFixTabletCapsuleDefaultPackUnitsSql()
+    {
+        return @"
+UPDATE products
+SET pack_units = 10,
+    base_unit = CASE WHEN dosage_form = 1 THEN 'CAP' ELSE 'TAB' END
+WHERE (dosage_form IN (0, 1) OR base_unit IN ('TAB', 'CAP') OR name LIKE '%zafar%')
+  AND (pack_units IS NULL OR pack_units <= 1);
 ";
     }
 }

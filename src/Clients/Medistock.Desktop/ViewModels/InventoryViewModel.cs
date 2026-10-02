@@ -1345,7 +1345,10 @@ public partial class InventoryViewModel : ObservableObject
                     ExpiryDate: expiryToUse,
                     Mrp: pieceMrp,
                     PurchaseRate: piecePurchaseRate,
-                    SaleRate: pieceSaleRate
+                    SaleRate: pieceSaleRate,
+                    DosageForm: (int)dosageForm,
+                    PackUnits: packUnits,
+                    BaseUnit: baseUnit
                 );
 
                 var result = await _inventoryService.UpdateProductDetailsAsync(command);

@@ -53,7 +53,10 @@ public static class PackagingHelper
         {
             if (int.TryParse(CleanNumber(parts[0]), out int num) && num > 0)
             {
-                return new PackagingBreakdown(1, num, num, $"{num} {unit}/Strip");
+                int tabsPerStrip = (num <= 1 && (text.Contains("STRIP", StringComparison.OrdinalIgnoreCase) || unit is "TAB" or "CAP"))
+                    ? 10
+                    : num;
+                return new PackagingBreakdown(1, tabsPerStrip, tabsPerStrip, $"{tabsPerStrip} {unit}/Strip");
             }
         }
 

@@ -394,7 +394,7 @@ public partial class CartItemViewModel : ObservableObject
         get => _stripQuantity;
         set
         {
-            var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+            var tabsPerStrip = TabsPerStrip > 1 ? TabsPerStrip : 10m;
             if (AvailableQuantity > 0 && (value * tabsPerStrip + _tabQuantity) > AvailableQuantity)
             {
                 value = Math.Max(0, Math.Floor((AvailableQuantity - _tabQuantity) / tabsPerStrip));
@@ -419,25 +419,23 @@ public partial class CartItemViewModel : ObservableObject
         get => (double)StripQuantity;
         set
         {
-            if (value >= 0)
+            var numericVal = double.IsNaN(value) || value < 0 ? 0 : value;
+            var val = (decimal)numericVal;
+            var tabsPerStrip = TabsPerStrip > 1 ? TabsPerStrip : 10m;
+            if (AvailableQuantity > 0 && (val * tabsPerStrip + _tabQuantity) > AvailableQuantity)
             {
-                var val = (decimal)value;
-                var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
-                if (AvailableQuantity > 0 && (val * tabsPerStrip + _tabQuantity) > AvailableQuantity)
-                {
-                    val = Math.Max(0, Math.Floor((AvailableQuantity - _tabQuantity) / tabsPerStrip));
-                }
-                _stripQuantity = val;
-                _quantity = (val * tabsPerStrip) + _tabQuantity;
-                OnPropertyChanged(nameof(StripQuantity));
-                OnPropertyChanged(nameof(Quantity));
-                OnPropertyChanged(nameof(QuantityDouble));
-                OnPropertyChanged(nameof(GrossAmount));
-                OnPropertyChanged(nameof(DiscountAmount));
-                OnPropertyChanged(nameof(TaxableAmount));
-                OnPropertyChanged(nameof(GstAmount));
-                OnPropertyChanged(nameof(NetAmount));
+                val = Math.Max(0, Math.Floor((AvailableQuantity - _tabQuantity) / tabsPerStrip));
             }
+            _stripQuantity = val;
+            _quantity = (val * tabsPerStrip) + _tabQuantity;
+            OnPropertyChanged(nameof(StripQuantity));
+            OnPropertyChanged(nameof(Quantity));
+            OnPropertyChanged(nameof(QuantityDouble));
+            OnPropertyChanged(nameof(GrossAmount));
+            OnPropertyChanged(nameof(DiscountAmount));
+            OnPropertyChanged(nameof(TaxableAmount));
+            OnPropertyChanged(nameof(GstAmount));
+            OnPropertyChanged(nameof(NetAmount));
         }
     }
 
@@ -447,7 +445,7 @@ public partial class CartItemViewModel : ObservableObject
         get => _tabQuantity;
         set
         {
-            var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
+            var tabsPerStrip = TabsPerStrip > 1 ? TabsPerStrip : 10m;
             if (AvailableQuantity > 0 && (_stripQuantity * tabsPerStrip + value) > AvailableQuantity)
             {
                 value = Math.Max(0, AvailableQuantity - (_stripQuantity * tabsPerStrip));
@@ -472,25 +470,23 @@ public partial class CartItemViewModel : ObservableObject
         get => (double)TabQuantity;
         set
         {
-            if (value >= 0)
+            var numericVal = double.IsNaN(value) || value < 0 ? 0 : value;
+            var val = (decimal)numericVal;
+            var tabsPerStrip = TabsPerStrip > 1 ? TabsPerStrip : 10m;
+            if (AvailableQuantity > 0 && (_stripQuantity * tabsPerStrip + val) > AvailableQuantity)
             {
-                var val = (decimal)value;
-                var tabsPerStrip = TabsPerStrip > 0 ? TabsPerStrip : 10m;
-                if (AvailableQuantity > 0 && (_stripQuantity * tabsPerStrip + val) > AvailableQuantity)
-                {
-                    val = Math.Max(0, AvailableQuantity - (_stripQuantity * tabsPerStrip));
-                }
-                _tabQuantity = val;
-                _quantity = (_stripQuantity * tabsPerStrip) + val;
-                OnPropertyChanged(nameof(TabQuantity));
-                OnPropertyChanged(nameof(Quantity));
-                OnPropertyChanged(nameof(QuantityDouble));
-                OnPropertyChanged(nameof(GrossAmount));
-                OnPropertyChanged(nameof(DiscountAmount));
-                OnPropertyChanged(nameof(TaxableAmount));
-                OnPropertyChanged(nameof(GstAmount));
-                OnPropertyChanged(nameof(NetAmount));
+                val = Math.Max(0, AvailableQuantity - (_stripQuantity * tabsPerStrip));
             }
+            _tabQuantity = val;
+            _quantity = (_stripQuantity * tabsPerStrip) + val;
+            OnPropertyChanged(nameof(TabQuantity));
+            OnPropertyChanged(nameof(Quantity));
+            OnPropertyChanged(nameof(QuantityDouble));
+            OnPropertyChanged(nameof(GrossAmount));
+            OnPropertyChanged(nameof(DiscountAmount));
+            OnPropertyChanged(nameof(TaxableAmount));
+            OnPropertyChanged(nameof(GstAmount));
+            OnPropertyChanged(nameof(NetAmount));
         }
     }
 
@@ -613,8 +609,14 @@ public partial class CartItemViewModel : ObservableObject
     {
         get
         {
+            if (StripQuantity <= 0 && TabQuantity <= 0)
+            {
+                return 0m;
+            }
+
             var effectiveRate = Mrp > 0 ? Mrp : UnitPrice;
-            var perTabRate = effectiveRate / (TabsPerStrip > 0 ? TabsPerStrip : 10m);
+            var tabsPerStrip = TabsPerStrip > 1 ? (decimal)TabsPerStrip : 10m;
+            var perTabRate = effectiveRate / tabsPerStrip;
             decimal gross = 0;
 
             if (StripQuantity > 0)
@@ -626,17 +628,7 @@ public partial class CartItemViewModel : ObservableObject
                 gross += TabQuantity * perTabRate;
             }
 
-            if (gross > 0)
-            {
-                return Math.Round(gross, 2, MidpointRounding.AwayFromZero);
-            }
-
-            if (Quantity > 0 && StripQuantity == 0 && TabQuantity == 0)
-            {
-                return Math.Round(Quantity * effectiveRate, 2, MidpointRounding.AwayFromZero);
-            }
-
-            return 0m;
+            return Math.Round(gross, 2, MidpointRounding.AwayFromZero);
         }
     }
 
@@ -1187,15 +1179,16 @@ public partial class PosViewModel : ObservableObject
         get => _pendingStripQuantity;
         set
         {
-            if (SetProperty(ref _pendingStripQuantity, value))
+            var sanitizedValue = double.IsNaN(value) || value < 0 ? 0 : value;
+            if (SetProperty(ref _pendingStripQuantity, sanitizedValue))
             {
                 var tabsPerStrip = 10;
                 if (PendingSelectedItem != null)
                 {
                     var breakdown = PackagingHelper.Parse(PendingSelectedItem.PackSizeDescription);
-                    tabsPerStrip = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
+                    tabsPerStrip = breakdown.TabsPerStrip > 1 ? breakdown.TabsPerStrip : 10;
                 }
-                _pendingQuantity = (value * tabsPerStrip) + _pendingTabQuantity;
+                _pendingQuantity = (sanitizedValue * tabsPerStrip) + _pendingTabQuantity;
                 OnPropertyChanged(nameof(PendingQuantity));
                 OnPropertyChanged(nameof(PendingGrossAmount));
                 OnPropertyChanged(nameof(PendingDiscountAmount));
@@ -1212,15 +1205,16 @@ public partial class PosViewModel : ObservableObject
         get => _pendingTabQuantity;
         set
         {
-            if (SetProperty(ref _pendingTabQuantity, value))
+            var sanitizedValue = double.IsNaN(value) || value < 0 ? 0 : value;
+            if (SetProperty(ref _pendingTabQuantity, sanitizedValue))
             {
                 var tabsPerStrip = 10;
                 if (PendingSelectedItem != null)
                 {
                     var breakdown = PackagingHelper.Parse(PendingSelectedItem.PackSizeDescription);
-                    tabsPerStrip = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
+                    tabsPerStrip = breakdown.TabsPerStrip > 1 ? breakdown.TabsPerStrip : 10;
                 }
-                _pendingQuantity = (_pendingStripQuantity * tabsPerStrip) + value;
+                _pendingQuantity = (_pendingStripQuantity * tabsPerStrip) + sanitizedValue;
                 OnPropertyChanged(nameof(PendingQuantity));
                 OnPropertyChanged(nameof(PendingGrossAmount));
                 OnPropertyChanged(nameof(PendingDiscountAmount));
@@ -1237,9 +1231,10 @@ public partial class PosViewModel : ObservableObject
         get => _pendingQuantity;
         set
         {
-            if (SetProperty(ref _pendingQuantity, value))
+            var sanitizedValue = double.IsNaN(value) || value < 0 ? 0 : value;
+            if (SetProperty(ref _pendingQuantity, sanitizedValue))
             {
-                _pendingStripQuantity = value;
+                _pendingStripQuantity = sanitizedValue;
                 _pendingTabQuantity = 0;
                 OnPropertyChanged(nameof(PendingStripQuantity));
                 OnPropertyChanged(nameof(PendingTabQuantity));
@@ -1286,11 +1281,16 @@ public partial class PosViewModel : ObservableObject
     {
         get
         {
+            if (PendingStripQuantity <= 0 && PendingTabQuantity <= 0 && PendingQuantity <= 0)
+            {
+                return 0m;
+            }
+
             var tabsPerStrip = 10;
             if (PendingSelectedItem != null)
             {
                 var breakdown = PackagingHelper.Parse(PendingSelectedItem.PackSizeDescription);
-                tabsPerStrip = breakdown.TabsPerStrip > 0 ? breakdown.TabsPerStrip : 10;
+                tabsPerStrip = breakdown.TabsPerStrip > 1 ? breakdown.TabsPerStrip : 10;
             }
 
             decimal gross = 0;
@@ -1313,7 +1313,7 @@ public partial class PosViewModel : ObservableObject
                 return Math.Round(gross, 2, MidpointRounding.AwayFromZero);
             }
 
-            if (PendingQuantity > 0)
+            if (PendingStripQuantity <= 0 && PendingTabQuantity <= 0 && PendingQuantity > 0)
             {
                 return Math.Round((decimal)PendingQuantity * effectiveRate, 2, MidpointRounding.AwayFromZero);
             }

@@ -484,7 +484,7 @@
                                 <!-- Strip Quantity Edit Box -->
                                 <NumberBox x:Name="RowStripBox"
                                            Grid.Column="5"
-                                           Value="{x:Bind StripQuantityDouble, Mode=TwoWay}"
+                                           Value="{x:Bind StripQuantityDouble, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Minimum="0"
                                            SmallChange="1"
                                            SpinButtonPlacementMode="Hidden"
@@ -508,7 +508,7 @@
                                 <!-- Tab / Qty Edit Box -->
                                 <NumberBox x:Name="RowTabBox"
                                            Grid.Column="6"
-                                           Value="{x:Bind TabQuantityDouble, Mode=TwoWay}"
+                                           Value="{x:Bind TabQuantityDouble, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Minimum="0"
                                            SmallChange="1"
                                            SpinButtonPlacementMode="Hidden"
@@ -532,7 +532,7 @@
                                 <!-- Free Qty Edit Box -->
                                 <NumberBox x:Name="RowFreeBox"
                                            Grid.Column="7"
-                                           Value="{x:Bind FreeQuantityDouble, Mode=TwoWay}"
+                                           Value="{x:Bind FreeQuantityDouble, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Minimum="0"
                                            SmallChange="1"
                                            SpinButtonPlacementMode="Hidden"
@@ -562,7 +562,7 @@
                                 <!-- Discount % Edit Box -->
                                 <NumberBox x:Name="RowDiscBox"
                                            Grid.Column="10"
-                                           Value="{x:Bind DiscountPercentDouble, Mode=TwoWay}"
+                                           Value="{x:Bind DiscountPercentDouble, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            Minimum="0"
                                            Maximum="100"
                                            SmallChange="1"

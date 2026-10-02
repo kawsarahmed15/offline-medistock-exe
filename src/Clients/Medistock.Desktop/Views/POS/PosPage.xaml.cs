@@ -1762,6 +1762,8 @@ public sealed partial class PosPage : Page
                 tb.ClearValue(TextBox.SelectionHighlightColorProperty);
             }
         }
+
+        ViewModel.ActiveTab?.RecalculateTotals();
     }
 
     private void NavigateCartRow(int direction, int targetColumn)
@@ -1867,6 +1869,7 @@ public sealed partial class PosPage : Page
             {
                 var tabBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 6);
                 tabBox?.Focus(FocusState.Programmatic);
+                ViewModel.ActiveTab?.RecalculateTotals();
                 e.Handled = true;
             }
         }
@@ -1911,6 +1914,7 @@ public sealed partial class PosPage : Page
             {
                 var freeBox = rowGrid.Children.OfType<NumberBox>().FirstOrDefault(nb => Grid.GetColumn(nb) == 7);
                 freeBox?.Focus(FocusState.Programmatic);
+                ViewModel.ActiveTab?.RecalculateTotals();
                 e.Handled = true;
             }
         }

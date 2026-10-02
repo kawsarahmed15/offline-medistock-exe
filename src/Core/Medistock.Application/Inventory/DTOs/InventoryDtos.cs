@@ -114,7 +114,10 @@ public record UpdateProductDetailsCommand(
     DateTime? ExpiryDate,
     decimal? Mrp,
     decimal? PurchaseRate,
-    decimal? SaleRate
+    decimal? SaleRate,
+    int? DosageForm = null,
+    int? PackUnits = null,
+    string? BaseUnit = null
 );
 
 public record UpdateProductDetailsResult(
