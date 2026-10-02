@@ -497,6 +497,15 @@ public partial class InventoryViewModel : ObservableObject
     [ObservableProperty]
     private string _editProductName = string.Empty;
 
+    partial void OnEditProductNameChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && _newProductName != value)
+        {
+            _newProductName = value;
+            OnPropertyChanged(nameof(NewProductName));
+        }
+    }
+
     [ObservableProperty]
     private string _editGenericName = string.Empty;
 
@@ -538,6 +547,15 @@ public partial class InventoryViewModel : ObservableObject
 
     [ObservableProperty]
     private decimal _editSaleRate;
+
+    partial void OnEditSaleRateChanged(decimal value)
+    {
+        if (value > 0 && _newProductSellingPrice != value)
+        {
+            _newProductSellingPrice = value;
+            OnPropertyChanged(nameof(NewProductSellingPrice));
+        }
+    }
 
     [ObservableProperty]
     private string _editErrorMessage = string.Empty;
@@ -626,9 +644,9 @@ public partial class InventoryViewModel : ObservableObject
     public string TotalStockValueMrpFormatted => $"MRP Val: ₹{TotalStockValueMrp:N2}";
 
     public string EstimatedProfitFormatted => $"{EstimatedProfit:N2}";
-    public string EstimatedProfitMarginDisplay => EstimatedProfitMarginPercent > 0
-        ? $"Margin: ~{EstimatedProfitMarginPercent:F1}% on active stock"
-        : "Stock Margin Valuation";
+    public string EstimatedProfitMarginDisplay => EstimatedProfit > 0
+        ? (EstimatedProfitMarginPercent > 0 ? $"Margin: ~{EstimatedProfitMarginPercent:F1}% on sales" : "Profit after sale")
+        : "Calculated after sales (MRP - Buying)";
 
     public string RevenueThisMonthFormatted => $"{RevenueThisMonth:N2}";
     public string MonthlyInvoicesCountDisplay => $"{MonthlyInvoicesCount} invoices finalized this month";
@@ -679,7 +697,7 @@ public partial class InventoryViewModel : ObservableObject
 
             ApplyFilterAndDisplay();
 
-            // Load live monthly financial KPIs (Revenue, Cash Collection, Online Collection)
+            // Load live monthly financial KPIs (Revenue, Cash Collection, Online Collection, Estimated Profit)
             try
             {
                 var financials = await _inventoryService.GetFinancialMetricsAsync();
@@ -693,12 +711,20 @@ public partial class InventoryViewModel : ObservableObject
                 AllTimeCash = financials.AllTimeCash;
                 AllTimeOnline = financials.AllTimeOnline;
 
+                // Profit calculated AFTER SALE: (MRP - Buying price) * Sold Quantity
+                EstimatedProfit = financials.EstimatedProfitThisMonth > 0 
+                    ? financials.EstimatedProfitThisMonth 
+                    : financials.AllTimeEstimatedProfit;
+                EstimatedProfitMarginPercent = financials.ProfitMarginPercent;
+
                 OnPropertyChanged(nameof(RevenueThisMonthFormatted));
                 OnPropertyChanged(nameof(MonthlyInvoicesCountDisplay));
                 OnPropertyChanged(nameof(CashCollectionThisMonthFormatted));
                 OnPropertyChanged(nameof(CashCollectionCountDisplay));
                 OnPropertyChanged(nameof(OnlineCollectionThisMonthFormatted));
                 OnPropertyChanged(nameof(OnlineCollectionCountDisplay));
+                OnPropertyChanged(nameof(EstimatedProfitFormatted));
+                OnPropertyChanged(nameof(EstimatedProfitMarginDisplay));
             }
             catch { }
         }
@@ -727,10 +753,6 @@ public partial class InventoryViewModel : ObservableObject
         LowStockProductsCount = allViewModels.Count(i => i.IsLowStock || i.IsOutOfStock);
         TotalStockValue = allViewModels.Sum(i => i.StockValueAtCost);
         TotalStockValueMrp = allViewModels.Sum(i => i.StockValueAtMrp);
-
-        // Calculate Estimated Profit across active stock batches: (MRP minus Product buying cost) * AvailableQuantity
-        EstimatedProfit = allViewModels.Sum(i => Math.Max(0, (i.Mrp - (i.NetPurchaseRate > 0 ? i.NetPurchaseRate : i.PurchaseRate)) * i.AvailableQuantity));
-        EstimatedProfitMarginPercent = TotalStockValueMrp > 0 ? (EstimatedProfit / TotalStockValueMrp) * 100 : 0m;
 
         OnPropertyChanged(nameof(TotalBatchesCountDisplay));
         OnPropertyChanged(nameof(TotalStockValueFormatted));
@@ -979,6 +1001,24 @@ public partial class InventoryViewModel : ObservableObject
         IsEditingProduct = true;
         EditingProductId = item.ProductId;
         EditingBatchId = item.BatchId;
+
+        // Legacy compatibility properties
+        IsEditProductModalOpen = true;
+        EditProductId = item.ProductId;
+        EditProductName = item.ProductName;
+        EditGenericName = item.GenericName;
+        EditSaltComposition = item.SaltComposition;
+        EditManufacturer = item.Manufacturer;
+        EditCategoryName = item.CategoryName;
+        EditHsnCode = item.HsnCode;
+        EditGstRatePercent = item.GstRatePercent;
+        EditScheduleIndex = item.IsScheduleDrug ? (int)DrugSchedule.ScheduleH : 0;
+        EditMinStockAlert = item.MinStockAlert;
+        EditBatchId = item.BatchId;
+        EditBatchNumber = item.BatchNumber;
+        EditMrp = item.Mrp;
+        EditPurchaseRate = item.PurchaseRate;
+        EditSaleRate = item.SaleRate;
 
         NewProductName = item.ProductName;
         NewProductCategory = item.CategoryName;
@@ -1280,7 +1320,7 @@ public partial class InventoryViewModel : ObservableObject
         var piecePurchaseRate = IsTabletOrCapsule && NewProductPcsPerStrip > 0
             ? Math.Round(NewProductBuyingPrice / NewProductPcsPerStrip, 4)
             : NewProductBuyingPrice;
-        var pieceSaleRate = pieceMrp;
+        var pieceSaleRate = (NewProductSellingPrice > 0) ? NewProductSellingPrice : pieceMrp;
 
         IsSavingProduct = true;
         NewProductValidationMessage = string.Empty;
@@ -1292,14 +1332,14 @@ public partial class InventoryViewModel : ObservableObject
                 var command = new UpdateProductDetailsCommand(
                     ProductId: EditingProductId,
                     ProductName: NewProductName.Trim(),
-                    GenericName: null,
-                    SaltComposition: null,
+                    GenericName: string.IsNullOrWhiteSpace(EditGenericName) ? null : EditGenericName.Trim(),
+                    SaltComposition: string.IsNullOrWhiteSpace(EditSaltComposition) ? null : EditSaltComposition.Trim(),
                     Manufacturer: string.IsNullOrWhiteSpace(NewProductManufacturer) ? null : NewProductManufacturer.Trim(),
                     CategoryName: string.IsNullOrWhiteSpace(NewProductCategory) ? null : NewProductCategory.Trim(),
                     HsnCode: string.IsNullOrWhiteSpace(NewProductHsnCode) ? "3004" : NewProductHsnCode.Trim(),
                     GstRatePercent: NewProductTaxPercent,
                     Schedule: schedule,
-                    MinStockAlert: 10m,
+                    MinStockAlert: EditMinStockAlert > 0 ? EditMinStockAlert : 10m,
                     BatchId: string.IsNullOrWhiteSpace(EditingBatchId) ? null : EditingBatchId,
                     BatchNumber: batchNo,
                     ExpiryDate: expiryToUse,
@@ -1592,45 +1632,36 @@ public partial class InventoryViewModel : ObservableObject
                     break;
 
                 case "EstimatedProfit":
-                    MetricDetailTitle = "📈 Estimated Inventory Profit Breakdown (MRP - Product Buying Cost)";
+                    MetricDetailTitle = "📈 Estimated Profit Breakdown After Sale (MRP - Buying Price)";
                     MetricDetailCol1Header = "PRODUCT NAME";
                     MetricDetailCol2Header = "BATCH NO.";
-                    MetricDetailCol3Header = "AVAIL QTY";
-                    MetricDetailCol4Header = "BUYING COST";
+                    MetricDetailCol3Header = "SOLD QTY";
+                    MetricDetailCol4Header = "BUYING PRICE";
                     MetricDetailCol5Header = "MRP";
                     MetricDetailCol6Header = "PROFIT / UNIT";
-                    MetricDetailCol7Header = "TOTAL EST. PROFIT";
+                    MetricDetailCol7Header = "TOTAL PROFIT";
 
-                    var profitItems = _allLoadedDtoItems
-                        .Select(i =>
-                        {
-                            var buyingCost = i.NetPurchaseRate > 0 ? i.NetPurchaseRate : i.PurchaseRate;
-                            var unitProfit = Math.Max(0, i.Mrp - buyingCost);
-                            var totalProfit = Math.Round(unitProfit * i.AvailableQuantity, 2);
-                            var margin = i.Mrp > 0 ? Math.Round((unitProfit / i.Mrp) * 100m, 1) : 0m;
-                            return new { Item = i, BuyingCost = buyingCost, UnitProfit = unitProfit, TotalProfit = totalProfit, Margin = margin };
-                        })
-                        .OrderByDescending(x => x.TotalProfit)
-                        .ToList();
-
-                    foreach (var x in profitItems)
+                    var profitRows = await _inventoryService.GetFinancialMetricDetailsAsync("EstimatedProfit");
+                    foreach (var r in profitRows)
                     {
                         _allMetricDetailRows.Add(new MetricDetailRowViewModel
                         {
-                            Col1 = x.Item.ProductName,
-                            Col2 = x.Item.BatchNumber,
-                            Col3 = $"{x.Item.AvailableQuantity:0.##}",
-                            Col4 = $"₹{x.BuyingCost:N2}",
-                            Col5 = $"₹{x.Item.Mrp:N2}",
-                            Col6 = $"₹{x.UnitProfit:N2}",
-                            Col7 = $"₹{x.TotalProfit:N2}",
-                            BadgeText = $"{x.Margin:F1}% Margin",
-                            BadgeBackgroundHex = x.Margin >= 25 ? "#2516A34A" : (x.Margin >= 15 ? "#250284C7" : "#25D97706"),
-                            BadgeForegroundHex = x.Margin >= 25 ? "#16A34A" : (x.Margin >= 15 ? "#0284C7" : "#D97706")
+                            Col1 = r.Col1,
+                            Col2 = r.Col2,
+                            Col3 = r.Col3,
+                            Col4 = r.Col4,
+                            Col5 = r.Col5,
+                            Col6 = r.Col6,
+                            Col7 = r.Col7,
+                            BadgeText = r.BadgeText,
+                            BadgeBackgroundHex = r.BadgeColor == "#16A34A" ? "#2516A34A" : (r.BadgeColor == "#0284C7" ? "#250284C7" : "#25D97706"),
+                            BadgeForegroundHex = r.BadgeColor
                         });
                     }
 
-                    MetricDetailSummary = $"Total Batches: {profitItems.Count} | Total Estimated Profit: ₹{EstimatedProfitFormatted} | Overall Margin: {EstimatedProfitMarginDisplay}";
+                    MetricDetailSummary = profitRows.Count > 0
+                        ? $"{profitRows.Count} Sold Batches | Total Profit After Sale: ₹{EstimatedProfitFormatted} | {EstimatedProfitMarginDisplay}"
+                        : "No sales recorded yet. Profit is calculated after sales are completed.";
                     break;
 
                 case "RevenueThisMonth":

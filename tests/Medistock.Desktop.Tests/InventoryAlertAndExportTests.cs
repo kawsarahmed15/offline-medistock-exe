@@ -60,7 +60,11 @@ public class FakeInventoryService : IInventoryService
             OnlineInvoicesCount: 14,
             AllTimeRevenue: 520000m,
             AllTimeCash: 350000m,
-            AllTimeOnline: 170000m
+            AllTimeOnline: 170000m,
+            EstimatedProfitThisMonth: 38550.00m,
+            AllTimeEstimatedProfit: 130000.00m,
+            SoldItemsCount: 150,
+            ProfitMarginPercent: 25.0m
         ));
     }
 
@@ -492,9 +496,9 @@ public class InventoryAlertAndExportTests
         var vm = new InventoryViewModel(fakeService);
         await vm.LoadStocksCommand.ExecuteAsync(null);
 
-        // Verify Estimated Profit = (MRP 120 - Cost 70) * 10 + (MRP 50 - Cost 35) * 20 = 500 + 300 = 800
-        Assert.Equal(800m, vm.EstimatedProfit);
-        Assert.Equal("800.00", vm.EstimatedProfitFormatted);
+        // Verify Estimated Profit is calculated after sale: (MRP - Buying price) * Sold Quantity
+        Assert.Equal(38550.00m, vm.EstimatedProfit);
+        Assert.Equal("38,550.00", vm.EstimatedProfitFormatted);
         Assert.Contains("Margin:", vm.EstimatedProfitMarginDisplay);
 
         // Verify Monthly Revenue & Collections from fakeService
@@ -511,5 +515,25 @@ public class InventoryAlertAndExportTests
         Assert.Equal(58800.50m, vm.OnlineCollectionThisMonth);
         Assert.Equal("58,800.50", vm.OnlineCollectionThisMonthFormatted);
         Assert.Equal("14 UPI / Card payments this month", vm.OnlineCollectionCountDisplay);
+    }
+
+    [Fact]
+    public async Task InventoryViewModel_EstimatedProfitMetricDetail_CalculatesAfterSaleProfit()
+    {
+        var fakeService = new FakeInventoryService();
+        var vm = new InventoryViewModel(fakeService);
+        await vm.LoadStocksCommand.ExecuteAsync(null);
+
+        await vm.ShowMetricDetailCommand.ExecuteAsync("EstimatedProfit");
+
+        Assert.True(vm.IsMetricDetailModalOpen);
+        Assert.Equal("📈 Estimated Profit Breakdown After Sale (MRP - Buying Price)", vm.MetricDetailTitle);
+        Assert.Equal("PRODUCT NAME", vm.MetricDetailCol1Header);
+        Assert.Equal("BATCH NO.", vm.MetricDetailCol2Header);
+        Assert.Equal("SOLD QTY", vm.MetricDetailCol3Header);
+        Assert.Equal("BUYING PRICE", vm.MetricDetailCol4Header);
+        Assert.Equal("MRP", vm.MetricDetailCol5Header);
+        Assert.Equal("PROFIT / UNIT", vm.MetricDetailCol6Header);
+        Assert.Equal("TOTAL PROFIT", vm.MetricDetailCol7Header);
     }
 }

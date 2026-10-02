@@ -131,7 +131,11 @@ public record InventoryFinancialMetricsDto(
     int OnlineInvoicesCount,
     decimal AllTimeRevenue = 0m,
     decimal AllTimeCash = 0m,
-    decimal AllTimeOnline = 0m
+    decimal AllTimeOnline = 0m,
+    decimal EstimatedProfitThisMonth = 0m,
+    decimal AllTimeEstimatedProfit = 0m,
+    int SoldItemsCount = 0,
+    decimal ProfitMarginPercent = 0m
 );
 
 public record MetricDetailItemDto(

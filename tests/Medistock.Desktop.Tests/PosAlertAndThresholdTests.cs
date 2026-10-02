@@ -30,7 +30,7 @@ public class PosAlertAndThresholdTests
         Assert.Equal("#DC2626", vm.ExpiryForegroundHex);
         Assert.Equal("#35DC2626", vm.RowBackgroundHex);
         Assert.Equal("#DC2626", vm.RowBorderHex);
-        Assert.Equal("20", vm.StockDisplay);
+        Assert.Equal("2 Strips", vm.StockDisplay);
         Assert.Equal("#16A34A", vm.StockForegroundHex); // healthy stock
     }
 
@@ -98,7 +98,7 @@ public class PosAlertAndThresholdTests
 
         Assert.False(vm.IsOutOfStock);
         Assert.True(vm.IsLowStock);
-        Assert.Equal("5 (LOW)", vm.StockDisplay);
+        Assert.Equal("5 Pcs (LOW)", vm.StockDisplay);
         Assert.Equal("#D97706", vm.StockForegroundHex);
     }
 
@@ -123,7 +123,7 @@ public class PosAlertAndThresholdTests
         Assert.False(vm.IsOutOfStock);
         Assert.False(vm.IsLowStock);
         Assert.False(vm.HasExpiryBadge);
-        Assert.Equal("50", vm.StockDisplay);
+        Assert.Equal("5 Strips", vm.StockDisplay);
         Assert.Equal("#16A34A", vm.StockForegroundHex);
         Assert.Equal("#00000000", vm.RowBackgroundHex);
         Assert.Equal("#00000000", vm.RowBorderHex);

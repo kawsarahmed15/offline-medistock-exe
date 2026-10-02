@@ -283,17 +283,17 @@ public class PosTwoStageSearchTests
     {
         var vm = CreateVm();
         Assert.Single(vm.InvoiceTabs);
-        Assert.Equal("Bill #1", vm.ActiveTab?.TabTitle);
+        Assert.Equal("#1", vm.ActiveTab?.TabTitle);
 
         vm.AddNewTab();
         Assert.Equal(2, vm.InvoiceTabs.Count);
-        Assert.Equal("Bill #2", vm.ActiveTab?.TabTitle);
+        Assert.Equal("#2", vm.ActiveTab?.TabTitle);
 
         vm.PreviousTab();
-        Assert.Equal("Bill #1", vm.ActiveTab?.TabTitle);
+        Assert.Equal("#1", vm.ActiveTab?.TabTitle);
 
         vm.NextTab();
-        Assert.Equal("Bill #2", vm.ActiveTab?.TabTitle);
+        Assert.Equal("#2", vm.ActiveTab?.TabTitle);
     }
 
     [Fact]

@@ -524,6 +524,65 @@ public class SqliteInventoryRepository : IInventoryRepository
             onlineAllTime = Convert.ToDecimal(payResult.AllTimeOnline ?? 0.0);
         }
 
+        // 3. Profit on completed sales (MRP - Buying Price) * Sold Quantity
+        const string profitSql = @"
+            SELECT
+                -- Monthly Profit on sales
+                COALESCE(SUM(CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth 
+                    THEN (si.mrp - COALESCE(b.purchase_rate, 0)) * si.quantity 
+                    ELSE 0 
+                END), 0) AS EstimatedProfitThisMonth,
+
+                -- All-time Profit on sales
+                COALESCE(SUM((si.mrp - COALESCE(b.purchase_rate, 0)) * si.quantity), 0) AS AllTimeEstimatedProfit,
+
+                -- Sold Items Count
+                COUNT(DISTINCT CASE WHEN substr(s.invoice_date, 1, 7) = @targetMonth THEN si.id END) AS SoldItemsCountThisMonth,
+
+                -- Monthly MRP valuation of sold items for Margin %
+                COALESCE(SUM(CASE 
+                    WHEN substr(s.invoice_date, 1, 7) = @targetMonth 
+                    THEN si.mrp * si.quantity 
+                    ELSE 0 
+                END), 0) AS SoldMrpValueThisMonth,
+
+                -- All-time MRP valuation of sold items
+                COALESCE(SUM(si.mrp * si.quantity), 0) AS SoldMrpValueAllTime
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            LEFT JOIN batches b ON (b.id = si.batch_id OR (b.batch_number = si.batch_number AND b.product_id = si.product_id))
+            WHERE s.status != 3;
+        ";
+
+        var profitResult = await connection.QueryFirstOrDefaultAsync<dynamic>(
+            new CommandDefinition(profitSql, new { targetMonth }, cancellationToken: cancellationToken));
+
+        decimal profitMonth = 0m;
+        decimal profitAllTime = 0m;
+        int soldItemsCount = 0;
+        decimal soldMrpMonth = 0m;
+        decimal soldMrpAllTime = 0m;
+
+        if (profitResult != null)
+        {
+            profitMonth = Convert.ToDecimal(profitResult.EstimatedProfitThisMonth ?? 0.0);
+            profitAllTime = Convert.ToDecimal(profitResult.AllTimeEstimatedProfit ?? 0.0);
+            soldItemsCount = Convert.ToInt32(profitResult.SoldItemsCountThisMonth ?? 0);
+            soldMrpMonth = Convert.ToDecimal(profitResult.SoldMrpValueThisMonth ?? 0.0);
+            soldMrpAllTime = Convert.ToDecimal(profitResult.SoldMrpValueAllTime ?? 0.0);
+        }
+
+        decimal marginPct = 0m;
+        if (profitMonth > 0 && soldMrpMonth > 0)
+        {
+            marginPct = Math.Round((profitMonth / soldMrpMonth) * 100m, 1);
+        }
+        else if (profitAllTime > 0 && soldMrpAllTime > 0)
+        {
+            marginPct = Math.Round((profitAllTime / soldMrpAllTime) * 100m, 1);
+        }
+
         return new InventoryFinancialMetricsDto(
             RevenueThisMonth: revMonth,
             MonthlyInvoicesCount: invCount,
@@ -533,7 +592,11 @@ public class SqliteInventoryRepository : IInventoryRepository
             OnlineInvoicesCount: onlineCount,
             AllTimeRevenue: revAllTime,
             AllTimeCash: cashAllTime,
-            AllTimeOnline: onlineAllTime
+            AllTimeOnline: onlineAllTime,
+            EstimatedProfitThisMonth: profitMonth,
+            AllTimeEstimatedProfit: profitAllTime,
+            SoldItemsCount: soldItemsCount,
+            ProfitMarginPercent: marginPct
         );
     }
 
@@ -677,6 +740,50 @@ public class SqliteInventoryRepository : IInventoryRepository
                     Col7: $"₹{paidAmt:N2}",
                     BadgeText: mode.ToUpperInvariant(),
                     BadgeColor: "#7C3AED"
+                ));
+            }
+        }
+        else if (metricType == "EstimatedProfit")
+        {
+            var sql = @"
+                SELECT 
+                    si.product_name AS ProductName,
+                    si.batch_number AS BatchNumber,
+                    SUM(si.quantity) AS SoldQty,
+                    COALESCE(b.purchase_rate, 0) AS BuyingCost,
+                    si.mrp AS Mrp,
+                    (si.mrp - COALESCE(b.purchase_rate, 0)) AS UnitProfit,
+                    ROUND(SUM((si.mrp - COALESCE(b.purchase_rate, 0)) * si.quantity), 2) AS TotalProfit
+                FROM sale_items si
+                JOIN sales s ON s.id = si.sale_id
+                LEFT JOIN batches b ON (b.id = si.batch_id OR (b.batch_number = si.batch_number AND b.product_id = si.product_id))
+                WHERE s.status != 3
+                GROUP BY si.product_id, si.batch_number, si.mrp, b.purchase_rate
+                ORDER BY TotalProfit DESC;
+            ";
+
+            var rows = await connection.QueryAsync<dynamic>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken));
+
+            foreach (var r in rows)
+            {
+                decimal soldQty = r.SoldQty != null ? Convert.ToDecimal(r.SoldQty) : 0m;
+                decimal buyingCost = r.BuyingCost != null ? Convert.ToDecimal(r.BuyingCost) : 0m;
+                decimal mrp = r.Mrp != null ? Convert.ToDecimal(r.Mrp) : 0m;
+                decimal unitProfit = r.UnitProfit != null ? Convert.ToDecimal(r.UnitProfit) : 0m;
+                decimal totalProfit = r.TotalProfit != null ? Convert.ToDecimal(r.TotalProfit) : 0m;
+                decimal margin = mrp > 0 ? Math.Round((unitProfit / mrp) * 100m, 1) : 0m;
+
+                list.Add(new MetricDetailItemDto(
+                    Col1: (string)r.ProductName,
+                    Col2: (string)r.BatchNumber,
+                    Col3: $"{soldQty:0.##}",
+                    Col4: $"₹{buyingCost:N2}",
+                    Col5: $"₹{mrp:N2}",
+                    Col6: $"₹{unitProfit:N2}",
+                    Col7: $"₹{totalProfit:N2}",
+                    BadgeText: $"{margin:F1}% Margin",
+                    BadgeColor: margin >= 25 ? "#16A34A" : (margin >= 15 ? "#0284C7" : "#D97706")
                 ));
             }
         }

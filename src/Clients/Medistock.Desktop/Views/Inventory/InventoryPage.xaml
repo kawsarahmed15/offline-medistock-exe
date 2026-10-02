@@ -189,7 +189,7 @@
                         Style="{StaticResource MetricCardButtonStyle}"
                         Command="{Binding ShowMetricDetailCommand}"
                         CommandParameter="EstimatedProfit"
-                        ToolTipService.ToolTip="Click to view estimated profit breakdown (MRP - Product buying cost)">
+                        ToolTipService.ToolTip="Click to view profit breakdown calculated after sale: (MRP - Buying Price) × Quantity Sold">
                     <Border Background="{ThemeResource SurfaceDefault}"
                             BorderBrush="#8016A34A"
                             BorderThickness="1"
@@ -204,7 +204,7 @@
                                 <TextBlock Text="₹" FontSize="14" FontWeight="Bold" Foreground="#16A34A" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding EstimatedProfitFormatted}" FontSize="20" FontWeight="Bold" Foreground="#16A34A" />
                             </StackPanel>
-                            <TextBlock Text="{Binding EstimatedProfitMarginDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Estimated profit margin on active inventory stock (MRP - Buying Cost)" />
+                            <TextBlock Text="{Binding EstimatedProfitMarginDisplay}" FontSize="10" Foreground="{ThemeResource TextSecondary}" ToolTipService.ToolTip="Estimated profit calculated after sale: (MRP - Buying Price) × Quantity Sold" />
                         </StackPanel>
                     </Border>
                 </Button>
