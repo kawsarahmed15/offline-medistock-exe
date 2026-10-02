@@ -1985,28 +1985,34 @@
                     <TextBlock Text="What would you like to do before leaving Purchase Entry?" FontSize="12" Foreground="{ThemeResource TextSecondary}" TextWrapping="Wrap" />
 
                     <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,10,0,0">
-                        <Button Grid.Column="0"
+                        <Button x:Name="ExitDiscardButton"
+                                Grid.Column="0"
                                 Content="🗑️ Discard &amp; Exit"
                                 Command="{Binding DiscardAndExitCommand}"
                                 Background="#DC2626"
                                 Foreground="White"
                                 FontWeight="SemiBold"
                                 Padding="8,8"
-                                HorizontalAlignment="Stretch" />
+                                HorizontalAlignment="Stretch"
+                                PreviewKeyDown="ExitConfirmDialogButton_PreviewKeyDown" />
 
-                        <Button Grid.Column="1"
+                        <Button x:Name="ExitSaveDraftButton"
+                                Grid.Column="1"
                                 Content="💾 Save Draft"
                                 Command="{Binding SaveDraftAndExitCommand}"
                                 Style="{StaticResource AccentButtonStyle}"
                                 FontWeight="SemiBold"
                                 Padding="8,8"
-                                HorizontalAlignment="Stretch" />
+                                HorizontalAlignment="Stretch"
+                                PreviewKeyDown="ExitConfirmDialogButton_PreviewKeyDown" />
 
-                        <Button Grid.Column="2"
+                        <Button x:Name="ExitKeepEditingButton"
+                                Grid.Column="2"
                                 Content="✕ Keep Editing"
                                 Command="{Binding CancelExitDialogCommand}"
                                 Padding="8,8"
-                                HorizontalAlignment="Stretch" />
+                                HorizontalAlignment="Stretch"
+                                PreviewKeyDown="ExitConfirmDialogButton_PreviewKeyDown" />
                     </Grid>
                 </StackPanel>
             </Border>

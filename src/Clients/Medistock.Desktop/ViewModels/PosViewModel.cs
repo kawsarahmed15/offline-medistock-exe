@@ -75,9 +75,10 @@ public class HighlightedSegment
 {
     public string Text { get; set; } = string.Empty;
     public bool IsMatch { get; set; }
+    public bool IsSecondary { get; set; }
     public string BackgroundHex => IsMatch ? "#350D6EFD" : "#00000000";
     public string BorderHex => IsMatch ? "#600D6EFD" : "#00000000";
-    public string ForegroundHex => IsMatch ? "#0D6EFD" : "#F8FAFC";
+    public string ForegroundHex => IsMatch ? "#0D6EFD" : (IsSecondary ? "TEXT_SECONDARY" : "TEXT_PRIMARY");
     public string FontWeight => IsMatch ? "Bold" : "SemiBold";
 }
 
@@ -125,20 +126,20 @@ public partial class ProductSearchItemViewModel : ObservableObject
         }
     }
 
-    public List<HighlightedSegment> NameSegments => BuildSegments(Name, SearchQuery);
-    public List<HighlightedSegment> GenericNameSegments => BuildSegments(GenericName, SearchQuery);
+    public List<HighlightedSegment> NameSegments => BuildSegments(Name, SearchQuery, isSecondary: false);
+    public List<HighlightedSegment> GenericNameSegments => BuildSegments(GenericName, SearchQuery, isSecondary: true);
 
-    public static List<HighlightedSegment> BuildSegments(string? source, string? query)
+    public static List<HighlightedSegment> BuildSegments(string? source, string? query, bool isSecondary = false)
     {
         if (string.IsNullOrEmpty(source))
             return new List<HighlightedSegment>();
 
         if (string.IsNullOrWhiteSpace(query))
-            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false, IsSecondary = isSecondary } };
 
         var terms = query.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (terms.Length == 0)
-            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false, IsSecondary = isSecondary } };
 
         var matchRanges = new List<(int Start, int End)>();
         foreach (var term in terms)
@@ -154,7 +155,7 @@ public partial class ProductSearchItemViewModel : ObservableObject
         }
 
         if (matchRanges.Count == 0)
-            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false } };
+            return new List<HighlightedSegment> { new() { Text = source, IsMatch = false, IsSecondary = isSecondary } };
 
         matchRanges.Sort((a, b) => a.Start.CompareTo(b.Start));
         var merged = new List<(int Start, int End)>();
@@ -183,13 +184,15 @@ public partial class ProductSearchItemViewModel : ObservableObject
                 segments.Add(new HighlightedSegment
                 {
                     Text = source.Substring(cursor, start - cursor),
-                    IsMatch = false
+                    IsMatch = false,
+                    IsSecondary = isSecondary
                 });
             }
             segments.Add(new HighlightedSegment
             {
                 Text = source.Substring(start, end - start),
-                IsMatch = true
+                IsMatch = true,
+                IsSecondary = isSecondary
             });
             cursor = end;
         }
@@ -199,7 +202,8 @@ public partial class ProductSearchItemViewModel : ObservableObject
             segments.Add(new HighlightedSegment
             {
                 Text = source.Substring(cursor),
-                IsMatch = false
+                IsMatch = false,
+                IsSecondary = isSecondary
             });
         }
 

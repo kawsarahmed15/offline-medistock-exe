@@ -78,9 +78,23 @@ public class HexToSolidColorBrushConverter : IValueConverter
     {
         if (value is string hex && !string.IsNullOrWhiteSpace(hex))
         {
+            var trimmed = hex.Trim();
+            if (trimmed.Equals("TEXT_PRIMARY", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Microsoft.UI.Xaml.Application.Current?.Resources.TryGetValue("TextPrimary", out var tp) == true && tp is Microsoft.UI.Xaml.Media.Brush b)
+                    return b;
+                return Microsoft.UI.Xaml.DependencyProperty.UnsetValue;
+            }
+            if (trimmed.Equals("TEXT_SECONDARY", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Microsoft.UI.Xaml.Application.Current?.Resources.TryGetValue("TextSecondary", out var ts) == true && ts is Microsoft.UI.Xaml.Media.Brush b)
+                    return b;
+                return Microsoft.UI.Xaml.DependencyProperty.UnsetValue;
+            }
+
             try
             {
-                var cleanHex = hex.Trim().TrimStart('#');
+                var cleanHex = trimmed.TrimStart('#');
                 byte a = 255, r = 0, g = 0, b = 0;
                 if (cleanHex.Length == 6)
                 {

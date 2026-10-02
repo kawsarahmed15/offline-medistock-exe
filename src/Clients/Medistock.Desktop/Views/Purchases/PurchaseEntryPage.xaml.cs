@@ -125,6 +125,17 @@ public sealed partial class PurchaseEntryPage : Page
                     });
                 }
             }
+            else if (e.PropertyName == nameof(PurchaseEntryViewModel.IsExitConfirmDialogOpen))
+            {
+                if (ViewModel.IsExitConfirmDialogOpen)
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await Task.Delay(100);
+                        ExitDiscardButton?.Focus(FocusState.Programmatic);
+                    });
+                }
+            }
         };
     }
 
@@ -328,6 +339,57 @@ public sealed partial class PurchaseEntryPage : Page
             if (e.Key == VirtualKey.Escape)
             {
                 ViewModel.CancelExitDialog();
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Right)
+            {
+                var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+                if (ReferenceEquals(focused, ExitDiscardButton))
+                {
+                    ExitSaveDraftButton?.Focus(FocusState.Programmatic);
+                }
+                else if (ReferenceEquals(focused, ExitSaveDraftButton))
+                {
+                    ExitKeepEditingButton?.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    ExitDiscardButton?.Focus(FocusState.Programmatic);
+                }
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Left)
+            {
+                var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+                if (ReferenceEquals(focused, ExitKeepEditingButton))
+                {
+                    ExitSaveDraftButton?.Focus(FocusState.Programmatic);
+                }
+                else if (ReferenceEquals(focused, ExitSaveDraftButton))
+                {
+                    ExitDiscardButton?.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    ExitKeepEditingButton?.Focus(FocusState.Programmatic);
+                }
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Enter)
+            {
+                var focused = FocusManager.GetFocusedElement(this.XamlRoot);
+                if (ReferenceEquals(focused, ExitSaveDraftButton))
+                {
+                    ViewModel.SaveDraftAndExitCommand.Execute(null);
+                }
+                else if (ReferenceEquals(focused, ExitKeepEditingButton))
+                {
+                    ViewModel.CancelExitDialogCommand.Execute(null);
+                }
+                else
+                {
+                    ViewModel.DiscardAndExitCommand.Execute(null);
+                }
                 e.Handled = true;
             }
             return;
@@ -2322,6 +2384,63 @@ public sealed partial class PurchaseEntryPage : Page
         else if (e.Key == VirtualKey.Escape)
         {
             ViewModel.CancelSaveSummary();
+            e.Handled = true;
+        }
+    }
+
+    private void ExitConfirmDialogButton_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Right)
+        {
+            if (ReferenceEquals(sender, ExitDiscardButton))
+            {
+                ExitSaveDraftButton?.Focus(FocusState.Programmatic);
+            }
+            else if (ReferenceEquals(sender, ExitSaveDraftButton))
+            {
+                ExitKeepEditingButton?.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                ExitDiscardButton?.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Left)
+        {
+            if (ReferenceEquals(sender, ExitDiscardButton))
+            {
+                ExitKeepEditingButton?.Focus(FocusState.Programmatic);
+            }
+            else if (ReferenceEquals(sender, ExitKeepEditingButton))
+            {
+                ExitSaveDraftButton?.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                ExitDiscardButton?.Focus(FocusState.Programmatic);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Enter)
+        {
+            if (ReferenceEquals(sender, ExitDiscardButton))
+            {
+                ViewModel.DiscardAndExitCommand.Execute(null);
+            }
+            else if (ReferenceEquals(sender, ExitSaveDraftButton))
+            {
+                ViewModel.SaveDraftAndExitCommand.Execute(null);
+            }
+            else if (ReferenceEquals(sender, ExitKeepEditingButton))
+            {
+                ViewModel.CancelExitDialogCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.CancelExitDialog();
             e.Handled = true;
         }
     }
