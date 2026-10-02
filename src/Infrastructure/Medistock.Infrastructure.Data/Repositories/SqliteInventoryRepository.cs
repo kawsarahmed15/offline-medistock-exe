@@ -362,14 +362,16 @@ public class SqliteInventoryRepository : IInventoryRepository
             const string updateProductSql = @"
                 UPDATE products SET
                     name = @ProductName,
-                    generic_name = @GenericName,
-                    composition = @Composition,
-                    manufacturer_name = @Manufacturer,
-                    base_unit = @CategoryName,
-                    hsn_code = @HsnCode,
+                    brand_name = COALESCE(@ProductName, brand_name, name),
+                    generic_name = COALESCE(NULLIF(@GenericName, ''), generic_name, ''),
+                    composition = COALESCE(NULLIF(@Composition, ''), composition, ''),
+                    manufacturer_name = COALESCE(NULLIF(@Manufacturer, ''), manufacturer_name),
+                    base_unit = COALESCE(NULLIF(@CategoryName, ''), base_unit, 'TAB'),
+                    hsn_code = COALESCE(NULLIF(@HsnCode, ''), hsn_code, '3004'),
                     gst_rate_percent = @GstRatePercent,
                     schedule = @Schedule,
-                    min_stock_alert = @MinStockAlert
+                    min_stock_alert = @MinStockAlert,
+                    updated_at = @UpdatedAt
                 WHERE id = @ProductId;
             ";
 
@@ -386,7 +388,8 @@ public class SqliteInventoryRepository : IInventoryRepository
                     command.HsnCode,
                     GstRatePercent = (double)command.GstRatePercent,
                     Schedule = (int)command.Schedule,
-                    MinStockAlert = (double)command.MinStockAlert
+                    MinStockAlert = (double)command.MinStockAlert,
+                    UpdatedAt = DateTime.UtcNow.ToString("o")
                 },
                 transaction, cancellationToken: cancellationToken));
 
